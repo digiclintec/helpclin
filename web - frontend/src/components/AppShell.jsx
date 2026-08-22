@@ -1,10 +1,11 @@
-import { BarChart3, Bell, FilePlus2, Headset, LogOut, Menu, UserCheck, X, Monitor } from 'lucide-react';
+import { BarChart3, Bell, FilePlus2, Headset, LayoutDashboard, LogOut, Menu, UserCheck, X, Monitor } from 'lucide-react';
 import { useState } from 'react';
 import { getStoredUser } from '../services/api.js';
 
 const navigation = [
+  { label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
+  { label: 'Ordens de serviço', icon: FilePlus2, href: '/ordens' },
   { label: 'Chamados', icon: Headset, href: '/chamados' },
-  { label: 'Ordens de serviço', icon: FilePlus2, href: '/dashboard' },
   { label: 'Inventário', icon: Monitor, href: '/inventario' },
   { label: 'Relatórios', icon: BarChart3, href: '/relatorios' }
 ];

@@ -21,7 +21,7 @@ function AdminLogin() {
     try {
       const user = await loginUser(form);
       localStorage.setItem('helpclin_user', JSON.stringify(user));
-      window.location.href = '/chamados';
+      window.location.href = '/dashboard';
     } catch (error) {
       setFeedback(error.message);
     } finally {

@@ -3,6 +3,7 @@ import { useState } from 'react';
 import AdminLogin from './pages/AdminLogin.jsx';
 import AppShell from './components/AppShell.jsx';
 import Dashboard from './pages/Dashboard.jsx';
+import ServiceOrders from './pages/ServiceOrders.jsx';
 import Register from './pages/Register.jsx';
 import Reports from './pages/Reports.jsx';
 import Tickets from './pages/Tickets.jsx';
@@ -22,6 +23,10 @@ function App() {
 
   if (window.location.pathname === '/dashboard') {
     return <AppShell><Dashboard /></AppShell>;
+  }
+
+  if (window.location.pathname === '/ordens') {
+    return <AppShell><ServiceOrders /></AppShell>;
   }
 
   if (window.location.pathname === '/chamados') {
