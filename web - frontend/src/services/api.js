@@ -106,6 +106,13 @@ export async function getReportSummary() {
   return data;
 }
 
+export async function getAllUsers(adminId) {
+  const response = await fetch(`${apiUrl}/admin/users?adminId=${encodeURIComponent(adminId)}`);
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.message ?? 'Não foi possível carregar os usuários');
+  return data.users;
+}
+
 export async function getPendingUsers(adminId) {
   const response = await fetch(`${apiUrl}/admin/users/pending?adminId=${encodeURIComponent(adminId)}`);
   const data = await response.json();
@@ -122,6 +129,26 @@ export async function approveUser(userId, adminId) {
   const data = await response.json();
   if (!response.ok) throw new Error(data.message ?? 'Não foi possível aprovar o usuário');
   return data.user;
+}
+
+export async function updateUser(userId, userData) {
+  const response = await fetch(`${apiUrl}/admin/users/${userId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(userData)
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.message ?? 'Não foi possível atualizar o usuário');
+  return data.user;
+}
+
+export async function deleteUser(userId, adminId) {
+  const response = await fetch(`${apiUrl}/admin/users/${userId}?adminId=${encodeURIComponent(adminId)}`, {
+    method: 'DELETE'
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.message ?? 'Não foi possível remover o usuário');
+  return data;
 }
 
 export async function getInventory() {

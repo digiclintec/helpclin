@@ -169,6 +169,7 @@ function Dashboard() {
     });
 
     const totalOrders = orders.length;
+    const totalServices = orders.length + tickets.length;
     const resolvedTickets = tickets.filter((t) => t.status === 'resolved').length;
     const activeTickets = tickets.filter((t) => t.status !== 'resolved').length;
     const ticketResolutionRate = tickets.length ? Math.round((resolvedTickets / tickets.length) * 100) : 0;
@@ -193,11 +194,9 @@ function Dashboard() {
     });
     const totalTeam = Math.max(usersSet.size, 1);
 
-    // Calculated Operational Flow from real active and completed orders
-    const estimatedCashFlow = orders.length * 350 + completedCount * 250;
-
     return {
       totalOrders,
+      totalServices,
       open: openCount,
       inProgress: inProgressCount,
       completed: completedCount,
@@ -208,9 +207,7 @@ function Dashboard() {
       totalTeam,
       activeTickets,
       resolvedTickets,
-      ticketResolutionRate,
-      estimatedCashFlow,
-      tma: completedCount > 0 || resolvedTickets > 0 ? '2:30h' : '—'
+      ticketResolutionRate
     };
   }, [orders, tickets, inventory, user]);
 
@@ -418,7 +415,7 @@ function Dashboard() {
       columns: exportColumns,
       data: filteredOrders,
       summary: [
-        { label: 'Fluxo Estimado', value: `R$ ${kpis.estimatedCashFlow.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` },
+        { label: 'Total Atendimentos', value: kpis.totalServices },
         { label: 'OS Criadas', value: kpis.totalOrders },
         { label: 'OS Finalizadas', value: kpis.completed },
         { label: 'Equipamentos Ativos', value: kpis.totalEquipments },
@@ -551,10 +548,10 @@ function Dashboard() {
               <span>Equipe:</span>
               <strong>{kpis.totalTeam}</strong>
             </div>
-            <div className="dash-meta-item" title="Tempo Médio de Atendimento">
-              <Clock3 size={15} />
-              <span>TMA:</span>
-              <strong>{kpis.tma}</strong>
+            <div className="dash-meta-item" title="Taxa de conclusão de ordens">
+              <CheckCircle2 size={15} />
+              <span>Taxa de Conclusão:</span>
+              <strong>{kpis.orderCompletionRate}%</strong>
             </div>
 
             <ExportDropdown onExportXls={handleExportXls} onExportPdf={handleExportPdf} label="Exportar Relatório" />
@@ -598,17 +595,15 @@ function Dashboard() {
       <section className="dash-kpi-row">
         <article className="dash-kpi-card dash-kpi-card--primary">
           <div className="dash-kpi-header">
-            <span className="dash-kpi-label">Fluxo Operacional Estimado</span>
+            <span className="dash-kpi-label">Total de Atendimentos</span>
             <div className="dash-kpi-icon-pill">
-              <TrendingUp size={16} />
+              <Layers size={16} />
             </div>
           </div>
-          <strong className="dash-kpi-value">
-            R$ {kpis.estimatedCashFlow.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </strong>
+          <strong className="dash-kpi-value">{kpis.totalServices}</strong>
           <div className="dash-kpi-trend dash-kpi-trend--positive">
-            <TrendingUp size={12} />
-            <span>Volume de serviços acumulado</span>
+            <Activity size={12} />
+            <span>{kpis.totalOrders} ordens e {tickets.length} chamados</span>
           </div>
         </article>
 
