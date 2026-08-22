@@ -24,14 +24,14 @@ function App() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Protected route guard: redirect unauthenticated visitors to /admin
+  // Protected route guard: redirect unauthenticated visitors to /login
   const protectedRoutes = ['/dashboard', '/ordens', '/chamados', '/relatorios', '/usuarios', '/inventario'];
   if (protectedRoutes.includes(window.location.pathname) && !user) {
-    window.location.replace('/admin');
+    window.location.replace('/login');
     return null;
   }
 
-  if (window.location.pathname === '/admin') {
+  if (window.location.pathname === '/login' || window.location.pathname === '/admin') {
     return <AdminLogin />;
   }
 
@@ -94,7 +94,7 @@ function App() {
               <a className="nav-link" href="#contato" onClick={() => setIsMenuOpen(false)}>
                 Contato
               </a>
-              <a className="nav-link" href={user ? "/chamados" : "/admin"} onClick={() => setIsMenuOpen(false)}>
+              <a className="nav-link" href={user ? "/chamados" : "/login"} onClick={() => setIsMenuOpen(false)}>
                 Painel de chamados
               </a>
             </div>

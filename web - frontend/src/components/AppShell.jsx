@@ -17,7 +17,7 @@ function AppShell({ children }) {
   const user = getStoredUser();
 
   if (!user) {
-    window.location.replace('/admin');
+    window.location.replace('/login');
     return null;
   }
 
@@ -28,7 +28,7 @@ function AppShell({ children }) {
 
   function handleLogout() {
     localStorage.removeItem('helpclin_user');
-    window.location.href = '/admin';
+    window.location.href = '/login';
   }
 
   return (
