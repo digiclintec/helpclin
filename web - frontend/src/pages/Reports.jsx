@@ -1,7 +1,9 @@
 import { Activity, CheckCircle2, Clock3, FileText, TrendingUp } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
+import ExportDropdown from '../components/ExportDropdown.jsx';
 import { getReportSummary } from '../services/api.js';
+import { exportToPdf, exportToXls } from '../utils/exportReport.js';
 
 function Reports() {
   const [summary, setSummary] = useState(null);
@@ -19,9 +21,46 @@ function Reports() {
   const lineStep = 180 / Math.max(weekly.length - 1, 1);
   const linePoints = weekly.map((item, index) => `${index * lineStep + 10},${110 - item.orders / maxWeeklyValue * 85}`).join(' ');
 
+  const exportColumns = [
+    { header: 'Semana / Período', accessor: 'week' },
+    { header: 'Ordens Criadas', accessor: 'orders' },
+    { header: 'Chamados Criados', accessor: 'tickets' }
+  ];
+
+  function handleExportXls() {
+    exportToXls({
+      title: 'Relatório Operacional Geral',
+      filename: 'Relatorio_Operacional_HelpClin',
+      columns: exportColumns,
+      data: weekly
+    });
+  }
+
+  function handleExportPdf() {
+    exportToPdf({
+      title: 'Relatório de Desempenho Operacional',
+      subtitle: 'Indicadores e volume de atendimentos e ordens de serviço',
+      columns: exportColumns,
+      data: weekly,
+      summary: [
+        { label: 'Ordens Registradas', value: orders.total },
+        { label: 'Chamados em Andamento', value: tickets.in_progress },
+        { label: 'Taxa de Resolução', value: `${resolutionRate}%` },
+        { label: 'Chamados Resolvidos', value: tickets.resolved }
+      ]
+    });
+  }
+
   return (
     <div className="simple-page reports-page">
-      <section className="simple-page-heading"><div><p className="eyebrow">Visão operacional</p><h1>Relatórios</h1><p>Acompanhe os números reais da operação da sua clínica.</p></div></section>
+      <section className="simple-page-heading">
+        <div>
+          <p className="eyebrow">Visão operacional</p>
+          <h1>Relatórios</h1>
+          <p>Acompanhe os números reais da operação da sua clínica.</p>
+        </div>
+        <ExportDropdown onExportXls={handleExportXls} onExportPdf={handleExportPdf} />
+      </section>
       {errorMessage && <div className="data-state data-state--error">{errorMessage}</div>}
       {!errorMessage && <>
         <section className="report-indicators"><article className="report-indicator"><div className="report-icon report-icon--coral"><FileText size={20} /></div><span>Ordens registradas</span><strong>{orders.total}</strong><small><TrendingUp size={13} /> {orders.open} em aberto</small></article><article className="report-indicator"><div className="report-icon report-icon--mint"><Clock3 size={20} /></div><span>Chamados em andamento</span><strong>{tickets.in_progress}</strong><small><Activity size={13} /> {tickets.open} aguardando atendimento</small></article><article className="report-indicator"><div className="report-icon report-icon--blue"><CheckCircle2 size={20} /></div><span>Taxa de resolução</span><strong>{resolutionRate}%</strong><small><CheckCircle2 size={13} /> {tickets.resolved} chamados resolvidos</small></article></section>

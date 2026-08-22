@@ -3,7 +3,7 @@ import { Router } from 'express';
 import pool from '../database.js';
 
 const router = Router();
-const priorityMap = { Normal: 'normal', Alta: 'high', Urgente: 'urgent' };
+const priorityMap = { 'Pouco urgente': 'low', Baixa: 'low', low: 'low', Normal: 'normal', normal: 'normal', Alta: 'high', high: 'high', Urgente: 'urgent', urgent: 'urgent' };
 
 router.get('/', async (_request, response) => {
   try {
@@ -77,7 +77,7 @@ router.post('/', async (request, response) => {
     return response.status(400).json({ message: 'Selecione um equipamento para o chamado.' });
   }
 
-  if (!['normal', 'high', 'urgent'].includes(normalizedPriority)) {
+  if (!['low', 'normal', 'high', 'urgent'].includes(normalizedPriority)) {
     return response.status(400).json({ message: 'Prioridade inválida.' });
   }
 

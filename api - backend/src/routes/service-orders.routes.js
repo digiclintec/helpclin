@@ -3,7 +3,7 @@ import { Router } from 'express';
 import pool from '../database.js';
 
 const router = Router();
-const priorityMap = { Normal: 'normal', Alta: 'high', Urgente: 'urgent' };
+const priorityMap = { 'Pouco urgente': 'low', Baixa: 'low', low: 'low', Normal: 'normal', normal: 'normal', Alta: 'high', high: 'high', Urgente: 'urgent', urgent: 'urgent' };
 
 router.get('/', async (_request, response) => {
   try {
@@ -22,7 +22,7 @@ router.patch('/:id', async (request, response) => {
   const { serviceType, priority, dueDate, performedDescription, status, technicianId } = request.body;
   const normalizedPriority = priorityMap[priority] ?? priority;
 
-  if (!['normal', 'high', 'urgent'].includes(normalizedPriority) || !['open', 'in_progress', 'completed', 'cancelled'].includes(status)) {
+  if (!['low', 'normal', 'high', 'urgent'].includes(normalizedPriority) || !['open', 'in_progress', 'completed', 'cancelled'].includes(status)) {
     return response.status(400).json({ message: 'Prioridade ou estado inválido.' });
   }
 
