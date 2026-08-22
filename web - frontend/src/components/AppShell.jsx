@@ -1,6 +1,7 @@
 import { BarChart3, FilePlus2, Headset, LayoutDashboard, LogOut, Menu, UserCheck, X, Monitor } from 'lucide-react';
 import { useState } from 'react';
 import NotificationCenter from './NotificationCenter.jsx';
+import ThemeToggle from './ThemeToggle.jsx';
 import { getStoredUser } from '../services/api.js';
 
 const navigation = [
@@ -63,7 +64,10 @@ function AppShell({ children }) {
         <header className="topbar">
           <button className="icon-button menu-toggle" onClick={() => setIsMenuOpen(true)} aria-label="Abrir menu"><Menu size={22} /></button>
           <div className="breadcrumb"><span>HelpClin</span><span>/</span><strong>{navigationItems.find(({ href }) => href === currentPath)?.label ?? 'Chamados'}</strong></div>
-          <NotificationCenter />
+          <div className="topbar-actions">
+            <ThemeToggle />
+            <NotificationCenter />
+          </div>
         </header>
         {children}
       </main>

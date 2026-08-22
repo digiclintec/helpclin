@@ -6,6 +6,15 @@
     <meta name="theme-color" content="#123b3d" />
     <meta name="description" content="HelpClinTec: tecnologia inteligente para clínicas mais humanas, eficientes e conectadas." />
     <title>HelpClinTec | Tecnologia para cuidar melhor</title>
+    <script>
+      (function() {
+        try {
+          var mode = localStorage.getItem('helpclin_theme_mode') || 'system';
+          var isDark = mode === 'dark' || (mode === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
