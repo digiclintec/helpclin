@@ -1,10 +1,16 @@
 import 'dotenv/config';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
 import morgan from 'morgan';
 
 import apiRoutes from './routes/index.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const publicPath = path.resolve(__dirname, '../public');
 
 const app = express();
 
@@ -18,7 +24,12 @@ const allowedOrigins = [
   'http://127.0.0.1:4174'
 ].filter(Boolean);
 
-app.use(helmet());
+app.use(
+  helmet({
+    contentSecurityPolicy: false
+  })
+);
+
 app.use(cors({
   origin: (origin, callback) => {
     // allow requests with no origin (like mobile apps, curl, or same-origin)
@@ -29,11 +40,23 @@ app.use(cors({
   },
   credentials: true
 }));
+
 app.use(express.json());
 app.use(morgan('dev'));
 
-app.get('/', (_request, response) => {
-  response.json({ name: 'HelpClin API', status: 'online' });
+// Servir arquivos estáticos da pasta public
+app.use(express.static(publicPath));
+
+// Rota raiz: serve página HTML de status no navegador ou JSON caso solicitado
+app.get('/', (request, response) => {
+  if (request.accepts('html')) {
+    return response.sendFile(path.join(publicPath, 'index.html'));
+  }
+  return response.json({ name: 'HelpClin API', status: 'online' });
+});
+
+app.get('/status', (_request, response) => {
+  response.sendFile(path.join(publicPath, 'index.html'));
 });
 
 app.use('/api', apiRoutes);
