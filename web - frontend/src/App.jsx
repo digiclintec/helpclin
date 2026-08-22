@@ -1,5 +1,5 @@
-import { ArrowRight, BarChart3, Check, ChevronDown, CircleCheck, Clock3, Menu, ShieldCheck, Sparkles, Stethoscope, UsersRound, X } from 'lucide-react';
-import { useState } from 'react';
+import { ArrowRight, BarChart3, Check, ChevronDown, CircleCheck, Clock3, Headset, Menu, ShieldCheck, Sparkles, Stethoscope, UsersRound, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import AdminLogin from './pages/AdminLogin.jsx';
 import AppShell from './components/AppShell.jsx';
 import Dashboard from './pages/Dashboard.jsx';
@@ -9,9 +9,27 @@ import Reports from './pages/Reports.jsx';
 import Tickets from './pages/Tickets.jsx';
 import AdminUsers from './pages/AdminUsers.jsx';
 import Inventory from './pages/Inventory.jsx';
+import { getStoredUser } from './services/api.js';
 
 function App() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+  const user = getStoredUser();
+
+  useEffect(() => {
+    function handleScroll() {
+      setIsScrolled(window.scrollY > 15);
+    }
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Protected route guard: redirect unauthenticated visitors to /admin
+  const protectedRoutes = ['/dashboard', '/ordens', '/chamados', '/relatorios', '/usuarios', '/inventario'];
+  if (protectedRoutes.includes(window.location.pathname) && !user) {
+    window.location.replace('/admin');
+    return null;
+  }
 
   if (window.location.pathname === '/admin') {
     return <AdminLogin />;
@@ -47,12 +65,49 @@ function App() {
 
   return (
     <div className="landing-page">
-      <header className="site-header">
-        <a className="logo" href="#top" aria-label="HelpClinTec início"><span className="logo-mark"><Stethoscope size={20} strokeWidth={2.4} /></span><span>help<span>clin</span>tec</span></a>
-        <button className="mobile-menu-button" onClick={() => setIsMenuOpen(!isMenuOpen)} aria-label={isMenuOpen ? 'Fechar menu' : 'Abrir menu'}>{isMenuOpen ? <X size={22} /> : <Menu size={22} />}</button>
-        <nav className={`site-nav ${isMenuOpen ? 'site-nav--open' : ''}`}>
-          <a href="#solucoes" onClick={() => setIsMenuOpen(false)}>Soluções <ChevronDown size={14} /></a><a href="#beneficios" onClick={() => setIsMenuOpen(false)}>Por que a HelpClinTec</a><a href="#depoimento" onClick={() => setIsMenuOpen(false)}>Clientes</a><a href="#contato" onClick={() => setIsMenuOpen(false)}>Contato</a><a className="admin-link" href="/admin" onClick={() => setIsMenuOpen(false)}>Área administrativa</a><a className="header-cta" href="#contato" onClick={() => setIsMenuOpen(false)}>Falar com especialista <ArrowRight size={16} /></a>
-        </nav>
+      <header className={`site-header ${isScrolled ? 'site-header--scrolled' : ''}`}>
+        <div className="site-header-container">
+          <a className="logo" href="#top" aria-label="HelpClinTec início">
+            <span className="logo-mark"><Stethoscope size={20} strokeWidth={2.4} /></span>
+            <span>help<span>clin</span>tec</span>
+          </a>
+
+          <button
+            className="mobile-menu-button"
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            aria-label={isMenuOpen ? 'Fechar menu' : 'Abrir menu'}
+          >
+            {isMenuOpen ? <X size={22} /> : <Menu size={22} />}
+          </button>
+
+          <nav className={`site-nav ${isMenuOpen ? 'site-nav--open' : ''}`}>
+            <div className="site-nav-links">
+              <a className="nav-link" href="#solucoes" onClick={() => setIsMenuOpen(false)}>
+                Soluções <ChevronDown size={14} />
+              </a>
+              <a className="nav-link" href="#beneficios" onClick={() => setIsMenuOpen(false)}>
+                Por que a HelpClinTec
+              </a>
+              <a className="nav-link" href="#depoimento" onClick={() => setIsMenuOpen(false)}>
+                Clientes
+              </a>
+              <a className="nav-link" href="#contato" onClick={() => setIsMenuOpen(false)}>
+                Contato
+              </a>
+            </div>
+
+            <div className="site-header-actions">
+              <a className="header-button header-button--support" href={user ? "/chamados" : "/admin"} onClick={() => setIsMenuOpen(false)}>
+                <Headset size={16} />
+                <span>Painel de chamados</span>
+              </a>
+              <a className="header-button header-button--cta" href="#contato" onClick={() => setIsMenuOpen(false)}>
+                <span>Falar com especialista</span>
+                <ArrowRight size={16} />
+              </a>
+            </div>
+          </nav>
+        </div>
       </header>
       <main id="top">
         <section className="hero-section"><div className="hero-copy"><p className="eyebrow"><span className="eyebrow-dot" />Tecnologia que cuida do seu cuidado</p><h1>A inteligência por trás de uma <em>clínica mais humana.</em></h1><p className="hero-description">Centralize sua operação, simplifique a rotina da equipe e ofereça uma experiência de saúde que seus pacientes percebem.</p><div className="hero-actions"><a className="button button--primary" href="#contato">Conheça a HelpClinTec <ArrowRight size={17} /></a><a className="button button--quiet" href="#solucoes">Explorar soluções <span>↓</span></a></div><div className="hero-proof"><div className="avatar-stack"><span>MS</span><span>AF</span><span>LP</span><span>+</span></div><p><strong>+ de 500 clínicas</strong><br />já cuidam melhor com a gente</p></div></div><div className="hero-visual"><div className="visual-note visual-note--top"><CircleCheck size={17} /><span>Agenda otimizada<br /><strong>+28% de eficiência</strong></span></div><div className="visual-frame"><img src="https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=1100&q=85" alt="Profissional de saúde utilizando tecnologia em uma clínica" /><div className="image-overlay" /><div className="hero-caption"><span>Gestão que acompanha o seu ritmo</span><ArrowRight size={18} /></div></div><div className="visual-note visual-note--bottom"><span className="note-icon"><ShieldCheck size={16} /></span><span>Dados protegidos<br /><strong>LGPD em cada detalhe</strong></span></div></div></section>

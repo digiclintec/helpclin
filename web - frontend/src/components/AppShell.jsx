@@ -15,6 +15,12 @@ function AppShell({ children }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const currentPath = window.location.pathname;
   const user = getStoredUser();
+
+  if (!user) {
+    window.location.replace('/admin');
+    return null;
+  }
+
   const userName = user?.name ?? 'Usuário';
   const userInitials = userName.split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
   const roleLabel = user?.role === 'admin' ? 'Administrador' : 'Usuário';
