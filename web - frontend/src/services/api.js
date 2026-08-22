@@ -123,3 +123,45 @@ export async function approveUser(userId, adminId) {
   if (!response.ok) throw new Error(data.message ?? 'Não foi possível aprovar o usuário');
   return data.user;
 }
+
+export async function getInventory() {
+  const response = await fetch(`${apiUrl}/inventory`);
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.message ?? 'Não foi possível carregar os equipamentos');
+  return data.equipments;
+}
+
+export async function createEquipment(equipmentData) {
+  const response = await fetch(`${apiUrl}/inventory`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(equipmentData)
+  });
+
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.message ?? 'Não foi possível cadastrar o equipamento');
+  return data.equipment;
+}
+
+export async function updateEquipment(id, equipmentData) {
+  const response = await fetch(`${apiUrl}/inventory/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(equipmentData)
+  });
+
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.message ?? 'Não foi possível editar o equipamento');
+  return data.equipment;
+}
+
+export async function deleteEquipment(id) {
+  const response = await fetch(`${apiUrl}/inventory/${id}`, {
+    method: 'DELETE'
+  });
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.message ?? 'Não foi possível remover o equipamento');
+  }
+}

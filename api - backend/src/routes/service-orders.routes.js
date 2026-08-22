@@ -8,8 +8,8 @@ const priorityMap = { Normal: 'normal', Alta: 'high', Urgente: 'urgent' };
 router.get('/', async (_request, response) => {
   try {
     const result = await pool.query(
-      `SELECT orders.id, orders.order_number, orders.patient_name, orders.service_type, orders.priority, orders.due_date, orders.description, orders.service_requested_description, orders.service_performed_description, orders.status, orders.created_at, orders.technician_id, technician.name AS technician_name
-       FROM service_orders orders LEFT JOIN users technician ON technician.id = orders.technician_id ORDER BY orders.created_at DESC`
+      `SELECT orders.id, orders.order_number, orders.patient_name, orders.service_type, orders.priority, orders.due_date, orders.description, orders.service_requested_description, orders.service_performed_description, orders.status, orders.created_at, orders.technician_id, technician.name AS technician_name, orders.equipment_id, eq.name AS equipment_name
+       FROM service_orders orders LEFT JOIN users technician ON technician.id = orders.technician_id LEFT JOIN inventory_equipments eq ON eq.id = orders.equipment_id ORDER BY orders.created_at DESC`
     );
     return response.json({ orders: result.rows });
   } catch (error) {

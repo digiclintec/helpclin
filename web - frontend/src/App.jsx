@@ -7,6 +7,7 @@ import Register from './pages/Register.jsx';
 import Reports from './pages/Reports.jsx';
 import Tickets from './pages/Tickets.jsx';
 import AdminUsers from './pages/AdminUsers.jsx';
+import Inventory from './pages/Inventory.jsx';
 
 function App() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -33,6 +34,10 @@ function App() {
 
   if (window.location.pathname === '/usuarios') {
     return <AppShell><AdminUsers /></AppShell>;
+  }
+
+  if (window.location.pathname === '/inventario') {
+    return <AppShell><Inventory /></AppShell>;
   }
 
   return (
