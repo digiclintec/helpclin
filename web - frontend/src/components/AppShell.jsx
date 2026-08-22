@@ -4,8 +4,8 @@ import { getStoredUser } from '../services/api.js';
 
 const navigation = [
   { label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
-  { label: 'Ordens de serviço', icon: FilePlus2, href: '/ordens' },
   { label: 'Chamados', icon: Headset, href: '/chamados' },
+  { label: 'Ordens de serviço', icon: FilePlus2, href: '/ordens' },
   { label: 'Inventário', icon: Monitor, href: '/inventario' },
   { label: 'Relatórios', icon: BarChart3, href: '/relatorios' }
 ];

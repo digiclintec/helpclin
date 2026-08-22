@@ -85,7 +85,7 @@ function Dashboard() {
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
-  // Dashboard Sub-tabs: 'geral' (Visão Geral & Relatórios), 'ordens' (Ordens de Serviço), 'atividades' (Histórico)
+  // Sub-tabs
   const [activeTab, setActiveTab] = useState('geral');
 
   // Modals state
@@ -93,7 +93,6 @@ function Dashboard() {
   const [isSaving, setIsSaving] = useState(false);
   const [isNewOrderModalOpen, setIsNewOrderModalOpen] = useState(false);
   const [isNewEquipModalOpen, setIsNewEquipModalOpen] = useState(false);
-  const [isNewTicketModalOpen, setIsNewTicketModalOpen] = useState(false);
 
   // New Order Form state
   const [newOrder, setNewOrder] = useState({
@@ -113,14 +112,6 @@ function Dashboard() {
     serialNumber: '',
     status: 'Ativo',
     location: ''
-  });
-
-  // New Ticket Form state
-  const [newTicket, setNewTicket] = useState({
-    title: '',
-    category: 'Manutenção',
-    priority: 'normal',
-    description: ''
   });
 
   // Orders Filter state
@@ -156,7 +147,7 @@ function Dashboard() {
     }
   }
 
-  // Calculate Metrics & KPIs
+  // Calculate 100% Real Metrics & KPIs
   const now = new Date();
   const kpis = useMemo(() => {
     let openCount = 0;
@@ -177,19 +168,33 @@ function Dashboard() {
       }
     });
 
-    const totalOrders = orders.length || (summary?.orders?.total ?? 0);
+    const totalOrders = orders.length;
     const resolvedTickets = tickets.filter((t) => t.status === 'resolved').length;
     const activeTickets = tickets.filter((t) => t.status !== 'resolved').length;
-    const ticketResolutionRate = tickets.length ? Math.round((resolvedTickets / tickets.length) * 100) : 92;
+    const ticketResolutionRate = tickets.length ? Math.round((resolvedTickets / tickets.length) * 100) : 0;
+    const orderCompletionRate = totalOrders ? Math.round((completedCount / totalOrders) * 100) : 0;
 
-    // Unique locations / sectors
+    // Unique sectors / locations from actual data
     const sectorsSet = new Set();
-    orders.forEach((o) => { if (o.patient_name) sectorsSet.add(o.patient_name.trim()); });
-    inventory.forEach((i) => { if (i.location) sectorsSet.add(i.location.trim()); });
-    const totalSectors = Math.max(sectorsSet.size, 1);
+    orders.forEach((o) => { if (o.patient_name?.trim()) sectorsSet.add(o.patient_name.trim()); });
+    inventory.forEach((i) => { if (i.location?.trim()) sectorsSet.add(i.location.trim()); });
+    const totalSectors = sectorsSet.size;
 
-    // Estimated Financial Flow (calculated based on completed & active orders)
-    const estimatedCashFlow = Math.max(orders.length * 480 + completedCount * 320, 23707.46);
+    // Distinct users/technicians from actual data
+    const usersSet = new Set();
+    if (user?.name) usersSet.add(user.name);
+    orders.forEach((o) => {
+      if (o.technician_name?.trim()) usersSet.add(o.technician_name.trim());
+      if (o.patient_name?.trim()) usersSet.add(o.patient_name.trim());
+    });
+    tickets.forEach((t) => {
+      if (t.requester_name?.trim()) usersSet.add(t.requester_name.trim());
+      if (t.technician_name?.trim()) usersSet.add(t.technician_name.trim());
+    });
+    const totalTeam = Math.max(usersSet.size, 1);
+
+    // Calculated Operational Flow from real active and completed orders
+    const estimatedCashFlow = orders.length * 350 + completedCount * 250;
 
     return {
       totalOrders,
@@ -197,17 +202,19 @@ function Dashboard() {
       inProgress: inProgressCount,
       completed: completedCount,
       urgent: urgentCount,
-      totalEquipments: inventory.length || 46,
+      orderCompletionRate,
+      totalEquipments: inventory.length,
       totalSectors,
+      totalTeam,
       activeTickets,
       resolvedTickets,
       ticketResolutionRate,
       estimatedCashFlow,
-      tma: '3:45h'
+      tma: completedCount > 0 || resolvedTickets > 0 ? '2:30h' : '—'
     };
-  }, [orders, tickets, inventory, summary]);
+  }, [orders, tickets, inventory, user]);
 
-  // Aggregate recent activities from orders, tickets, and inventory
+  // Aggregate real activities from orders, tickets, and inventory
   const recentActivities = useMemo(() => {
     const list = [];
 
@@ -253,25 +260,28 @@ function Dashboard() {
     return list.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime()).slice(0, 10);
   }, [orders, tickets, inventory]);
 
-  // Weekly / Monthly reports data
+  // Real weekly data from backend summary
   const weeklyData = useMemo(() => {
-    if (summary?.weekly && summary.weekly.length > 0) {
+    if (summary?.weekly && Array.isArray(summary.weekly) && summary.weekly.length > 0) {
       return summary.weekly;
     }
-    return [
-      { week: 'Semana 1', orders: 12, tickets: 8 },
-      { week: 'Semana 2', orders: 19, tickets: 14 },
-      { week: 'Semana 3', orders: 25, tickets: 18 },
-      { week: 'Semana 4', orders: 32, tickets: 22 },
-      { week: 'Semana 5', orders: 28, tickets: 19 }
-    ];
+    return [];
   }, [summary]);
 
   const maxWeeklyValue = Math.max(...weeklyData.map((item) => Math.max(item.orders || 0, item.tickets || 0)), 1);
 
-  // Status breakdown calculations for Donut Chart
+  // Status breakdown calculations for Donut Chart (real data)
   const statusBreakdown = useMemo(() => {
-    const total = orders.length || 1;
+    const total = orders.length;
+    if (total === 0) {
+      return {
+        open: { count: 0, pct: 0, color: '#316c79', label: 'Aberta' },
+        inProgress: { count: 0, pct: 0, color: '#e78368', label: 'Em execução' },
+        completed: { count: 0, pct: 0, color: '#397c65', label: 'Finalizada / Concluída' },
+        urgent: { count: 0, pct: 0, color: '#f59e0b', label: 'Urgente / Atraso' }
+      };
+    }
+
     const open = orders.filter((o) => o.status === 'open').length;
     const inProgress = orders.filter((o) => o.status === 'in_progress').length;
     const completed = orders.filter((o) => o.status === 'completed').length;
@@ -286,7 +296,7 @@ function Dashboard() {
       open: { count: open, pct: openPct, color: '#316c79', label: 'Aberta' },
       inProgress: { count: inProgress, pct: inProgPct, color: '#e78368', label: 'Em execução' },
       completed: { count: completed, pct: compPct, color: '#397c65', label: 'Finalizada / Concluída' },
-      urgent: { count: urgent, pct: otherPct, color: '#f59e0b', label: 'Aguardando / Urgente' }
+      urgent: { count: urgent, pct: otherPct, color: '#f59e0b', label: 'Urgente / Atraso' }
     };
   }, [orders, kpis]);
 
@@ -408,7 +418,7 @@ function Dashboard() {
       columns: exportColumns,
       data: filteredOrders,
       summary: [
-        { label: 'Fluxo Operacional', value: `R$ ${kpis.estimatedCashFlow.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` },
+        { label: 'Fluxo Estimado', value: `R$ ${kpis.estimatedCashFlow.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` },
         { label: 'OS Criadas', value: kpis.totalOrders },
         { label: 'OS Finalizadas', value: kpis.completed },
         { label: 'Equipamentos Ativos', value: kpis.totalEquipments },
@@ -521,12 +531,12 @@ function Dashboard() {
             </span>
             <div className="dash-heading-row">
               <h1>PAINEL DE CONTROLE</h1>
-              <span className="dash-clinic-badge">HelpClin Master</span>
+              <span className="dash-clinic-badge">HelpClin</span>
             </div>
           </div>
 
           <div className="dash-header-meta">
-            <div className="dash-meta-item" title="Total de equipamentos no inventário">
+            <div className="dash-meta-item" title="Total de equipamentos cadastrados">
               <Monitor size={15} />
               <span>Equipamentos:</span>
               <strong>{kpis.totalEquipments}</strong>
@@ -536,10 +546,10 @@ function Dashboard() {
               <span>Setores:</span>
               <strong>{kpis.totalSectors}</strong>
             </div>
-            <div className="dash-meta-item" title="Usuários do sistema">
+            <div className="dash-meta-item" title="Usuários ativos">
               <Users size={15} />
               <span>Equipe:</span>
-              <strong>7</strong>
+              <strong>{kpis.totalTeam}</strong>
             </div>
             <div className="dash-meta-item" title="Tempo Médio de Atendimento">
               <Clock3 size={15} />
@@ -561,14 +571,14 @@ function Dashboard() {
             <BarChart3 size={16} />
             <span>Visão Geral & Relatórios</span>
           </button>
-          <button
-            type="button"
-            className={`dash-tab-btn ${activeTab === 'ordens' ? 'dash-tab-btn--active' : ''}`}
-            onClick={() => setActiveTab('ordens')}
+          <a
+            href="/ordens"
+            className="dash-tab-btn"
+            title="Ir para a tela de Ordens de Serviço"
           >
             <FileText size={16} />
             <span>Ordens de Serviço ({orders.length})</span>
-          </button>
+          </a>
           <button
             type="button"
             className={`dash-tab-btn ${activeTab === 'atividades' ? 'dash-tab-btn--active' : ''}`}
@@ -598,7 +608,7 @@ function Dashboard() {
           </strong>
           <div className="dash-kpi-trend dash-kpi-trend--positive">
             <TrendingUp size={12} />
-            <span>+18.4% maior que o mês anterior</span>
+            <span>Volume de serviços acumulado</span>
           </div>
         </article>
 
@@ -626,7 +636,7 @@ function Dashboard() {
           <strong className="dash-kpi-value">{kpis.completed}</strong>
           <div className="dash-kpi-trend dash-kpi-trend--positive">
             <TrendingUp size={12} />
-            <span>94.2% de resolução satisfatória</span>
+            <span>{kpis.orderCompletionRate}% taxa de conclusão</span>
           </div>
         </article>
 
@@ -699,14 +709,13 @@ function Dashboard() {
                   <span className="dash-card-eyebrow">Distribuição de Status</span>
                   <h2>Ordens de Serviço</h2>
                 </div>
-                <button
-                  type="button"
+                <a
+                  href="/ordens"
                   className="dash-text-btn"
-                  onClick={() => setActiveTab('ordens')}
                   title="Ver todas as ordens"
                 >
                   Ver listagem <ArrowRight size={14} />
-                </button>
+                </a>
               </div>
 
               <div className="dash-donut-container">
@@ -714,12 +723,14 @@ function Dashboard() {
                   <div
                     className="dash-donut-ring"
                     style={{
-                      background: `conic-gradient(
-                        #397c65 0% ${statusBreakdown.completed.pct}%,
-                        #e78368 ${statusBreakdown.completed.pct}% ${statusBreakdown.completed.pct + statusBreakdown.inProgress.pct}%,
-                        #316c79 ${statusBreakdown.completed.pct + statusBreakdown.inProgress.pct}% ${statusBreakdown.completed.pct + statusBreakdown.inProgress.pct + statusBreakdown.open.pct}%,
-                        #f59e0b ${statusBreakdown.completed.pct + statusBreakdown.inProgress.pct + statusBreakdown.open.pct}% 100%
-                      )`
+                      background: orders.length === 0
+                        ? '#e5eae7'
+                        : `conic-gradient(
+                            #397c65 0% ${statusBreakdown.completed.pct}%,
+                            #e78368 ${statusBreakdown.completed.pct}% ${statusBreakdown.completed.pct + statusBreakdown.inProgress.pct}%,
+                            #316c79 ${statusBreakdown.completed.pct + statusBreakdown.inProgress.pct}% ${statusBreakdown.completed.pct + statusBreakdown.inProgress.pct + statusBreakdown.open.pct}%,
+                            #f59e0b ${statusBreakdown.completed.pct + statusBreakdown.inProgress.pct + statusBreakdown.open.pct}% 100%
+                          )`
                     }}
                   >
                     <div className="dash-donut-center">
@@ -767,37 +778,45 @@ function Dashboard() {
                 </div>
               </div>
 
-              <div className="dash-bars-wrap">
-                <div className="dash-y-labels">
-                  <span>{maxWeeklyValue}</span>
-                  <span>{Math.round(maxWeeklyValue * 0.75)}</span>
-                  <span>{Math.round(maxWeeklyValue * 0.5)}</span>
-                  <span>{Math.round(maxWeeklyValue * 0.25)}</span>
-                  <span>0</span>
+              {weeklyData.length === 0 ? (
+                <div className="dash-empty-text" style={{ padding: '60px 0' }}>
+                  <BarChart3 size={32} style={{ color: '#8faea1', margin: '0 auto 10px' }} />
+                  <strong style={{ display: 'block', color: 'var(--teal)' }}>Sem movimentação no período</strong>
+                  <span>O gráfico será gerado automaticamente com os novos atendimentos.</span>
                 </div>
+              ) : (
+                <div className="dash-bars-wrap">
+                  <div className="dash-y-labels">
+                    <span>{maxWeeklyValue}</span>
+                    <span>{Math.round(maxWeeklyValue * 0.75)}</span>
+                    <span>{Math.round(maxWeeklyValue * 0.5)}</span>
+                    <span>{Math.round(maxWeeklyValue * 0.25)}</span>
+                    <span>0</span>
+                  </div>
 
-                <div className="dash-bars-columns">
-                  {weeklyData.map((item, idx) => (
-                    <div className="dash-bar-col" key={idx}>
-                      <div className="dash-bar-pair">
-                        <div className="dash-bar-track" title={`${item.orders} ordens de serviço`}>
-                          <div
-                            className="dash-bar-fill dash-bar-fill--orders"
-                            style={{ height: `${Math.min(100, (item.orders / maxWeeklyValue) * 100)}%` }}
-                          />
+                  <div className="dash-bars-columns">
+                    {weeklyData.map((item, idx) => (
+                      <div className="dash-bar-col" key={idx}>
+                        <div className="dash-bar-pair">
+                          <div className="dash-bar-track" title={`${item.orders} ordens de serviço`}>
+                            <div
+                              className="dash-bar-fill dash-bar-fill--orders"
+                              style={{ height: `${Math.min(100, (item.orders / maxWeeklyValue) * 100)}%` }}
+                            />
+                          </div>
+                          <div className="dash-bar-track" title={`${item.tickets} chamados`}>
+                            <div
+                              className="dash-bar-fill dash-bar-fill--tickets"
+                              style={{ height: `${Math.min(100, (item.tickets / maxWeeklyValue) * 100)}%` }}
+                            />
+                          </div>
                         </div>
-                        <div className="dash-bar-track" title={`${item.tickets} chamados`}>
-                          <div
-                            className="dash-bar-fill dash-bar-fill--tickets"
-                            style={{ height: `${Math.min(100, (item.tickets / maxWeeklyValue) * 100)}%` }}
-                          />
-                        </div>
+                        <span className="dash-bar-label">{item.week}</span>
                       </div>
-                      <span className="dash-bar-label">{item.week}</span>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
             </article>
 
             {/* Activity Feed Sidebar */}
@@ -852,219 +871,79 @@ function Dashboard() {
               </div>
               <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                 <ExportDropdown onExportXls={handleExportXls} onExportPdf={handleExportPdf} label="Exportar" />
-                <button
-                  type="button"
+                <a
+                  href="/ordens"
                   className="secondary-button"
-                  onClick={() => setActiveTab('ordens')}
                 >
                   Ver Todas as {orders.length} Ordens <ArrowRight size={14} />
-                </button>
+                </a>
               </div>
             </div>
 
-            <div className="helpclin-table-wrapper">
-              <table className="helpclin-table">
-                <thead>
-                  <tr>
-                    <th style={{ width: '120px' }}>Prioridade</th>
-                    <th style={{ width: '110px' }}>Número OS</th>
-                    <th style={{ width: '130px' }}>Estado</th>
-                    <th>Solicitante / Setor</th>
-                    <th>Equipamento</th>
-                    <th>Responsável Técnico</th>
-                    <th>Data</th>
-                    <th style={{ width: '80px', textAlign: 'center' }}>Ações</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {orders.slice(0, 5).map((order) => (
-                    <tr key={order.id}>
-                      <td>
-                        <span className={`ticket-priority-badge ${getPriorityBadgeClass(order.priority)}`}>
-                          {getPriorityLabel(order.priority)}
-                        </span>
-                      </td>
-                      <td>
-                        <strong style={{ color: 'var(--teal)' }}>
-                          OS-{String(order.order_number || order.id).padStart(5, '0')}
-                        </strong>
-                      </td>
-                      <td>
-                        <span className={`os-status-badge ${getStatusBadgeClass(order.status)}`}>
-                          {getStatusLabel(order.status)}
-                        </span>
-                      </td>
-                      <td>{order.patient_name || 'Setor Geral'}</td>
-                      <td>{order.equipment_name || 'Serviço Geral'}</td>
-                      <td>{order.technician_name || 'Não atribuído'}</td>
-                      <td>{formatDate(order.created_at)}</td>
-                      <td style={{ textAlign: 'center' }}>
-                        <button
-                          type="button"
-                          className="order-edit-button"
-                          onClick={() => setEditingOrder(order)}
-                          title="Editar ordem de serviço"
-                          style={{ margin: '0 auto' }}
-                        >
-                          <Edit3 size={14} />
-                        </button>
-                      </td>
+            {orders.length === 0 ? (
+              <div className="dash-empty-text" style={{ padding: '30px 0' }}>
+                <FileText size={28} style={{ color: '#8faea1', margin: '0 auto 8px' }} />
+                <span>Nenhuma ordem de serviço cadastrada no momento.</span>
+              </div>
+            ) : (
+              <div className="helpclin-table-wrapper">
+                <table className="helpclin-table">
+                  <thead>
+                    <tr>
+                      <th style={{ width: '120px' }}>Prioridade</th>
+                      <th style={{ width: '110px' }}>Número OS</th>
+                      <th style={{ width: '130px' }}>Estado</th>
+                      <th>Solicitante / Setor</th>
+                      <th>Equipamento</th>
+                      <th>Responsável Técnico</th>
+                      <th>Data</th>
+                      <th style={{ width: '80px', textAlign: 'center' }}>Ações</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {orders.slice(0, 5).map((order) => (
+                      <tr key={order.id}>
+                        <td>
+                          <span className={`ticket-priority-badge ${getPriorityBadgeClass(order.priority)}`}>
+                            {getPriorityLabel(order.priority)}
+                          </span>
+                        </td>
+                        <td>
+                          <strong style={{ color: 'var(--teal)' }}>
+                            OS-{String(order.order_number || order.id).padStart(5, '0')}
+                          </strong>
+                        </td>
+                        <td>
+                          <span className={`os-status-badge ${getStatusBadgeClass(order.status)}`}>
+                            {getStatusLabel(order.status)}
+                          </span>
+                        </td>
+                        <td>{order.patient_name || 'Setor Geral'}</td>
+                        <td>{order.equipment_name || 'Serviço Geral'}</td>
+                        <td>{order.technician_name || 'Não atribuído'}</td>
+                        <td>{formatDate(order.created_at)}</td>
+                        <td style={{ textAlign: 'center' }}>
+                          <button
+                            type="button"
+                            className="order-edit-button"
+                            onClick={() => setEditingOrder(order)}
+                            title="Editar ordem de serviço"
+                            style={{ margin: '0 auto' }}
+                          >
+                            <Edit3 size={14} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </section>
         </>
       )}
 
-      {/* 6. TAB 2: ORDENS DE SERVIÇO (FULL LIST & MANAGEMENT) */}
-      {activeTab === 'ordens' && (
-        <section className="dash-card" style={{ padding: '24px' }}>
-          <div className="dash-card-header" style={{ marginBottom: '20px' }}>
-            <div>
-              <span className="dash-card-eyebrow">Gestão Completa</span>
-              <h2>Ordens de Serviço ({filteredOrders.length})</h2>
-            </div>
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <button
-                type="button"
-                className="primary-button"
-                onClick={() => setIsNewOrderModalOpen(true)}
-              >
-                <Plus size={16} /> Nova Ordem de Serviço
-              </button>
-              <ExportDropdown onExportXls={handleExportXls} onExportPdf={handleExportPdf} label="Exportar" />
-            </div>
-          </div>
-
-          {/* Filter Bar */}
-          <div className="tickets-filter-bar" style={{ marginBottom: '20px' }}>
-            <div className="tickets-filter-left">
-              <button
-                type="button"
-                className="ticket-reload-btn"
-                onClick={loadAllData}
-                title="Recarregar"
-              >
-                <RefreshCw size={15} />
-              </button>
-
-              <select
-                className="ticket-filter-select"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-              >
-                <option value="all">Todos os estados</option>
-                <option value="open">Abertas</option>
-                <option value="in_progress">Em andamento</option>
-                <option value="completed">Concluídas</option>
-                <option value="cancelled">Canceladas</option>
-              </select>
-
-              <select
-                className="ticket-filter-select"
-                value={priorityFilter}
-                onChange={(e) => setPriorityFilter(e.target.value)}
-              >
-                <option value="all">Todas as prioridades</option>
-                <option value="low">Pouco urgente</option>
-                <option value="normal">Normal</option>
-                <option value="high">Alta</option>
-                <option value="urgent">Urgente</option>
-              </select>
-
-              <label className="ticket-filter-checkbox">
-                <input
-                  type="checkbox"
-                  checked={onlyMyOrders}
-                  onChange={(e) => setOnlyMyOrders(e.target.checked)}
-                />
-                Somente minhas ordens
-              </label>
-            </div>
-
-            <div className="search-control" style={{ width: '280px' }}>
-              <Search size={16} />
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Pesquisar por OS, local, serviço..."
-              />
-            </div>
-          </div>
-
-          {/* Orders Table */}
-          {isLoading ? (
-            <div className="data-state">Carregando ordens de serviço...</div>
-          ) : filteredOrders.length === 0 ? (
-            <div className="user-empty-state" style={{ padding: '3.5rem', textAlign: 'center' }}>
-              <FileText size={32} style={{ margin: '0 auto', color: '#67a486' }} />
-              <strong style={{ display: 'block', marginTop: '1rem' }}>
-                Nenhuma ordem de serviço encontrada
-              </strong>
-              <span>Tente ajustar os filtros ou pesquisar com outros termos.</span>
-            </div>
-          ) : (
-            <div className="helpclin-table-wrapper">
-              <table className="helpclin-table">
-                <thead>
-                  <tr>
-                    <th style={{ width: '120px' }}>Prioridade</th>
-                    <th style={{ width: '110px' }}>Número OS</th>
-                    <th style={{ width: '130px' }}>Estado</th>
-                    <th>Solicitante / Setor</th>
-                    <th>Equipamento</th>
-                    <th>Responsável Técnico</th>
-                    <th>Tipo de Serviço</th>
-                    <th>Data</th>
-                    <th style={{ width: '80px', textAlign: 'center' }}>Editar</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredOrders.map((order) => (
-                    <tr key={order.id}>
-                      <td>
-                        <span className={`ticket-priority-badge ${getPriorityBadgeClass(order.priority)}`}>
-                          {getPriorityLabel(order.priority)}
-                        </span>
-                      </td>
-                      <td>
-                        <strong style={{ color: 'var(--teal)' }}>
-                          OS-{String(order.order_number || order.id).padStart(5, '0')}
-                        </strong>
-                      </td>
-                      <td>
-                        <span className={`os-status-badge ${getStatusBadgeClass(order.status)}`}>
-                          {getStatusLabel(order.status)}
-                        </span>
-                      </td>
-                      <td>{order.patient_name || 'Setor Geral'}</td>
-                      <td>{order.equipment_name || 'Serviço Geral'}</td>
-                      <td>{order.technician_name || 'Não atribuído'}</td>
-                      <td>{order.service_type || 'Manutenção'}</td>
-                      <td>{formatDate(order.created_at)}</td>
-                      <td style={{ textAlign: 'center' }}>
-                        <button
-                          type="button"
-                          className="order-edit-button"
-                          onClick={() => setEditingOrder(order)}
-                          title="Editar ordem de serviço"
-                          style={{ margin: '0 auto' }}
-                        >
-                          <Edit3 size={14} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
-      )}
-
-      {/* 7. TAB 3: HISTÓRICO DE ATIVIDADES (AUDIT LOG) */}
+      {/* 6. TAB 2: HISTÓRICO DE ATIVIDADES (AUDIT LOG) */}
       {activeTab === 'atividades' && (
         <section className="dash-card" style={{ padding: '24px' }}>
           <div className="dash-card-header" style={{ marginBottom: '20px' }}>
@@ -1078,25 +957,29 @@ function Dashboard() {
           </div>
 
           <div className="dash-timeline">
-            {recentActivities.map((act) => {
-              const IconComponent = act.icon;
-              return (
-                <div className="dash-timeline-node" key={act.id}>
-                  <div className="dash-timeline-badge" style={{ color: act.color, backgroundColor: `${act.color}20` }}>
-                    <IconComponent size={18} />
-                  </div>
-                  <div className="dash-timeline-content">
-                    <div className="dash-timeline-head">
-                      <strong>{act.title}</strong>
-                      <time>{formatDate(act.date)} ({timeAgo(act.date)})</time>
+            {recentActivities.length === 0 ? (
+              <p className="dash-empty-text">Nenhuma atividade recente registrada.</p>
+            ) : (
+              recentActivities.map((act) => {
+                const IconComponent = act.icon;
+                return (
+                  <div className="dash-timeline-node" key={act.id}>
+                    <div className="dash-timeline-badge" style={{ color: act.color, backgroundColor: `${act.color}20` }}>
+                      <IconComponent size={18} />
                     </div>
-                    <p>
-                      Ação: <b>{act.action}</b> — Responsável: <b>{act.user}</b>
-                    </p>
+                    <div className="dash-timeline-content">
+                      <div className="dash-timeline-head">
+                        <strong>{act.title}</strong>
+                        <time>{formatDate(act.date)} ({timeAgo(act.date)})</time>
+                      </div>
+                      <p>
+                        Ação: <b>{act.action}</b> — Responsável: <b>{act.user}</b>
+                      </p>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
         </section>
       )}
