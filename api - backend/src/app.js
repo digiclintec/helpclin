@@ -1,12 +1,10 @@
+import 'dotenv/config';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import express from 'express';
 import helmet from 'helmet';
 import morgan from 'morgan';
 
 import apiRoutes from './routes/index.js';
-
-dotenv.config();
 
 const app = express();
 
