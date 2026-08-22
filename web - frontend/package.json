@@ -1,0 +1,23 @@
+{
+  "name": "helpclin-web",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "build:hml": "vite build --mode hml",
+    "build:prd": "vite build --mode prd",
+    "start:hml": "vite preview --host 0.0.0.0 --port 4173",
+    "start:prd": "vite preview --host 0.0.0.0 --port 4174",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "latest",
+    "vite": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "lucide-react": "^0.468.0"
+  },
+  "devDependencies": {}
+}

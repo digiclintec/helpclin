@@ -1,0 +1,94 @@
+import { Router } from 'express';
+
+import pool from '../database.js';
+
+const router = Router();
+const priorityMap = { Normal: 'normal', Alta: 'high', Urgente: 'urgent' };
+
+router.get('/', async (_request, response) => {
+  try {
+    const result = await pool.query(
+      `SELECT orders.id, orders.order_number, orders.patient_name, orders.service_type, orders.priority, orders.due_date, orders.description, orders.service_requested_description, orders.service_performed_description, orders.status, orders.created_at, orders.technician_id, technician.name AS technician_name
+       FROM service_orders orders LEFT JOIN users technician ON technician.id = orders.technician_id ORDER BY orders.created_at DESC`
+    );
+    return response.json({ orders: result.rows });
+  } catch (error) {
+    console.error('Falha ao listar ordens de serviço:', error.message);
+    return response.status(500).json({ message: 'Não foi possível carregar as ordens de serviço.' });
+  }
+});
+
+router.patch('/:id', async (request, response) => {
+  const { serviceType, priority, dueDate, performedDescription, status, technicianId } = request.body;
+  const normalizedPriority = priorityMap[priority] ?? priority;
+
+  if (!['normal', 'high', 'urgent'].includes(normalizedPriority) || !['open', 'in_progress', 'completed', 'cancelled'].includes(status)) {
+    return response.status(400).json({ message: 'Prioridade ou estado inválido.' });
+  }
+
+  try {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const result = await client.query(
+        `UPDATE service_orders SET service_type = $1, priority = $2, due_date = $3, service_performed_description = $4, status = $5, technician_id = $6, updated_at = NOW()
+         WHERE id = $7 RETURNING id, order_number, patient_name, service_type, priority, due_date, description, service_requested_description, service_performed_description, status, technician_id`,
+        [serviceType?.trim(), normalizedPriority, dueDate || null, performedDescription?.trim() || null, status, technicianId || null, request.params.id]
+      );
+      if (!result.rowCount) {
+        await client.query('ROLLBACK');
+        return response.status(404).json({ message: 'Ordem de serviço não encontrada.' });
+      }
+
+      const ticketStatus = { open: 'open', in_progress: 'in_progress', completed: 'resolved', cancelled: 'cancelled' }[status];
+      await client.query(
+        `UPDATE support_tickets SET status = $1, updated_at = NOW()
+         WHERE id = (SELECT support_ticket_id FROM service_orders WHERE id = $2)`,
+        [ticketStatus, request.params.id]
+      );
+      await client.query('COMMIT');
+      return response.json({ order: result.rows[0] });
+    } catch (transactionError) {
+      await client.query('ROLLBACK');
+      throw transactionError;
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Falha ao editar ordem de serviço:', error.message);
+    return response.status(500).json({ message: 'Não foi possível editar a ordem de serviço.' });
+  }
+});
+
+router.post('/', async (request, response) => {
+  const { patientName, serviceType, priority = 'Normal', dueDate, description, createdBy } = request.body;
+  const normalizedPriority = priorityMap[priority] ?? priority;
+
+  if (!patientName?.trim() || !serviceType?.trim() || !description?.trim() || !createdBy) {
+    return response.status(400).json({ message: 'Paciente, serviço, descrição e usuário são obrigatórios.' });
+  }
+
+  if (!['normal', 'high', 'urgent'].includes(normalizedPriority)) {
+    return response.status(400).json({ message: 'Prioridade inválida.' });
+  }
+
+  try {
+    const result = await pool.query(
+      `INSERT INTO service_orders (patient_name, service_type, priority, due_date, description, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id, order_number, patient_name, service_type, priority, due_date, description, status, created_at`,
+      [patientName.trim(), serviceType.trim(), normalizedPriority, dueDate || null, description.trim(), createdBy]
+    );
+
+    return response.status(201).json({ order: result.rows[0] });
+  } catch (error) {
+    if (error.code === '23503') {
+      return response.status(400).json({ message: 'Usuário criador não encontrado.' });
+    }
+
+    console.error('Falha ao criar ordem de serviço:', error.message);
+    return response.status(500).json({ message: 'Não foi possível criar a ordem de serviço.' });
+  }
+});
+
+export default router;
