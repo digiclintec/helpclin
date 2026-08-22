@@ -211,7 +211,7 @@ function Dashboard() {
     };
   }, [orders, tickets, inventory, user]);
 
-  // Aggregate real activities from orders, tickets, and inventory
+  // Aggregate real activities from orders and tickets
   const recentActivities = useMemo(() => {
     const list = [];
 
@@ -228,34 +228,21 @@ function Dashboard() {
       });
     });
 
-    tickets.slice(0, 5).forEach((t) => {
+    tickets.slice(0, 8).forEach((t) => {
       list.push({
         id: `ticket-${t.id}`,
         type: 'ticket',
-        title: `Chamado #${t.id}: ${t.title || 'Solicitação de suporte'}`,
-        action: t.status === 'resolved' ? 'Resolvido' : 'Aberto',
-        user: t.requester_name || 'Equipe Clínica',
+        title: `Chamado #${t.id}: ${t.related_problem || t.title || 'Solicitação de suporte'}`,
+        action: t.status === 'resolved' ? 'Resolvido' : t.status === 'in_progress' ? 'Em atendimento' : 'Aberto',
+        user: t.assigned_to_name || t.requester || 'Equipe Clínica',
         date: t.created_at,
         icon: Headset,
         color: '#4d8796'
       });
     });
 
-    inventory.slice(0, 4).forEach((eq) => {
-      list.push({
-        id: `eq-${eq.id}`,
-        type: 'equip',
-        title: `Equipamento ${eq.name}`,
-        action: 'Cadastrado no inventário',
-        user: eq.location || 'Patrimônio',
-        date: eq.created_at,
-        icon: Monitor,
-        color: '#6366f1'
-      });
-    });
-
     return list.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime()).slice(0, 10);
-  }, [orders, tickets, inventory]);
+  }, [orders, tickets]);
 
   // Real weekly data from backend summary
   const weeklyData = useMemo(() => {
@@ -264,6 +251,10 @@ function Dashboard() {
     }
     return [];
   }, [summary]);
+
+  const totalWeeklyVolume = useMemo(() => {
+    return weeklyData.reduce((acc, item) => acc + (item.orders || 0) + (item.tickets || 0), 0);
+  }, [weeklyData]);
 
   const maxWeeklyValue = Math.max(...weeklyData.map((item) => Math.max(item.orders || 0, item.tickets || 0)), 1);
 
@@ -496,6 +487,7 @@ function Dashboard() {
         serviceType: editingOrder.service_type,
         priority: editingOrder.priority,
         dueDate: editingOrder.due_date,
+        requestedDescription: editingOrder.service_requested_description ?? editingOrder.description,
         performedDescription: editingOrder.service_performed_description,
         status: editingOrder.status,
         technicianId: editingOrder.technician_id
@@ -773,11 +765,11 @@ function Dashboard() {
                 </div>
               </div>
 
-              {weeklyData.length === 0 ? (
-                <div className="dash-empty-text" style={{ padding: '60px 0' }}>
-                  <BarChart3 size={32} style={{ color: '#8faea1', margin: '0 auto 10px' }} />
-                  <strong style={{ display: 'block', color: 'var(--teal)' }}>Sem movimentação no período</strong>
-                  <span>O gráfico será gerado automaticamente com os novos atendimentos.</span>
+              {weeklyData.length === 0 || totalWeeklyVolume === 0 ? (
+                <div className="dash-empty-text" style={{ padding: '60px 0', textAlign: 'center' }}>
+                  <BarChart3 size={32} style={{ color: '#8faea1', margin: '0 auto 10px', display: 'block' }} />
+                  <strong style={{ display: 'block', color: 'var(--teal)', marginBottom: '4px' }}>Sem atendimentos no período</strong>
+                  <span style={{ fontSize: '12px', color: '#8faea1' }}>O gráfico será gerado automaticamente com os novos atendimentos registrados.</span>
                 </div>
               ) : (
                 <div className="dash-bars-wrap">
@@ -833,7 +825,15 @@ function Dashboard() {
 
               <div className="dash-activity-list">
                 {recentActivities.length === 0 ? (
-                  <p className="dash-empty-text">Nenhuma atividade recente registrada.</p>
+                  <div className="dash-empty-text" style={{ padding: '40px 15px', textAlign: 'center' }}>
+                    <Activity size={26} style={{ color: '#8faea1', margin: '0 auto 8px', display: 'block' }} />
+                    <strong style={{ display: 'block', color: 'var(--teal)', fontSize: '13px', marginBottom: '4px' }}>
+                      Nenhuma atividade recente
+                    </strong>
+                    <span style={{ fontSize: '11px', color: '#8faea1' }}>
+                      Novas movimentações aparecerão aqui conforme chamados e ordens forem criados.
+                    </span>
+                  </div>
                 ) : (
                   recentActivities.map((act) => {
                     const IconComponent = act.icon;
@@ -953,7 +953,15 @@ function Dashboard() {
 
           <div className="dash-timeline">
             {recentActivities.length === 0 ? (
-              <p className="dash-empty-text">Nenhuma atividade recente registrada.</p>
+              <div className="dash-empty-text" style={{ padding: '60px 20px', textAlign: 'center' }}>
+                <Activity size={32} style={{ color: '#8faea1', margin: '0 auto 12px', display: 'block' }} />
+                <strong style={{ display: 'block', color: 'var(--teal)', fontSize: '15px', marginBottom: '6px' }}>
+                  Nenhum registro no histórico
+                </strong>
+                <span style={{ fontSize: '12px', color: '#8faea1' }}>
+                  A linha do tempo de auditoria será preenchida automaticamente conforme novos chamados forem abertos e ordens de serviço executadas.
+                </span>
+              </div>
             ) : (
               recentActivities.map((act) => {
                 const IconComponent = act.icon;
@@ -1211,6 +1219,22 @@ function Dashboard() {
                 type="date"
                 value={editingOrder.due_date ? editingOrder.due_date.slice(0, 10) : ''}
                 onChange={(e) => setEditingOrder({ ...editingOrder, due_date: e.target.value })}
+              />
+            </label>
+
+            <label style={{ gridColumn: '1 / -1' }}>
+              Descrição Solicitada / Observação Inicial
+              <textarea
+                rows={2}
+                value={editingOrder.service_requested_description ?? editingOrder.description ?? ''}
+                onChange={(e) =>
+                  setEditingOrder({
+                    ...editingOrder,
+                    service_requested_description: e.target.value,
+                    description: e.target.value
+                  })
+                }
+                placeholder="Descrição inicial ou observação solicitada..."
               />
             </label>
 

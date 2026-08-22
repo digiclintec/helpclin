@@ -232,7 +232,8 @@ function Tickets() {
     { header: 'Ativo / Serviço', accessor: (t) => t.equipment_name || (t.ticket_type === 'equipment' ? 'Equipamento' : 'Serviço Geral') },
     { header: 'Responsável', accessor: (t) => t.assigned_to_name || 'Sem responsável' },
     { header: 'Problema Relatado', accessor: 'related_problem' },
-    { header: 'Observações', accessor: 'observations' },
+    { header: 'Observações / Solicitado', accessor: 'observations' },
+    { header: 'Serviço Realizado pelo Técnico', accessor: (t) => t.service_performed_description || '—' },
     { header: 'Solicitante', accessor: (t) => t.requester || '—' },
     { header: 'Localização', accessor: 'location' },
     { header: 'Data de Abertura', accessor: (t) => formatDate(t.created_at) }
@@ -490,16 +491,27 @@ function Tickets() {
                         )}
                       </td>
 
-                      {/* Related Problem */}
-                      <td style={{ color: 'var(--muted)', maxWidth: '200px' }}>
-                        <strong style={{ color: 'var(--teal)', display: 'block', fontSize: '12px', fontWeight: 600 }}>
-                          {ticket.related_problem}
-                        </strong>
-                        {ticket.observations && (
-                          <span style={{ fontSize: '11px', color: '#82918d', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>
-                            {ticket.observations}
-                          </span>
-                        )}
+                      {/* Related Problem & Observations & Technician Performed Service */}
+                      <td style={{ color: 'var(--muted)', maxWidth: '220px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                          <strong style={{ color: 'var(--teal)', display: 'block', fontSize: '12px', fontWeight: 600 }}>
+                            {ticket.related_problem}
+                          </strong>
+                          {ticket.observations && (
+                            <span style={{ fontSize: '11px', color: '#687b76', lineHeight: 1.3 }}>
+                              {ticket.observations}
+                            </span>
+                          )}
+                          {ticket.service_performed_description ? (
+                            <span style={{ fontSize: '11px', color: '#1f6e52', background: '#ecfdf5', padding: '3px 7px', borderRadius: '5px', border: '1px solid #d1fae5', marginTop: '2px', lineHeight: 1.3 }}>
+                              <strong>Técnico:</strong> {ticket.service_performed_description}
+                            </span>
+                          ) : ticket.status === 'in_progress' ? (
+                            <span style={{ fontSize: '10px', color: '#e78368', fontStyle: 'italic' }}>
+                              Em execução pelo técnico
+                            </span>
+                          ) : null}
+                        </div>
                       </td>
 
                       {/* Requester / Location */}

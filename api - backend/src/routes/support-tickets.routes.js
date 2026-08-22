@@ -8,8 +8,13 @@ const priorityMap = { 'Pouco urgente': 'low', Baixa: 'low', low: 'low', Normal: 
 router.get('/', async (_request, response) => {
   try {
     const result = await pool.query(
-      `SELECT st.id, st.ticket_number, st.service_order_number, st.title, st.requester, st.ticket_type, st.company_sector, st.location, st.related_problem, st.observations, st.attachment_name, st.priority, st.status, st.created_at, st.assigned_to, assigned.name AS assigned_to_name, st.equipment_id, eq.name AS equipment_name
-       FROM support_tickets st LEFT JOIN users assigned ON assigned.id = st.assigned_to LEFT JOIN inventory_equipments eq ON eq.id = st.equipment_id ORDER BY st.created_at DESC`
+      `SELECT st.id, st.ticket_number, st.service_order_number, st.title, st.requester, st.ticket_type, st.company_sector, st.location, st.related_problem, st.observations, st.attachment_name, st.priority, st.status, st.created_at, st.assigned_to, assigned.name AS assigned_to_name, st.equipment_id, eq.name AS equipment_name,
+              so.service_performed_description, so.service_requested_description, so.status AS service_order_status
+       FROM support_tickets st
+       LEFT JOIN users assigned ON assigned.id = st.assigned_to
+       LEFT JOIN inventory_equipments eq ON eq.id = st.equipment_id
+       LEFT JOIN service_orders so ON so.support_ticket_id = st.id
+       ORDER BY st.created_at DESC`
     );
     return response.json({ tickets: result.rows });
   } catch (error) {

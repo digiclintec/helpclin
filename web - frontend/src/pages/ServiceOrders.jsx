@@ -95,6 +95,7 @@ function ServiceOrders() {
         serviceType: editingOrder.service_type,
         priority: editingOrder.priority,
         dueDate: editingOrder.due_date,
+        requestedDescription: editingOrder.service_requested_description ?? editingOrder.description,
         performedDescription: editingOrder.service_performed_description,
         status: editingOrder.status,
         technicianId: editingOrder.technician_id
@@ -527,15 +528,21 @@ function ServiceOrders() {
                       </td>
 
                       {/* Observations / Requested vs Performed Description */}
-                      <td style={{ color: 'var(--muted)', maxWidth: '220px' }}>
-                        <strong style={{ color: 'var(--teal)', display: 'block', fontSize: '12px', fontWeight: 600 }}>
-                          {order.service_requested_description || order.description || 'Sem descrição'}
-                        </strong>
-                        {order.service_performed_description && (
-                          <span style={{ fontSize: '11px', color: '#2b6351', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>
-                            ✓ {order.service_performed_description}
+                      <td style={{ color: 'var(--muted)', maxWidth: '240px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <span style={{ color: 'var(--teal)', fontSize: '12px', fontWeight: 600, lineHeight: 1.3 }}>
+                            {order.service_requested_description || order.description || 'Sem descrição'}
                           </span>
-                        )}
+                          {order.service_performed_description ? (
+                            <span style={{ fontSize: '11px', color: '#1f6e52', background: '#ecfdf5', padding: '3px 7px', borderRadius: '5px', border: '1px solid #d1fae5', lineHeight: 1.3 }}>
+                              <strong>Técnico:</strong> {order.service_performed_description}
+                            </span>
+                          ) : (
+                            <span style={{ fontSize: '11px', color: '#9aa6a2', fontStyle: 'italic' }}>
+                              Aguardando parecer técnico
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       {/* Action */}
@@ -657,11 +664,29 @@ function ServiceOrders() {
 
               {/* Requested Description */}
               <div className="inventory-field">
-                <label>Descrição Solicitada</label>
-                <input
-                  value={editingOrder.service_requested_description || editingOrder.description || ''}
-                  disabled
-                  style={{ background: '#f0f3f1', cursor: 'not-allowed', color: '#687b76' }}
+                <label>Descrição Solicitada / Observação</label>
+                <textarea
+                  value={editingOrder.service_requested_description ?? editingOrder.description ?? ''}
+                  onChange={(e) =>
+                    setEditingOrder({
+                      ...editingOrder,
+                      service_requested_description: e.target.value,
+                      description: e.target.value
+                    })
+                  }
+                  rows={2}
+                  placeholder="Descrição da solicitação ou observação..."
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    border: '1px solid var(--line)',
+                    borderRadius: '10px',
+                    outline: '0',
+                    color: 'var(--teal)',
+                    background: '#fbfcfa',
+                    fontFamily: 'inherit',
+                    fontSize: '13px'
+                  }}
                 />
               </div>
 

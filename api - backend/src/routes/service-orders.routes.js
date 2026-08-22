@@ -19,7 +19,7 @@ router.get('/', async (_request, response) => {
 });
 
 router.patch('/:id', async (request, response) => {
-  const { serviceType, priority, dueDate, performedDescription, status, technicianId } = request.body;
+  const { serviceType, priority, dueDate, requestedDescription, performedDescription, status, technicianId } = request.body;
   const normalizedPriority = priorityMap[priority] ?? priority;
 
   if (!['low', 'normal', 'high', 'urgent'].includes(normalizedPriority) || !['open', 'in_progress', 'completed', 'cancelled'].includes(status)) {
@@ -31,9 +31,28 @@ router.patch('/:id', async (request, response) => {
     try {
       await client.query('BEGIN');
       const result = await client.query(
-        `UPDATE service_orders SET service_type = $1, priority = $2, due_date = $3, service_performed_description = $4, status = $5, technician_id = $6, updated_at = NOW()
-         WHERE id = $7 RETURNING id, order_number, patient_name, service_type, priority, due_date, description, service_requested_description, service_performed_description, status, technician_id`,
-        [serviceType?.trim(), normalizedPriority, dueDate || null, performedDescription?.trim() || null, status, technicianId || null, request.params.id]
+        `UPDATE service_orders
+         SET service_type = COALESCE($1, service_type),
+             priority = $2,
+             due_date = $3,
+             description = CASE WHEN $4::text IS NOT NULL THEN $4::text ELSE description END,
+             service_requested_description = CASE WHEN $4::text IS NOT NULL THEN $4::text ELSE service_requested_description END,
+             service_performed_description = $5,
+             status = $6,
+             technician_id = $7,
+             updated_at = NOW()
+         WHERE id = $8
+         RETURNING id, order_number, patient_name, service_type, priority, due_date, description, service_requested_description, service_performed_description, status, technician_id, support_ticket_id, equipment_id`,
+        [
+          serviceType?.trim() || null,
+          normalizedPriority,
+          dueDate || null,
+          requestedDescription !== undefined ? (requestedDescription?.trim() || null) : null,
+          performedDescription !== undefined ? (performedDescription?.trim() || null) : null,
+          status,
+          technicianId || null,
+          request.params.id
+        ]
       );
       if (!result.rowCount) {
         await client.query('ROLLBACK');
@@ -41,13 +60,37 @@ router.patch('/:id', async (request, response) => {
       }
 
       const ticketStatus = { open: 'open', in_progress: 'in_progress', completed: 'resolved', cancelled: 'cancelled' }[status];
-      await client.query(
-        `UPDATE support_tickets SET status = $1, updated_at = NOW()
-         WHERE id = (SELECT support_ticket_id FROM service_orders WHERE id = $2)`,
-        [ticketStatus, request.params.id]
-      );
+      if (requestedDescription !== undefined && requestedDescription?.trim()) {
+        await client.query(
+          `UPDATE support_tickets
+           SET status = $1,
+               observations = $2,
+               description = $2,
+               updated_at = NOW()
+           WHERE id = (SELECT support_ticket_id FROM service_orders WHERE id = $3)`,
+          [ticketStatus, requestedDescription.trim(), request.params.id]
+        );
+      } else {
+        await client.query(
+          `UPDATE support_tickets
+           SET status = $1,
+               updated_at = NOW()
+           WHERE id = (SELECT support_ticket_id FROM service_orders WHERE id = $2)`,
+          [ticketStatus, request.params.id]
+        );
+      }
       await client.query('COMMIT');
-      return response.json({ order: result.rows[0] });
+
+      const fullOrder = await pool.query(
+        `SELECT orders.id, orders.order_number, orders.patient_name, orders.service_type, orders.priority, orders.due_date, orders.description, orders.service_requested_description, orders.service_performed_description, orders.status, orders.created_at, orders.technician_id, technician.name AS technician_name, orders.equipment_id, eq.name AS equipment_name
+         FROM service_orders orders
+         LEFT JOIN users technician ON technician.id = orders.technician_id
+         LEFT JOIN inventory_equipments eq ON eq.id = orders.equipment_id
+         WHERE orders.id = $1`,
+        [request.params.id]
+      );
+
+      return response.json({ order: fullOrder.rows[0] || result.rows[0] });
     } catch (transactionError) {
       await client.query('ROLLBACK');
       throw transactionError;
