@@ -94,13 +94,12 @@ function App() {
               <a className="nav-link" href="#contato" onClick={() => setIsMenuOpen(false)}>
                 Contato
               </a>
+              <a className="nav-link" href={user ? "/chamados" : "/admin"} onClick={() => setIsMenuOpen(false)}>
+                Painel de chamados
+              </a>
             </div>
 
             <div className="site-header-actions">
-              <a className="header-button header-button--support" href={user ? "/chamados" : "/admin"} onClick={() => setIsMenuOpen(false)}>
-                <Headset size={16} />
-                <span>Painel de chamados</span>
-              </a>
               <a className="header-button header-button--cta" href="#contato" onClick={() => setIsMenuOpen(false)}>
                 <span>Falar com especialista</span>
                 <ArrowRight size={16} />
