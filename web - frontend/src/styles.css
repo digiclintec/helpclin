@@ -1803,5 +1803,42 @@ button { font: inherit; cursor: pointer; }
   }
 }
 
+/* Problem suggestions chips in Ticket modal */
+.ticket-problem-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.ticket-problem-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border-radius: 7px;
+  border: 1px solid #dce7df;
+  background: #f8faf8;
+  color: var(--teal);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+  line-height: 1.2;
+}
+
+.ticket-problem-chip:hover {
+  border-color: var(--coral);
+  background: #fdf6f4;
+  color: var(--coral);
+}
+
+.ticket-problem-chip--active {
+  background: var(--teal) !important;
+  border-color: var(--teal) !important;
+  color: #ffffff !important;
+}
+
+
 
 

@@ -27,6 +27,91 @@ import {
 } from '../services/api.js';
 import { exportToPdf, exportToXls } from '../utils/exportReport.js';
 
+const SERVICE_PROBLEMS = [
+  'Dificuldades com sistema Clinux',
+  'Lentidão ou travamento no sistema',
+  'Erro de login / Senha bloqueada',
+  'Sem conexão com a internet / Rede oscilando',
+  'Falha na impressão de prontuários / laudos',
+  'Problema no e-mail corporativo',
+  'Instalação / Atualização de software',
+  'Cadastro / Permissão de acesso de usuário',
+  'Outro problema personalizado'
+];
+
+function getEquipmentProblemSuggestions(selectedEquipment) {
+  if (!selectedEquipment) {
+    return [
+      'Equipamento não liga / Sem energia',
+      'Superaquecimento / Ruído excessivo',
+      'Mau contato em cabos ou conectores',
+      'Falha de funcionamento intermitente',
+      'Necessidade de manutenção preventiva / Calibração',
+      'Dano físico / Peça quebrada',
+      'Outro problema personalizado'
+    ];
+  }
+
+  const type = (selectedEquipment.equipment_type || '').toLowerCase();
+  const name = (selectedEquipment.name || '').toLowerCase();
+
+  if (type.includes('impress') || name.includes('impress') || name.includes('epson') || name.includes('hp') || name.includes('zebra')) {
+    return [
+      'Impressora travada / Não imprime',
+      'Atolamento de papel constante',
+      'Qualidade de impressão ruim / Falha de tinta ou toner',
+      'Impressora offline / Não reconhecida na rede',
+      'Necessidade de troca de suprimento / Toner / Fita',
+      'Luz de erro piscando no painel',
+      'Outro problema personalizado'
+    ];
+  }
+
+  if (type.includes('monitor') || name.includes('monitor') || name.includes('tela') || name.includes('display')) {
+    return [
+      'Monitor sem sinal de vídeo',
+      'Tela piscando ou com linhas / faixas',
+      'Monitor não liga / Sem energia',
+      'Cabo HDMI / DisplayPort com mau contato',
+      'Imagem desfocada / Resolução incorreta',
+      'Outro problema personalizado'
+    ];
+  }
+
+  if (type.includes('computador') || type.includes('notebook') || name.includes('computador') || name.includes('notebook') || name.includes('pc') || name.includes('cpu') || name.includes('desktop')) {
+    return [
+      'Computador não liga / Não dá vídeo',
+      'Lentidão extrema / Travando o Windows',
+      'Tela azul / Reiniciando sozinho',
+      'Teclado / Mouse / Leitor com defeito',
+      'Sem acesso à rede local / Wi-Fi',
+      'Barulho excessivo na ventoinha / Cooler',
+      'Outro problema personalizado'
+    ];
+  }
+
+  if (type.includes('balan') || type.includes('clínic') || name.includes('balan') || name.includes('sensor') || name.includes('cardio') || name.includes('eletro')) {
+    return [
+      'Erro de calibração / Leitura oscilando',
+      'Equipamento não liga / Bateria não carrega',
+      'Display apagado / Dígitos falhando',
+      'Cabo de alimentação ou sensor com defeito',
+      'Alarme sonoro / Código de erro no visor',
+      'Outro problema personalizado'
+    ];
+  }
+
+  return [
+    'Equipamento não liga / Sem energia',
+    'Superaquecimento / Ruído excessivo',
+    'Mau contato elétrico ou conector danificado',
+    'Falha de funcionamento intermitente',
+    'Necessidade de calibração / Manutenção preventiva',
+    'Dano físico / Peça quebrada',
+    'Outro problema personalizado'
+  ];
+}
+
 const emptyForm = {
   ticketType: 'equipment',
   companySector: '',
@@ -90,9 +175,41 @@ function Tickets() {
     }
   }
 
+  // Selected equipment object and suggestions
+  const selectedEquipment = useMemo(() => {
+    if (!form.equipmentId) return null;
+    return inventory.find((eq) => String(eq.id) === String(form.equipmentId)) || null;
+  }, [form.equipmentId, inventory]);
+
+  const currentProblemSuggestions = useMemo(() => {
+    if (form.ticketType === 'service') {
+      return SERVICE_PROBLEMS;
+    }
+    return getEquipmentProblemSuggestions(selectedEquipment);
+  }, [form.ticketType, selectedEquipment]);
+
   function updateField(event) {
-    const value = event.target.type === 'file' ? event.target.files[0]?.name ?? '' : event.target.value;
-    setForm({ ...form, [event.target.name]: value });
+    const { name, value, type, files } = event.target;
+    const val = type === 'file' ? files[0]?.name ?? '' : value;
+
+    if (name === 'equipmentId') {
+      const eq = inventory.find((item) => String(item.id) === String(val));
+      setForm((prev) => ({
+        ...prev,
+        equipmentId: val,
+        location: eq?.location ? eq.location : prev.location,
+        companySector: eq?.location && !prev.companySector ? eq.location.split('-')[0].trim() : prev.companySector
+      }));
+    } else if (name === 'ticketType') {
+      setForm((prev) => ({
+        ...prev,
+        ticketType: val,
+        equipmentId: val === 'service' ? '' : prev.equipmentId,
+        relatedProblem: ''
+      }));
+    } else {
+      setForm((prev) => ({ ...prev, [name]: val }));
+    }
     setFeedback('');
   }
 
@@ -667,18 +784,58 @@ function Tickets() {
                 </div>
               </div>
 
-              {/* Problem */}
+              {/* Problem Selection & Suggestions */}
               <div className="inventory-field">
                 <label>
                   Problema relacionado <span className="required">*</span>
                 </label>
-                <input
-                  name="relatedProblem"
-                  value={form.relatedProblem}
-                  onChange={updateField}
-                  placeholder="Ex: Monitor sem sinal de vídeo, Impressora travada"
-                  required
-                />
+                <select
+                  value={currentProblemSuggestions.includes(form.relatedProblem) ? form.relatedProblem : (form.relatedProblem ? 'custom' : '')}
+                  onChange={(e) => {
+                    const chosen = e.target.value;
+                    if (chosen === 'custom' || chosen === 'Outro problema personalizado') {
+                      if (currentProblemSuggestions.includes(form.relatedProblem)) {
+                        setForm({ ...form, relatedProblem: '' });
+                      }
+                    } else {
+                      setForm({ ...form, relatedProblem: chosen });
+                    }
+                  }}
+                  style={{ marginBottom: '8px' }}
+                >
+                  <option value="">Selecione um problema frequente ou escolha "Outro"...</option>
+                  {currentProblemSuggestions.map((prob) => (
+                    <option key={prob} value={prob}>
+                      {prob}
+                    </option>
+                  ))}
+                  <option value="custom">Outro problema (descrever manualmente)...</option>
+                </select>
+
+                {/* Quick Selection Chips */}
+                <div className="ticket-problem-chips">
+                  {currentProblemSuggestions.slice(0, 5).map((prob) => (
+                    <button
+                      key={prob}
+                      type="button"
+                      className={`ticket-problem-chip ${form.relatedProblem === prob ? 'ticket-problem-chip--active' : ''}`}
+                      onClick={() => setForm({ ...form, relatedProblem: prob })}
+                    >
+                      {prob}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Editable Input Box */}
+                <div style={{ marginTop: '8px' }}>
+                  <input
+                    name="relatedProblem"
+                    value={form.relatedProblem}
+                    onChange={updateField}
+                    placeholder="Ou edite/digite o problema relatado..."
+                    required
+                  />
+                </div>
               </div>
 
               {/* Observations */}
