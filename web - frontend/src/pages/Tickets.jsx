@@ -156,6 +156,10 @@ function Tickets() {
 
   useEffect(() => {
     loadData();
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('novo') === '1' || params.get('novo') === 'true') {
+      setIsFormOpen(true);
+    }
   }, []);
 
   async function loadData() {

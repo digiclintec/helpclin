@@ -50,91 +50,6 @@ import {
 } from '../services/api.js';
 import { exportToPdf, exportToXls } from '../utils/exportReport.js';
 
-const SERVICE_PROBLEMS = [
-  'Dificuldades com sistema Clinux',
-  'Lentidão ou travamento no sistema',
-  'Erro de login / Senha bloqueada',
-  'Sem conexão com a internet / Rede oscilando',
-  'Falha na impressão de prontuários / laudos',
-  'Problema no e-mail corporativo',
-  'Instalação / Atualização de software',
-  'Cadastro / Permissão de acesso de usuário',
-  'Outro problema (detalhado nas observações)'
-];
-
-function getEquipmentProblemSuggestions(selectedEquipment) {
-  if (!selectedEquipment) {
-    return [
-      'Equipamento não liga / Sem energia',
-      'Superaquecimento / Ruído excessivo',
-      'Mau contato em cabos ou conectores',
-      'Falha de funcionamento intermitente',
-      'Necessidade de manutenção preventiva / Calibração',
-      'Dano físico / Peça quebrada',
-      'Outro problema (detalhado nas observações)'
-    ];
-  }
-
-  const type = (selectedEquipment.equipment_type || '').toLowerCase();
-  const name = (selectedEquipment.name || '').toLowerCase();
-
-  if (type.includes('impress') || name.includes('impress') || name.includes('epson') || name.includes('hp') || name.includes('zebra')) {
-    return [
-      'Impressora travada / Não imprime',
-      'Atolamento de papel constante',
-      'Qualidade de impressão ruim / Falha de tinta ou toner',
-      'Impressora offline / Não reconhecida na rede',
-      'Necessidade de troca de suprimento / Toner / Fita',
-      'Luz de erro piscando no painel',
-      'Outro problema (detalhado nas observações)'
-    ];
-  }
-
-  if (type.includes('monitor') || name.includes('monitor') || name.includes('tela') || name.includes('display')) {
-    return [
-      'Monitor sem sinal de vídeo',
-      'Tela piscando ou com linhas / faixas',
-      'Monitor não liga / Sem energia',
-      'Cabo HDMI / DisplayPort com mau contato',
-      'Imagem desfocada / Resolução incorreta',
-      'Outro problema (detalhado nas observações)'
-    ];
-  }
-
-  if (type.includes('computador') || type.includes('notebook') || name.includes('computador') || name.includes('notebook') || name.includes('pc') || name.includes('cpu') || name.includes('desktop')) {
-    return [
-      'Computador não liga / Não dá vídeo',
-      'Lentidão extrema / Travando o Windows',
-      'Tela azul / Reiniciando sozinho',
-      'Teclado / Mouse / Leitor com defeito',
-      'Sem acesso à rede local / Wi-Fi',
-      'Barulho excessivo na ventoinha / Cooler',
-      'Outro problema (detalhado nas observações)'
-    ];
-  }
-
-  if (type.includes('balan') || type.includes('clínic') || name.includes('balan') || name.includes('sensor') || name.includes('cardio') || name.includes('eletro')) {
-    return [
-      'Erro de calibração / Leitura oscilando',
-      'Equipamento não liga / Bateria não carrega',
-      'Display apagado / Dígitos falhando',
-      'Cabo de alimentação ou sensor com defeito',
-      'Alarme sonoro / Código de erro no visor',
-      'Outro problema (detalhado nas observações)'
-    ];
-  }
-
-  return [
-    'Equipamento não liga / Sem energia',
-    'Superaquecimento / Ruído excessivo',
-    'Mau contato elétrico ou conector danificado',
-    'Falha de funcionamento intermitente',
-    'Necessidade de calibração / Manutenção preventiva',
-    'Dano físico / Peça quebrada',
-    'Outro problema (detalhado nas observações)'
-  ];
-}
-
 function formatDate(value) {
   if (!value) return '—';
   const date = new Date(value);
@@ -178,18 +93,6 @@ function Dashboard() {
   const [isSaving, setIsSaving] = useState(false);
   const [isNewOrderModalOpen, setIsNewOrderModalOpen] = useState(false);
   const [isNewEquipModalOpen, setIsNewEquipModalOpen] = useState(false);
-  const [isNewTicketModalOpen, setIsNewTicketModalOpen] = useState(false);
-
-  // New Ticket Form state
-  const [newTicket, setNewTicket] = useState({
-    ticketType: 'service',
-    equipmentId: '',
-    companySector: '',
-    priority: 'Normal',
-    relatedProblem: 'Dificuldades com sistema Clinux',
-    observations: '',
-    attachmentName: ''
-  });
 
   // New Order Form state
   const [newOrder, setNewOrder] = useState({
@@ -616,71 +519,6 @@ function Dashboard() {
     }
   }
 
-  // Ticket suggestions and handlers
-  const selectedTicketEquipment = useMemo(() => {
-    if (!newTicket.equipmentId) return null;
-    return inventory.find((eq) => String(eq.id) === String(newTicket.equipmentId)) || null;
-  }, [newTicket.equipmentId, inventory]);
-
-  const currentTicketProblemSuggestions = useMemo(() => {
-    if (newTicket.ticketType === 'service') {
-      return SERVICE_PROBLEMS;
-    }
-    return getEquipmentProblemSuggestions(selectedTicketEquipment);
-  }, [newTicket.ticketType, selectedTicketEquipment]);
-
-  function updateTicketField(event) {
-    const { name, value, type, files } = event.target;
-    const val = type === 'file' ? files[0]?.name ?? '' : value;
-
-    if (name === 'equipmentId') {
-      const eq = inventory.find((item) => String(item.id) === String(val));
-      setNewTicket((prev) => ({
-        ...prev,
-        equipmentId: val,
-        companySector: eq?.location || prev.companySector
-      }));
-    } else if (name === 'ticketType') {
-      setNewTicket((prev) => ({
-        ...prev,
-        ticketType: val,
-        equipmentId: val === 'service' ? '' : prev.equipmentId,
-        relatedProblem: val === 'service' ? 'Dificuldades com sistema Clinux' : ''
-      }));
-    } else {
-      setNewTicket((prev) => ({ ...prev, [name]: val }));
-    }
-  }
-
-  async function handleCreateTicket(event) {
-    event.preventDefault();
-    setIsSaving(true);
-    setErrorMessage('');
-    try {
-      const created = await createSupportTicket({
-        ...newTicket,
-        location: newTicket.companySector,
-        createdBy: user?.id
-      });
-      setTickets([created, ...tickets]);
-      setIsNewTicketModalOpen(false);
-      setNewTicket({
-        ticketType: 'service',
-        equipmentId: '',
-        companySector: '',
-        priority: 'Normal',
-        relatedProblem: 'Dificuldades com sistema Clinux',
-        observations: '',
-        attachmentName: ''
-      });
-      setSuccessMessage(`Chamado OS-${String(created.service_order_number || created.ticket_number || '00001').padStart(5, '0')} criado com sucesso!`);
-    } catch (err) {
-      setErrorMessage(err.message);
-    } finally {
-      setIsSaving(false);
-    }
-  }
-
   return (
     <div className="dash-container">
       {/* 1. TOP HEADER & METRICS BAR */}
@@ -698,10 +536,9 @@ function Dashboard() {
           </div>
 
           <div className="dash-header-actions">
-            <button
-              type="button"
+            <a
+              href="/chamados?novo=1"
               className="primary-button dash-new-ticket-btn"
-              onClick={() => setIsNewTicketModalOpen(true)}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -710,12 +547,13 @@ function Dashboard() {
                 borderRadius: '10px',
                 fontWeight: '700',
                 fontSize: '13px',
+                textDecoration: 'none',
                 boxShadow: '0 4px 14px rgba(231, 131, 104, 0.3)'
               }}
             >
               <Plus size={16} />
               <span>Novo Chamado</span>
-            </button>
+            </a>
           </div>
         </div>
 
@@ -848,11 +686,7 @@ function Dashboard() {
           </div>
         </button>
 
-        <button
-          type="button"
-          className="dash-quick-btn"
-          onClick={() => setIsNewTicketModalOpen(true)}
-        >
+        <a href="/chamados?novo=1" className="dash-quick-btn">
           <div className="dash-quick-icon dash-quick-icon--blue">
             <Headset size={18} />
           </div>
@@ -860,7 +694,7 @@ function Dashboard() {
             <small>Novo</small>
             <strong>Chamado Técnico</strong>
           </div>
-        </button>
+        </a>
 
         <button type="button" className="dash-quick-btn" onClick={() => setIsNewEquipModalOpen(true)}>
           <div className="dash-quick-icon dash-quick-icon--mint">
@@ -1458,202 +1292,6 @@ function Dashboard() {
                 {isSaving ? 'Salvando...' : 'Salvar Alterações'}
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* 4. NEW TICKET MODAL */}
-      {isNewTicketModalOpen && (
-        <div className="inventory-modal-backdrop" onClick={() => setIsNewTicketModalOpen(false)}>
-          <div className="inventory-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '580px' }}>
-            <div className="inventory-modal-header">
-              <div>
-                <span className="inventory-modal-eyebrow">Nova Solicitação</span>
-                <h2>Abertura de Chamado</h2>
-              </div>
-              <button
-                type="button"
-                className="inventory-modal-close"
-                onClick={() => setIsNewTicketModalOpen(false)}
-                aria-label="Fechar"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateTicket} className="inventory-form">
-              {/* Type and Priority */}
-              <div className="inventory-grid-2">
-                <div className="inventory-field">
-                  <label>
-                    Tipo de chamado <span className="required">*</span>
-                  </label>
-                  <select
-                    name="ticketType"
-                    value={newTicket.ticketType}
-                    onChange={updateTicketField}
-                    required
-                  >
-                    <option value="service">Serviço / Software / Rede</option>
-                    <option value="equipment">Equipamento (Hardware)</option>
-                  </select>
-                </div>
-
-                <div className="inventory-field">
-                  <label>
-                    Prioridade <span className="required">*</span>
-                  </label>
-                  <select
-                    name="priority"
-                    value={newTicket.priority}
-                    onChange={updateTicketField}
-                    required
-                  >
-                    <option value="Pouco urgente">Pouco urgente</option>
-                    <option value="Normal">Normal</option>
-                    <option value="Alta">Alta</option>
-                    <option value="Urgente">Urgente</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Equipment (if applicable) */}
-              {newTicket.ticketType === 'equipment' && (
-                <div className="inventory-field">
-                  <label>
-                    Equipamento <span className="required">*</span>
-                  </label>
-                  <select
-                    name="equipmentId"
-                    value={newTicket.equipmentId}
-                    onChange={updateTicketField}
-                    required
-                  >
-                    <option value="">Selecione o equipamento cadastrado</option>
-                    {inventory.map((eq) => (
-                      <option key={eq.id} value={eq.id}>
-                        {eq.name} — {eq.location || 'Sem local'} (S/N: {eq.serial_number || 'N/A'})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {/* Sector */}
-              <div className="inventory-field">
-                <label>
-                  Setor <span className="required">*</span>
-                </label>
-                <input
-                  name="companySector"
-                  value={newTicket.companySector}
-                  onChange={updateTicketField}
-                  placeholder="Ex: Recepção, Consultório 1, Triagem..."
-                  required
-                />
-              </div>
-
-              {/* Problem Selection & Suggestions */}
-              <div className="inventory-field">
-                <label>
-                  Problema relacionado <span className="required">*</span>
-                </label>
-                <select
-                  name="relatedProblem"
-                  value={newTicket.relatedProblem}
-                  onChange={updateTicketField}
-                  required
-                >
-                  <option value="">Selecione o problema relacionado...</option>
-                  {currentTicketProblemSuggestions.map((prob) => (
-                    <option key={prob} value={prob}>
-                      {prob}
-                    </option>
-                  ))}
-                  {!currentTicketProblemSuggestions.includes('Outro problema (detalhado nas observações)') && (
-                    <option value="Outro problema (detalhado nas observações)">
-                      Outro problema (detalhado nas observações)
-                    </option>
-                  )}
-                </select>
-
-                {/* Quick Selection Chips */}
-                <div className="ticket-problem-chips">
-                  {currentTicketProblemSuggestions.slice(0, 5).map((prob) => (
-                    <button
-                      key={prob}
-                      type="button"
-                      className={`ticket-problem-chip ${newTicket.relatedProblem === prob ? 'ticket-problem-chip--active' : ''}`}
-                      onClick={() => setNewTicket({ ...newTicket, relatedProblem: prob })}
-                    >
-                      {prob}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Observations */}
-              <div className="inventory-field">
-                <label>
-                  Observações detalhadas <span className="required">*</span>
-                </label>
-                <textarea
-                  name="observations"
-                  value={newTicket.observations}
-                  onChange={updateTicketField}
-                  placeholder="Descreva o que ocorreu com o máximo de detalhes..."
-                  rows={3}
-                  required
-                  style={{
-                    width: '100%',
-                    padding: '12px 14px',
-                    border: '1px solid var(--line)',
-                    borderRadius: '10px',
-                    outline: '0',
-                    color: 'var(--teal)',
-                    background: '#fbfcfa',
-                    fontFamily: 'inherit',
-                    fontSize: '13px'
-                  }}
-                />
-              </div>
-
-              {/* Attachment */}
-              <div className="inventory-field">
-                <label>Anexo (Opcional)</label>
-                <div className="inventory-file-drop">
-                  <input
-                    type="file"
-                    name="attachment"
-                    id="dashTicketAttachment"
-                    onChange={updateTicketField}
-                    style={{ display: 'none' }}
-                  />
-                  <label htmlFor="dashTicketAttachment" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-                    <FileText size={16} />
-                    <span>{newTicket.attachmentName || 'Clique para selecionar um arquivo'}</span>
-                  </label>
-                </div>
-              </div>
-
-              {/* Submit Buttons */}
-              <div className="inventory-form-actions" style={{ marginTop: '12px' }}>
-                <button
-                  type="button"
-                  className="secondary-button"
-                  onClick={() => setIsNewTicketModalOpen(false)}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="primary-button"
-                  disabled={isSaving}
-                >
-                  {isSaving ? 'Abrindo chamado...' : 'Abrir Chamado'}
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}
