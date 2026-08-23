@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- Background Gradient -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#123B3D" />
+      <stop offset="100%" stop-color="#0B2426" />
+    </linearGradient>
+
+    <!-- Coral Glow Gradient -->
+    <linearGradient id="coralGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF9B82" />
+      <stop offset="50%" stop-color="#F87C60" />
+      <stop offset="100%" stop-color="#E76A4B" />
+    </linearGradient>
+
+    <!-- Teal/Mint Accent Gradient -->
+    <linearGradient id="mintGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#5CE1E6" />
+      <stop offset="100%" stop-color="#38D39F" />
+    </linearGradient>
+
+    <!-- Shadow filter for depth -->
+    <filter id="dropShadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="16" stdDeviation="20" flood-color="#000000" flood-opacity="0.35" />
+    </filter>
+
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#F87C60" flood-opacity="0.4" />
+    </filter>
+  </defs>
+
+  <!-- Base Squircle Container -->
+  <rect x="24" y="24" width="464" height="464" rx="128" fill="url(#bgGrad)" filter="url(#dropShadow)" />
+
+  <!-- Subtle Inner Border -->
+  <rect x="28" y="28" width="456" height="456" rx="124" fill="none" stroke="rgba(255, 255, 255, 0.12)" stroke-width="6" />
+
+  <!-- Dynamic Corner Accent Pill -->
+  <circle cx="400" cy="112" r="28" fill="url(#mintGrad)" />
+
+  <!-- Main 'H' & Medical Cross Emblem -->
+  <g filter="url(#glow)">
+    <!-- Left Column of 'H' -->
+    <rect x="110" y="116" width="68" height="280" rx="34" fill="url(#coralGrad)" />
+
+    <!-- Right Column of 'H' -->
+    <rect x="334" y="116" width="68" height="280" rx="34" fill="url(#coralGrad)" />
+
+    <!-- Horizontal Bar of 'H' intersecting with medical cross center -->
+    <rect x="140" y="222" width="232" height="68" rx="34" fill="url(#coralGrad)" />
+
+    <!-- Central Medical Plus / Sparkle Accent in Pure White / Mint -->
+    <g transform="translate(256, 256)">
+      <!-- Vertical pulse bar -->
+      <rect x="-14" y="-52" width="28" height="104" rx="14" fill="#FFFFFF" />
+      <!-- Horizontal pulse bar -->
+      <rect x="-52" y="-14" width="104" height="28" rx="14" fill="#FFFFFF" />
+      <!-- Center dot -->
+      <circle cx="0" cy="0" r="10" fill="#123B3D" />
+    </g>
+  </g>
+</svg>

@@ -572,9 +572,9 @@ button { font: inherit; cursor: pointer; }
   align-items: center;
   justify-content: space-between;
   gap: 20px;
-  flex-wrap: wrap;
-  padding-bottom: 18px;
+  padding-bottom: 16px;
   border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
 }
 
 .dash-title-group {
@@ -605,7 +605,7 @@ button { font: inherit; cursor: pointer; }
   color: var(--teal);
   font-family: 'Manrope', sans-serif;
   font-weight: 800;
-  font-size: clamp(22px, 2.4vw, 30px);
+  font-size: clamp(22px, 2.4vw, 28px);
   letter-spacing: -0.04em;
 }
 
@@ -619,11 +619,34 @@ button { font: inherit; cursor: pointer; }
   letter-spacing: 0.02em;
 }
 
+.dash-subtitle {
+  margin: 0;
+  font-size: 12px;
+  color: #6f7f7c;
+  font-weight: 500;
+}
+
+.dash-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Header Bottom Bar: Tabs & Quick Metric Pills */
+.dash-header-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
 .dash-header-meta {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 8px;
   flex-wrap: wrap;
+  padding: 8px 0;
 }
 
 .dash-meta-item {
@@ -632,34 +655,36 @@ button { font: inherit; cursor: pointer; }
   gap: 6px;
   background: #f8faf8;
   border: 1px solid var(--line);
-  padding: 8px 12px;
-  border-radius: 9px;
-  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 11px;
   color: #637772;
+  font-weight: 500;
 }
 
 .dash-meta-item svg {
   color: #397c65;
+  flex-shrink: 0;
 }
 
 .dash-meta-item strong {
   color: var(--teal);
-  font-weight: 800;
+  font-weight: 700;
 }
 
 /* Nav Sub-Tabs */
 .dash-nav-tabs {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   overflow-x: auto;
-  padding-top: 10px;
+  -webkit-overflow-scrolling: touch;
 }
 
 .dash-tab-btn {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 18px;
+  padding: 12px 16px;
   background: transparent;
   border: 0;
   border-bottom: 2px solid transparent;
@@ -669,6 +694,7 @@ button { font: inherit; cursor: pointer; }
   cursor: pointer;
   white-space: nowrap;
   transition: all 0.2s ease;
+  text-decoration: none;
 }
 
 .dash-tab-btn:hover {

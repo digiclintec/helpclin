@@ -532,61 +532,66 @@ function Dashboard() {
               <h1>PAINEL DE CONTROLE</h1>
               <span className="dash-clinic-badge">HelpClin</span>
             </div>
+            <p className="dash-subtitle">Visão geral e indicadores operacionais em tempo real.</p>
           </div>
 
-          <div className="dash-header-meta">
-            <div className="dash-meta-item" title="Total de equipamentos cadastrados">
-              <Monitor size={15} />
-              <span>Equipamentos:</span>
-              <strong>{kpis.totalEquipments}</strong>
-            </div>
-            <div className="dash-meta-item" title="Empresas e setores cadastrados">
-              <Building2 size={15} />
-              <span>Setores:</span>
-              <strong>{kpis.totalSectors}</strong>
-            </div>
-            <div className="dash-meta-item" title="Usuários ativos">
-              <Users size={15} />
-              <span>Equipe:</span>
-              <strong>{kpis.totalTeam}</strong>
-            </div>
-            <div className="dash-meta-item" title="Taxa de conclusão de ordens">
-              <CheckCircle2 size={15} />
-              <span>Taxa de Conclusão:</span>
-              <strong>{kpis.orderCompletionRate}%</strong>
-            </div>
-
+          <div className="dash-header-actions">
             <ExportDropdown onExportXls={handleExportXls} onExportPdf={handleExportPdf} label="Exportar Relatório" />
           </div>
         </div>
 
-        {/* 2. SUB NAVIGATION TABS */}
-        <nav className="dash-nav-tabs">
-          <button
-            type="button"
-            className={`dash-tab-btn ${activeTab === 'geral' ? 'dash-tab-btn--active' : ''}`}
-            onClick={() => setActiveTab('geral')}
-          >
-            <BarChart3 size={16} />
-            <span>Visão Geral & Relatórios</span>
-          </button>
-          <a
-            href="/ordens"
-            className="dash-tab-btn"
-            title="Ir para a tela de Ordens de Serviço"
-          >
-            <FileText size={16} />
-            <span>Ordens de Serviço ({orders.length})</span>
-          </a>
-          <button
-            type="button"
-            className={`dash-tab-btn ${activeTab === 'atividades' ? 'dash-tab-btn--active' : ''}`}
-            onClick={() => setActiveTab('atividades')}
-          >
-            <Activity size={16} />
-            <span>Histórico de Atividades</span>
-          </button>
-        </nav>
+        {/* 2. SUB NAVIGATION TABS & QUICK STATS */}
+        <div className="dash-header-bottom">
+          <nav className="dash-nav-tabs">
+            <button
+              type="button"
+              className={`dash-tab-btn ${activeTab === 'geral' ? 'dash-tab-btn--active' : ''}`}
+              onClick={() => setActiveTab('geral')}
+            >
+              <BarChart3 size={16} />
+              <span>Visão Geral & Relatórios</span>
+            </button>
+            <a
+              href="/ordens"
+              className="dash-tab-btn"
+              title="Ir para a tela de Ordens de Serviço"
+            >
+              <FileText size={16} />
+              <span>Ordens de Serviço ({orders.length})</span>
+            </a>
+            <button
+              type="button"
+              className={`dash-tab-btn ${activeTab === 'atividades' ? 'dash-tab-btn--active' : ''}`}
+              onClick={() => setActiveTab('atividades')}
+            >
+              <Activity size={16} />
+              <span>Histórico de Atividades</span>
+            </button>
+          </nav>
+
+          <div className="dash-header-meta">
+            <div className="dash-meta-item" title="Total de equipamentos cadastrados">
+              <Laptop size={14} />
+              <span>Equipamentos:</span>
+              <strong>{kpis.totalEquipments}</strong>
+            </div>
+            <div className="dash-meta-item" title="Setores cadastrados">
+              <Building2 size={14} />
+              <span>Setores:</span>
+              <strong>{kpis.totalSectors}</strong>
+            </div>
+            <div className="dash-meta-item" title="Usuários ativos">
+              <Users size={14} />
+              <span>Equipe:</span>
+              <strong>{kpis.totalTeam}</strong>
+            </div>
+            <div className="dash-meta-item" title="Taxa de conclusão de ordens">
+              <CheckCircle2 size={14} />
+              <span>Taxa de Conclusão:</span>
+              <strong>{kpis.orderCompletionRate}%</strong>
+            </div>
+          </div>
+        </div>
       </header>
 
       {/* Messages */}
@@ -676,7 +681,7 @@ function Dashboard() {
 
         <button type="button" className="dash-quick-btn" onClick={() => setIsNewEquipModalOpen(true)}>
           <div className="dash-quick-icon dash-quick-icon--mint">
-            <Stethoscope size={18} />
+            <Laptop size={18} />
           </div>
           <div className="dash-quick-info">
             <small>Novo</small>
