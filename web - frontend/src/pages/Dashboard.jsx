@@ -534,10 +534,6 @@ function Dashboard() {
             </div>
             <p className="dash-subtitle">Visão geral e indicadores operacionais em tempo real.</p>
           </div>
-
-          <div className="dash-header-actions">
-            <ExportDropdown onExportXls={handleExportXls} onExportPdf={handleExportPdf} label="Exportar Relatório" />
-          </div>
         </div>
 
         {/* 2. SUB NAVIGATION TABS & QUICK STATS */}
@@ -880,7 +876,6 @@ function Dashboard() {
                 <h2>Últimas Ordens de Serviço</h2>
               </div>
               <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                <ExportDropdown onExportXls={handleExportXls} onExportPdf={handleExportPdf} label="Exportar" />
                 <a
                   href="/ordens"
                   className="secondary-button"
