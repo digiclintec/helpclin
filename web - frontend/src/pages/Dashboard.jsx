@@ -526,7 +526,7 @@ function Dashboard() {
         <div className="dash-header-main">
           <div className="dash-title-group">
             <span className="dash-eyebrow">
-              <Sparkles size={13} /> Sistema de Gestão & Engenharia Clínica
+              <Sparkles size={13} /> Sistema de Gestão de Atendimento
             </span>
             <div className="dash-heading-row">
               <h1>PAINEL DE CONTROLE</h1>
