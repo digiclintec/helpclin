@@ -197,8 +197,8 @@ function Tickets() {
       setForm((prev) => ({
         ...prev,
         equipmentId: val,
-        location: eq?.location ? eq.location : prev.location,
-        companySector: eq?.location && !prev.companySector ? eq.location.split('-')[0].trim() : prev.companySector
+        companySector: eq?.location || prev.companySector,
+        location: eq?.location || prev.location
       }));
     } else if (name === 'ticketType') {
       setForm((prev) => ({
@@ -218,7 +218,11 @@ function Tickets() {
     setIsSaving(true);
     setFeedback('');
     try {
-      const ticket = await createSupportTicket({ ...form, createdBy: user?.id });
+      const ticket = await createSupportTicket({
+        ...form,
+        location: form.location || form.companySector,
+        createdBy: user?.id
+      });
       setTickets([ticket, ...tickets]);
       setForm(emptyForm);
       setIsFormOpen(false);
@@ -546,7 +550,7 @@ function Tickets() {
                 <tr>
                   <th style={{ width: '120px' }}>Prioridade</th>
                   <th style={{ width: '100px' }}>OS / Protocolo</th>
-                  <th>Empresa / Setor</th>
+                  <th>Setor</th>
                   <th>Ativo / Serviço</th>
                   <th>Responsável</th>
                   <th>Problema Relatado</th>
@@ -756,32 +760,18 @@ function Tickets() {
                 </div>
               )}
 
-              {/* Company / Sector & Location */}
-              <div className="inventory-grid-2">
-                <div className="inventory-field">
-                  <label>
-                    Empresa / Setor <span className="required">*</span>
-                  </label>
-                  <input
-                    name="companySector"
-                    value={form.companySector}
-                    onChange={updateField}
-                    placeholder="Ex: UTIN - Hospital Geral"
-                    required
-                  />
-                </div>
-                <div className="inventory-field">
-                  <label>
-                    Localização <span className="required">*</span>
-                  </label>
-                  <input
-                    name="location"
-                    value={form.location}
-                    onChange={updateField}
-                    placeholder="Ex: Consultório 03, Bloco B"
-                    required
-                  />
-                </div>
+              {/* Sector */}
+              <div className="inventory-field">
+                <label>
+                  Setor <span className="required">*</span>
+                </label>
+                <input
+                  name="companySector"
+                  value={form.companySector}
+                  onChange={updateField}
+                  placeholder="Ex: Recepção, Consultório 1, Triagem..."
+                  required
+                />
               </div>
 
               {/* Problem Selection & Suggestions */}
