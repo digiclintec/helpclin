@@ -36,7 +36,7 @@ const SERVICE_PROBLEMS = [
   'Problema no e-mail corporativo',
   'Instalação / Atualização de software',
   'Cadastro / Permissão de acesso de usuário',
-  'Outro problema personalizado'
+  'Outro problema (detalhado nas observações)'
 ];
 
 function getEquipmentProblemSuggestions(selectedEquipment) {
@@ -48,7 +48,7 @@ function getEquipmentProblemSuggestions(selectedEquipment) {
       'Falha de funcionamento intermitente',
       'Necessidade de manutenção preventiva / Calibração',
       'Dano físico / Peça quebrada',
-      'Outro problema personalizado'
+      'Outro problema (detalhado nas observações)'
     ];
   }
 
@@ -63,7 +63,7 @@ function getEquipmentProblemSuggestions(selectedEquipment) {
       'Impressora offline / Não reconhecida na rede',
       'Necessidade de troca de suprimento / Toner / Fita',
       'Luz de erro piscando no painel',
-      'Outro problema personalizado'
+      'Outro problema (detalhado nas observações)'
     ];
   }
 
@@ -74,7 +74,7 @@ function getEquipmentProblemSuggestions(selectedEquipment) {
       'Monitor não liga / Sem energia',
       'Cabo HDMI / DisplayPort com mau contato',
       'Imagem desfocada / Resolução incorreta',
-      'Outro problema personalizado'
+      'Outro problema (detalhado nas observações)'
     ];
   }
 
@@ -86,7 +86,7 @@ function getEquipmentProblemSuggestions(selectedEquipment) {
       'Teclado / Mouse / Leitor com defeito',
       'Sem acesso à rede local / Wi-Fi',
       'Barulho excessivo na ventoinha / Cooler',
-      'Outro problema personalizado'
+      'Outro problema (detalhado nas observações)'
     ];
   }
 
@@ -97,7 +97,7 @@ function getEquipmentProblemSuggestions(selectedEquipment) {
       'Display apagado / Dígitos falhando',
       'Cabo de alimentação ou sensor com defeito',
       'Alarme sonoro / Código de erro no visor',
-      'Outro problema personalizado'
+      'Outro problema (detalhado nas observações)'
     ];
   }
 
@@ -108,7 +108,7 @@ function getEquipmentProblemSuggestions(selectedEquipment) {
     'Falha de funcionamento intermitente',
     'Necessidade de calibração / Manutenção preventiva',
     'Dano físico / Peça quebrada',
-    'Outro problema personalizado'
+    'Outro problema (detalhado nas observações)'
   ];
 }
 
@@ -790,26 +790,22 @@ function Tickets() {
                   Problema relacionado <span className="required">*</span>
                 </label>
                 <select
-                  value={currentProblemSuggestions.includes(form.relatedProblem) ? form.relatedProblem : (form.relatedProblem ? 'custom' : '')}
-                  onChange={(e) => {
-                    const chosen = e.target.value;
-                    if (chosen === 'custom' || chosen === 'Outro problema personalizado') {
-                      if (currentProblemSuggestions.includes(form.relatedProblem)) {
-                        setForm({ ...form, relatedProblem: '' });
-                      }
-                    } else {
-                      setForm({ ...form, relatedProblem: chosen });
-                    }
-                  }}
-                  style={{ marginBottom: '8px' }}
+                  name="relatedProblem"
+                  value={form.relatedProblem}
+                  onChange={updateField}
+                  required
                 >
-                  <option value="">Selecione um problema frequente ou escolha "Outro"...</option>
+                  <option value="">Selecione o problema relacionado...</option>
                   {currentProblemSuggestions.map((prob) => (
                     <option key={prob} value={prob}>
                       {prob}
                     </option>
                   ))}
-                  <option value="custom">Outro problema (descrever manualmente)...</option>
+                  {!currentProblemSuggestions.includes('Outro problema (detalhado nas observações)') && (
+                    <option value="Outro problema (detalhado nas observações)">
+                      Outro problema (detalhado nas observações)
+                    </option>
+                  )}
                 </select>
 
                 {/* Quick Selection Chips */}
@@ -824,17 +820,6 @@ function Tickets() {
                       {prob}
                     </button>
                   ))}
-                </div>
-
-                {/* Editable Input Box */}
-                <div style={{ marginTop: '8px' }}>
-                  <input
-                    name="relatedProblem"
-                    value={form.relatedProblem}
-                    onChange={updateField}
-                    placeholder="Ou edite/digite o problema relatado..."
-                    required
-                  />
                 </div>
               </div>
 
