@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 
 function ExportDropdown({ onExportXls, onExportPdf, label = 'Exportar Relatório' }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [alignRight, setAlignRight] = useState(false);
   const dropdownRef = useRef(null);
 
   useEffect(() => {
@@ -15,133 +16,67 @@ function ExportDropdown({ onExportXls, onExportPdf, label = 'Exportar Relatório
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Compute best positioning when opened
+  useEffect(() => {
+    if (isOpen && dropdownRef.current) {
+      const rect = dropdownRef.current.getBoundingClientRect();
+      const screenWidth = window.innerWidth;
+      // If there's less than 240px to the right of the button, align right, otherwise align left
+      const spaceOnRight = screenWidth - rect.left;
+      if (spaceOnRight < 240 && rect.right > 240) {
+        setAlignRight(true);
+      } else {
+        setAlignRight(false);
+      }
+    }
+  }, [isOpen]);
+
   return (
-    <div style={{ position: 'relative', display: 'inline-block' }} ref={dropdownRef}>
+    <div className="export-dropdown-wrapper" ref={dropdownRef}>
       <button
         type="button"
-        className="secondary-button"
+        className="export-dropdown-trigger secondary-button"
         onClick={() => setIsOpen(!isOpen)}
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '8px',
-          height: '44px',
-          padding: '0 16px',
-          background: '#ffffff',
-          borderColor: 'var(--line)',
-          color: 'var(--teal)',
-          fontWeight: 700,
-          fontSize: '13px',
-          borderRadius: '10px'
-        }}
+        aria-expanded={isOpen}
       >
-        <Download size={16} color="var(--coral)" />
+        <Download size={16} className="export-dropdown-icon" />
         <span>{label}</span>
-        <ChevronDown size={14} style={{ transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+        <ChevronDown size={14} className={`export-dropdown-chevron ${isOpen ? 'export-dropdown-chevron--open' : ''}`} />
       </button>
 
       {isOpen && (
-        <div
-          style={{
-            position: 'absolute',
-            top: 'calc(100% + 6px)',
-            right: 0,
-            zIndex: 150,
-            width: '230px',
-            backgroundColor: '#ffffff',
-            borderRadius: '12px',
-            border: '1px solid var(--line)',
-            boxShadow: '0 14px 30px rgba(18, 59, 61, 0.15)',
-            padding: '6px',
-            animation: 'modalFadeIn 0.15s ease'
-          }}
-        >
+        <div className={`export-dropdown-panel ${alignRight ? 'export-dropdown-panel--right' : 'export-dropdown-panel--left'}`}>
           <button
             type="button"
+            className="export-dropdown-item"
             onClick={() => {
               setIsOpen(false);
               onExportXls();
             }}
-            style={{
-              width: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              padding: '10px 12px',
-              border: 0,
-              borderRadius: '8px',
-              backgroundColor: 'transparent',
-              color: 'var(--teal)',
-              fontSize: '13px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              textAlign: 'left',
-              transition: 'background-color 0.15s'
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#e8f5e9')}
-            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
           >
-            <div
-              style={{
-                display: 'grid',
-                placeItems: 'center',
-                width: '28px',
-                height: '28px',
-                borderRadius: '6px',
-                background: '#e8f5e9',
-                color: '#2e7d32'
-              }}
-            >
+            <div className="export-dropdown-item-icon export-dropdown-item-icon--excel">
               <FileSpreadsheet size={16} />
             </div>
-            <div>
-              <strong style={{ display: 'block', fontSize: '13px' }}>Planilha Excel</strong>
-              <small style={{ color: '#6f7f7c', fontSize: '11px' }}>Formato .XLS compatível</small>
+            <div className="export-dropdown-item-content">
+              <strong>Planilha Excel</strong>
+              <small>Formato .XLS compatível</small>
             </div>
           </button>
 
           <button
             type="button"
+            className="export-dropdown-item"
             onClick={() => {
               setIsOpen(false);
               onExportPdf();
             }}
-            style={{
-              width: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              padding: '10px 12px',
-              border: 0,
-              borderRadius: '8px',
-              backgroundColor: 'transparent',
-              color: 'var(--teal)',
-              fontSize: '13px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              textAlign: 'left',
-              marginTop: '4px',
-              transition: 'background-color 0.15s'
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#fbe4dd')}
-            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
           >
-            <div
-              style={{
-                display: 'grid',
-                placeItems: 'center',
-                width: '28px',
-                height: '28px',
-                borderRadius: '6px',
-                background: '#fbe4dd',
-                color: 'var(--coral)'
-              }}
-            >
+            <div className="export-dropdown-item-icon export-dropdown-item-icon--pdf">
               <FileText size={16} />
             </div>
-            <div>
-              <strong style={{ display: 'block', fontSize: '13px' }}>Documento PDF</strong>
-              <small style={{ color: '#6f7f7c', fontSize: '11px' }}>Impressão / Salvar em PDF</small>
+            <div className="export-dropdown-item-content">
+              <strong>Documento PDF</strong>
+              <small>Visualizar / Imprimir PDF</small>
             </div>
           </button>
         </div>
@@ -151,3 +86,4 @@ function ExportDropdown({ onExportXls, onExportPdf, label = 'Exportar Relatório
 }
 
 export default ExportDropdown;
+

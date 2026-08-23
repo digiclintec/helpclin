@@ -229,10 +229,20 @@ function Dashboard() {
     });
 
     tickets.slice(0, 8).forEach((t) => {
+      const ticketNum = t.service_order_number 
+        ? `OS-${String(t.service_order_number).padStart(5, '0')}` 
+        : t.ticket_number 
+        ? `#${String(t.ticket_number).padStart(5, '0')}` 
+        : typeof t.id === 'string' && t.id.length > 8 
+        ? `#${t.id.slice(0, 8).toUpperCase()}` 
+        : `#${t.id || '00001'}`;
+
+      const problemTitle = t.related_problem || t.title || t.equipment_name || 'Solicitação de suporte';
+
       list.push({
         id: `ticket-${t.id}`,
         type: 'ticket',
-        title: `Chamado #${t.id}: ${t.related_problem || t.title || 'Solicitação de suporte'}`,
+        title: `Chamado ${ticketNum}: ${problemTitle}`,
         action: t.status === 'resolved' ? 'Resolvido' : t.status === 'in_progress' ? 'Em atendimento' : 'Aberto',
         user: t.assigned_to_name || t.requester || 'Equipe Clínica',
         date: t.created_at,

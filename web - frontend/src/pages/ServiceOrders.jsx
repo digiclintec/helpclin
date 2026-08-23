@@ -285,7 +285,7 @@ function ServiceOrders() {
           <h1>Ordens de Serviço</h1>
           <p>Consulte, gerencie e atualize as ordens de serviço geradas a partir dos chamados técnicos.</p>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div className="simple-page-actions">
           <ExportDropdown onExportXls={handleExportXls} onExportPdf={handleExportPdf} />
           <div className="work-order-user" style={{ margin: 0 }}>
             <span>Usuário:</span>
