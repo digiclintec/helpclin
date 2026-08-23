@@ -42,7 +42,7 @@ function AdminLogin() {
           <div className="login-card-icon"><LockKeyhole size={20} /></div>
           <p className="eyebrow">Acesso seguro</p>
           <h2 id="login-title">Bem-vindo de volta</h2>
-          <p className="login-description">Entre na sua conta para acessar o painel da sua clínica.</p>
+          <p className="login-description">Entre na sua conta para acessar o painel de Chamados.</p>
           <form onSubmit={handleSubmit}>
             <label htmlFor="email">E-mail profissional</label>
             <input id="email" name="email" type="email" placeholder="voce@suaclinica.com.br" autoComplete="email" value={form.email} onChange={updateField} required />
