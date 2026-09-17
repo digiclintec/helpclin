@@ -48,6 +48,14 @@ import {
   getSupportTickets,
   updateServiceOrder
 } from '../services/api.js';
+import {
+  getDaysSinceCompletion,
+  getEffectiveOrderStatus,
+  getOrderStatusBadgeClass,
+  getOrderStatusLabel,
+  isBillingPending,
+  isBilled
+} from '../utils/billingUtils.js';
 import { exportToPdf, exportToXls } from '../utils/exportReport.js';
 
 function formatDate(value) {
@@ -153,17 +161,22 @@ function Dashboard() {
     let openCount = 0;
     let inProgressCount = 0;
     let completedCount = 0;
+    let billingPendingCount = 0;
+    let billedCount = 0;
     let urgentCount = 0;
 
     orders.forEach((o) => {
-      if (o.status === 'open') openCount++;
-      if (o.status === 'in_progress') inProgressCount++;
-      if (o.status === 'completed') completedCount++;
+      const effective = getEffectiveOrderStatus(o);
+      if (effective === 'open') openCount++;
+      if (effective === 'in_progress') inProgressCount++;
+      if (effective === 'completed') completedCount++;
+      if (effective === 'billing_pending') billingPendingCount++;
+      if (effective === 'billed') billedCount++;
 
       const p = (o.priority || '').toLowerCase();
       const createdAt = new Date(o.created_at);
       const hoursOld = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60);
-      if (o.status !== 'completed' && (p === 'urgent' || p === 'high' || hoursOld > 24)) {
+      if (effective !== 'completed' && effective !== 'billed' && (p === 'urgent' || p === 'high' || hoursOld > 24)) {
         urgentCount++;
       }
     });
@@ -173,7 +186,7 @@ function Dashboard() {
     const resolvedTickets = tickets.filter((t) => t.status === 'resolved').length;
     const activeTickets = tickets.filter((t) => t.status !== 'resolved').length;
     const ticketResolutionRate = tickets.length ? Math.round((resolvedTickets / tickets.length) * 100) : 0;
-    const orderCompletionRate = totalOrders ? Math.round((completedCount / totalOrders) * 100) : 0;
+    const orderCompletionRate = totalOrders ? Math.round(((completedCount + billingPendingCount + billedCount) / totalOrders) * 100) : 0;
 
     // Unique sectors / locations from actual data
     const sectorsSet = new Set();
@@ -200,6 +213,8 @@ function Dashboard() {
       open: openCount,
       inProgress: inProgressCount,
       completed: completedCount,
+      billingPending: billingPendingCount,
+      billed: billedCount,
       urgent: urgentCount,
       orderCompletionRate,
       totalEquipments: inventory.length,
@@ -615,6 +630,26 @@ function Dashboard() {
       {successMessage && <div className="dash-alert dash-alert--success">{successMessage}</div>}
       {errorMessage && <div className="dash-alert dash-alert--error">{errorMessage}</div>}
 
+      {/* Freelancer Billing Alert Banner */}
+      {kpis.billingPending > 0 && (
+        <div className="billing-client-alert" style={{ margin: '0 24px 20px 24px' }}>
+          <AlertCircle size={22} style={{ color: '#b45309', flexShrink: 0, marginTop: '2px' }} />
+          <div style={{ flex: 1 }}>
+            <strong>Atenção Freelancer: {kpis.billingPending} Ordem{kpis.billingPending > 1 ? 'ns' : ''} com Pendência de Faturamento</strong>
+            <p>
+              Existem ordens concluídas há mais de 2 dias sem confirmação de pagamento. Os clientes já estão informados na central e o acesso de edição dos técnicos permanece bloqueado até você faturar.
+            </p>
+          </div>
+          <a
+            href="/ordens"
+            className="billing-quick-bill-btn"
+            style={{ textDecoration: 'none' }}
+          >
+            Ver e Faturar Ordens
+          </a>
+        </div>
+      )}
+
       {/* 3. TOP KPI SUMMARY CARDS */}
       <section className="dash-kpi-row">
         <article className="dash-kpi-card dash-kpi-card--primary">
@@ -645,17 +680,20 @@ function Dashboard() {
           </div>
         </article>
 
-        <article className="dash-kpi-card">
+        <article className="dash-kpi-card" style={kpis.billingPending > 0 ? { borderLeft: '3px solid #d97706' } : {}}>
           <div className="dash-kpi-header">
-            <span className="dash-kpi-label">OS's Finalizadas</span>
-            <div className="dash-kpi-icon-pill dash-kpi-icon-pill--teal">
-              <FileCheck2 size={16} />
+            <span className="dash-kpi-label" style={kpis.billingPending > 0 ? { color: '#b45309' } : {}}>
+              Faturamento Pendente
+            </span>
+            <div className="dash-kpi-icon-pill" style={kpis.billingPending > 0 ? { background: '#fef3c7', color: '#b45309' } : {}}>
+              <Clock size={16} />
             </div>
           </div>
-          <strong className="dash-kpi-value">{kpis.completed}</strong>
-          <div className="dash-kpi-trend dash-kpi-trend--positive">
-            <TrendingUp size={12} />
-            <span>{kpis.orderCompletionRate}% taxa de conclusão</span>
+          <strong className="dash-kpi-value" style={kpis.billingPending > 0 ? { color: '#b45309' } : {}}>
+            {kpis.billingPending}
+          </strong>
+          <div className="dash-kpi-trend" style={{ color: '#92400e' }}>
+            <span>Concluídas há &gt; 2 dias ({kpis.billed} faturadas)</span>
           </div>
         </article>
 
@@ -940,9 +978,14 @@ function Dashboard() {
                           </strong>
                         </td>
                         <td>
-                          <span className={`os-status-badge ${getStatusBadgeClass(order.status)}`}>
-                            {getStatusLabel(order.status)}
-                          </span>
+                          {(() => {
+                            const effective = getEffectiveOrderStatus(order);
+                            return (
+                              <span className={`os-status-badge ${getOrderStatusBadgeClass(effective)}`}>
+                                {getOrderStatusLabel(effective)}
+                              </span>
+                            );
+                          })()}
                         </td>
                         <td>{order.patient_name || 'Setor Geral'}</td>
                         <td>{order.equipment_name || 'Serviço Geral'}</td>

@@ -9,7 +9,7 @@ router.get('/', async (_request, response) => {
   try {
     const result = await pool.query(
       `SELECT st.id, st.ticket_number, st.service_order_number, st.title, st.requester, st.ticket_type, st.company_sector, st.location, st.related_problem, st.observations, st.attachment_name, st.priority, st.status, st.created_at, st.assigned_to, assigned.name AS assigned_to_name, st.equipment_id, eq.name AS equipment_name,
-              so.service_performed_description, so.service_requested_description, so.status AS service_order_status
+              so.id AS service_order_id, so.service_performed_description, so.service_requested_description, so.status AS service_order_status, so.completed_at AS service_order_completed_at, so.billed_at AS service_order_billed_at, so.updated_at AS service_order_updated_at
        FROM support_tickets st
        LEFT JOIN users assigned ON assigned.id = st.assigned_to
        LEFT JOIN inventory_equipments eq ON eq.id = st.equipment_id

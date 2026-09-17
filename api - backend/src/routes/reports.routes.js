@@ -7,7 +7,7 @@ const router = Router();
 router.get('/summary', async (_request, response) => {
   try {
     const [orders, tickets, weekly] = await Promise.all([
-      pool.query(`SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE status = 'open')::int AS open, COUNT(*) FILTER (WHERE status = 'in_progress')::int AS in_progress, COUNT(*) FILTER (WHERE status = 'completed')::int AS completed FROM service_orders`),
+      pool.query(`SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE status = 'open')::int AS open, COUNT(*) FILTER (WHERE status = 'in_progress')::int AS in_progress, COUNT(*) FILTER (WHERE status = 'completed')::int AS completed, COUNT(*) FILTER (WHERE status = 'billing_pending')::int AS billing_pending, COUNT(*) FILTER (WHERE status = 'billed')::int AS billed FROM service_orders`),
       pool.query(`SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE status = 'open')::int AS open, COUNT(*) FILTER (WHERE status = 'in_progress')::int AS in_progress, COUNT(*) FILTER (WHERE status = 'resolved')::int AS resolved FROM support_tickets`),
       pool.query(`SELECT TO_CHAR(week, 'DD/MM') AS week, COALESCE(orders.total, 0)::int AS orders, COALESCE(tickets.total, 0)::int AS tickets
         FROM generate_series(date_trunc('week', NOW()) - INTERVAL '4 weeks', date_trunc('week', NOW()), INTERVAL '1 week') AS week

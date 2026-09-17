@@ -18,6 +18,10 @@ import {
   getStoredUser,
   getSupportTickets
 } from '../services/api.js';
+import {
+  getDaysSinceCompletion,
+  getEffectiveOrderStatus
+} from '../utils/billingUtils.js';
 
 function timeAgo(dateString) {
   if (!dateString) return 'recentemente';
@@ -139,12 +143,27 @@ function NotificationCenter() {
       }
     });
 
-    // 3. Urgent / Open Service Orders
+    // 3. Urgent / Open Service Orders & Pending Billing
     orders.forEach((o) => {
+      const effective = getEffectiveOrderStatus(o);
+      const isPendingBilling = effective === 'billing_pending';
       const p = (o.priority || '').toLowerCase();
       const isUrgent = p === 'urgent' || p === 'urgente' || p === 'high' || p === 'alta';
 
-      if (o.status === 'open' || (o.status === 'in_progress' && isUrgent)) {
+      if (isPendingBilling && user?.role === 'admin') {
+        const days = getDaysSinceCompletion(o);
+        list.push({
+          id: `order-billing-${o.id}`,
+          type: 'order',
+          title: `OS-${String(o.order_number || o.id).padStart(5, '0')} com Faturamento Pendente`,
+          desc: `${o.patient_name || 'Setor'} • Concluída há ${days} dias (aguarda baixa)`,
+          time: o.completed_at || o.updated_at || o.created_at,
+          link: '/ordens',
+          icon: Clock,
+          color: '#d97706',
+          isUrgent: true
+        });
+      } else if (effective === 'open' || (effective === 'in_progress' && isUrgent)) {
         list.push({
           id: `order-notif-${o.id}`,
           type: 'order',

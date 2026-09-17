@@ -11,7 +11,7 @@ const pool = new Pool({
   password: process.env.POSTGRES_PASSWORD ?? process.env.DB_PASSWORD,
   max: Number(process.env.DB_POOL_MAX) || 10,
   idleTimeoutMillis: 30_000,
-  connectionTimeoutMillis: 5_000,
+  connectionTimeoutMillis: 15_000,
   ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined
 });
 

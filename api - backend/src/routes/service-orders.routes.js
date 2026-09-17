@@ -8,7 +8,7 @@ const priorityMap = { 'Pouco urgente': 'low', Baixa: 'low', low: 'low', Normal: 
 router.get('/', async (_request, response) => {
   try {
     const result = await pool.query(
-      `SELECT orders.id, orders.order_number, orders.patient_name, orders.service_type, orders.priority, orders.due_date, orders.description, orders.service_requested_description, orders.service_performed_description, orders.status, orders.created_at, orders.technician_id, technician.name AS technician_name, orders.equipment_id, eq.name AS equipment_name
+      `SELECT orders.id, orders.order_number, orders.patient_name, orders.service_type, orders.priority, orders.due_date, orders.description, orders.service_requested_description, orders.service_performed_description, orders.status, orders.completed_at, orders.billed_at, orders.created_at, orders.updated_at, orders.technician_id, technician.name AS technician_name, orders.equipment_id, eq.name AS equipment_name
        FROM service_orders orders LEFT JOIN users technician ON technician.id = orders.technician_id LEFT JOIN inventory_equipments eq ON eq.id = orders.equipment_id ORDER BY orders.created_at DESC`
     );
     return response.json({ orders: result.rows });
@@ -20,10 +20,15 @@ router.get('/', async (_request, response) => {
 
 router.patch('/:id', async (request, response) => {
   const { serviceType, priority, dueDate, requestedDescription, performedDescription, status, technicianId } = request.body;
-  const normalizedPriority = priorityMap[priority] ?? priority;
+  const validStatuses = ['open', 'in_progress', 'completed', 'billing_pending', 'billed', 'cancelled'];
 
-  if (!['low', 'normal', 'high', 'urgent'].includes(normalizedPriority) || !['open', 'in_progress', 'completed', 'cancelled'].includes(status)) {
-    return response.status(400).json({ message: 'Prioridade ou estado inválido.' });
+  if (status !== undefined && !validStatuses.includes(status)) {
+    return response.status(400).json({ message: 'Estado inválido.' });
+  }
+
+  const normalizedPriority = priority ? (priorityMap[priority] ?? priority) : undefined;
+  if (priority !== undefined && (!normalizedPriority || !['low', 'normal', 'high', 'urgent'].includes(normalizedPriority))) {
+    return response.status(400).json({ message: 'Prioridade inválida.' });
   }
 
   try {
@@ -33,23 +38,33 @@ router.patch('/:id', async (request, response) => {
       const result = await client.query(
         `UPDATE service_orders
          SET service_type = COALESCE($1, service_type),
-             priority = $2,
-             due_date = $3,
+             priority = COALESCE($2, priority),
+             due_date = CASE WHEN $3::timestamptz IS NOT NULL THEN $3::timestamptz ELSE due_date END,
              description = CASE WHEN $4::text IS NOT NULL THEN $4::text ELSE description END,
              service_requested_description = CASE WHEN $4::text IS NOT NULL THEN $4::text ELSE service_requested_description END,
-             service_performed_description = $5,
-             status = $6,
-             technician_id = $7,
+             service_performed_description = CASE WHEN $5::text IS NOT NULL THEN $5::text ELSE service_performed_description END,
+             status = COALESCE($6, status),
+             technician_id = CASE WHEN $7::uuid IS NOT NULL THEN $7::uuid ELSE technician_id END,
+             completed_at = CASE
+               WHEN COALESCE($6, status) IN ('completed', 'billing_pending', 'billed') AND completed_at IS NULL THEN NOW()
+               WHEN COALESCE($6, status) NOT IN ('completed', 'billing_pending', 'billed') THEN NULL
+               ELSE completed_at
+             END,
+             billed_at = CASE
+               WHEN COALESCE($6, status) = 'billed' AND billed_at IS NULL THEN NOW()
+               WHEN COALESCE($6, status) <> 'billed' THEN NULL
+               ELSE billed_at
+             END,
              updated_at = NOW()
          WHERE id = $8
-         RETURNING id, order_number, patient_name, service_type, priority, due_date, description, service_requested_description, service_performed_description, status, technician_id, support_ticket_id, equipment_id`,
+         RETURNING id, order_number, patient_name, service_type, priority, due_date, description, service_requested_description, service_performed_description, status, completed_at, billed_at, technician_id, support_ticket_id, equipment_id`,
         [
           serviceType?.trim() || null,
-          normalizedPriority,
+          normalizedPriority || null,
           dueDate || null,
           requestedDescription !== undefined ? (requestedDescription?.trim() || null) : null,
           performedDescription !== undefined ? (performedDescription?.trim() || null) : null,
-          status,
+          status || null,
           technicianId || null,
           request.params.id
         ]
@@ -59,30 +74,40 @@ router.patch('/:id', async (request, response) => {
         return response.status(404).json({ message: 'Ordem de serviço não encontrada.' });
       }
 
-      const ticketStatus = { open: 'open', in_progress: 'in_progress', completed: 'resolved', cancelled: 'cancelled' }[status];
-      if (requestedDescription !== undefined && requestedDescription?.trim()) {
-        await client.query(
-          `UPDATE support_tickets
-           SET status = $1,
-               observations = $2,
-               description = $2,
-               updated_at = NOW()
-           WHERE id = (SELECT support_ticket_id FROM service_orders WHERE id = $3)`,
-          [ticketStatus, requestedDescription.trim(), request.params.id]
-        );
-      } else {
-        await client.query(
-          `UPDATE support_tickets
-           SET status = $1,
-               updated_at = NOW()
-           WHERE id = (SELECT support_ticket_id FROM service_orders WHERE id = $2)`,
-          [ticketStatus, request.params.id]
-        );
+      if (status) {
+        const ticketStatus = {
+          open: 'open',
+          in_progress: 'in_progress',
+          completed: 'resolved',
+          billing_pending: 'resolved',
+          billed: 'resolved',
+          cancelled: 'cancelled'
+        }[status];
+
+        if (requestedDescription !== undefined && requestedDescription?.trim()) {
+          await client.query(
+            `UPDATE support_tickets
+             SET status = $1,
+                 observations = $2,
+                 description = $2,
+                 updated_at = NOW()
+             WHERE id = (SELECT support_ticket_id FROM service_orders WHERE id = $3)`,
+            [ticketStatus, requestedDescription.trim(), request.params.id]
+          );
+        } else {
+          await client.query(
+            `UPDATE support_tickets
+             SET status = $1,
+                 updated_at = NOW()
+             WHERE id = (SELECT support_ticket_id FROM service_orders WHERE id = $2)`,
+            [ticketStatus, request.params.id]
+          );
+        }
       }
       await client.query('COMMIT');
 
       const fullOrder = await pool.query(
-        `SELECT orders.id, orders.order_number, orders.patient_name, orders.service_type, orders.priority, orders.due_date, orders.description, orders.service_requested_description, orders.service_performed_description, orders.status, orders.created_at, orders.technician_id, technician.name AS technician_name, orders.equipment_id, eq.name AS equipment_name
+        `SELECT orders.id, orders.order_number, orders.patient_name, orders.service_type, orders.priority, orders.due_date, orders.description, orders.service_requested_description, orders.service_performed_description, orders.status, orders.completed_at, orders.billed_at, orders.created_at, orders.updated_at, orders.technician_id, technician.name AS technician_name, orders.equipment_id, eq.name AS equipment_name
          FROM service_orders orders
          LEFT JOIN users technician ON technician.id = orders.technician_id
          LEFT JOIN inventory_equipments eq ON eq.id = orders.equipment_id

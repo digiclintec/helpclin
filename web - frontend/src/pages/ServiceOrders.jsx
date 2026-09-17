@@ -1,12 +1,16 @@
 import {
+  AlertTriangle,
   CheckCircle2,
   Clock,
+  DollarSign,
   Edit3,
   FileText,
   Laptop,
+  Lock,
   Plus,
   RefreshCw,
   Search,
+  ShieldCheck,
   UserCheck,
   Wrench,
   X
@@ -14,7 +18,16 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 
 import ExportDropdown from '../components/ExportDropdown.jsx';
+import BillingConfirmationModal from '../components/BillingConfirmationModal.jsx';
 import { getServiceOrders, getStoredUser, updateServiceOrder } from '../services/api.js';
+import {
+  getDaysSinceCompletion,
+  getEffectiveOrderStatus,
+  getOrderStatusBadgeClass,
+  getOrderStatusLabel,
+  isBillingPending,
+  isBilled
+} from '../utils/billingUtils.js';
 import { exportToPdf, exportToXls } from '../utils/exportReport.js';
 
 function formatDate(value) {
@@ -31,6 +44,7 @@ function formatDate(value) {
 
 function ServiceOrders() {
   const user = getStoredUser();
+  const isAdmin = user?.role === 'admin';
   const [orders, setOrders] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
@@ -39,9 +53,10 @@ function ServiceOrders() {
   // Editing modal state
   const [editingOrder, setEditingOrder] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [confirmingBillingOrder, setConfirmingBillingOrder] = useState(null);
 
   // Filters
-  const [activeKpiFilter, setActiveKpiFilter] = useState('all'); // 'all', 'open', 'in_progress', 'completed', 'urgent'
+  const [activeKpiFilter, setActiveKpiFilter] = useState('all'); // 'all', 'open', 'in_progress', 'completed', 'billing_pending', 'billed', 'urgent'
   const [statusFilter, setStatusFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [onlyMyOrders, setOnlyMyOrders] = useState(false);
@@ -72,9 +87,12 @@ function ServiceOrders() {
     else if (['high', 'alta'].includes(p)) normalizedPriority = 'Alta';
     else if (['urgent', 'urgente'].includes(p)) normalizedPriority = 'Urgente';
 
+    const effective = getEffectiveOrderStatus(order);
+
     setEditingOrder({
       ...order,
-      priority: normalizedPriority
+      priority: normalizedPriority,
+      status: effective
     });
     setErrorMessage('');
     setSuccessMessage('');
@@ -82,6 +100,39 @@ function ServiceOrders() {
 
   function closeEditing() {
     setEditingOrder(null);
+  }
+
+  async function handleQuickBill(order) {
+    setIsSaving(true);
+    setErrorMessage('');
+    setSuccessMessage('');
+    try {
+      const updated = await updateServiceOrder(order.id, {
+        serviceType: order.service_type,
+        priority: order.priority,
+        dueDate: order.due_date,
+        requestedDescription: order.service_requested_description ?? order.description,
+        performedDescription: order.service_performed_description,
+        status: 'billed',
+        technicianId: order.technician_id
+      });
+
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.id === updated.id
+            ? { ...o, ...updated, technician_name: user?.id === updated.technician_id ? user.name : o.technician_name }
+            : o
+        )
+      );
+      if (editingOrder?.id === order.id) {
+        setEditingOrder(null);
+      }
+      setSuccessMessage(`Ordem OS-${String(order.order_number).padStart(5, '0')} faturada com sucesso! Acesso técnico concedido.`);
+    } catch (error) {
+      setErrorMessage(error.message);
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   async function saveOrder(event) {
@@ -107,7 +158,12 @@ function ServiceOrders() {
         )
       );
       setEditingOrder(null);
-      setSuccessMessage(`Ordem OS-${String(editingOrder.order_number).padStart(5, '0')} atualizada com sucesso!`);
+      const isNowBilled = updated.status === 'billed';
+      setSuccessMessage(
+        isNowBilled
+          ? `Ordem OS-${String(editingOrder.order_number).padStart(5, '0')} faturada com sucesso! Acesso técnico concedido.`
+          : `Ordem OS-${String(editingOrder.order_number).padStart(5, '0')} atualizada com sucesso!`
+      );
     } catch (error) {
       setErrorMessage(error.message);
     } finally {
@@ -121,17 +177,22 @@ function ServiceOrders() {
     let openCount = 0;
     let inProgressCount = 0;
     let completedCount = 0;
+    let billingPendingCount = 0;
+    let billedCount = 0;
     let urgentCount = 0;
 
     orders.forEach((o) => {
-      if (o.status === 'open') openCount++;
-      if (o.status === 'in_progress') inProgressCount++;
-      if (o.status === 'completed') completedCount++;
+      const effective = getEffectiveOrderStatus(o);
+      if (effective === 'open') openCount++;
+      if (effective === 'in_progress') inProgressCount++;
+      if (effective === 'completed') completedCount++;
+      if (effective === 'billing_pending') billingPendingCount++;
+      if (effective === 'billed') billedCount++;
 
       const p = (o.priority || '').toLowerCase();
       const createdAt = new Date(o.created_at);
       const hoursOld = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60);
-      if (o.status !== 'completed' && (p === 'urgent' || p === 'high' || hoursOld > 24)) {
+      if (effective !== 'completed' && effective !== 'billed' && (p === 'urgent' || p === 'high' || hoursOld > 24)) {
         urgentCount++;
       }
     });
@@ -141,6 +202,8 @@ function ServiceOrders() {
       open: openCount,
       inProgress: inProgressCount,
       completed: completedCount,
+      billingPending: billingPendingCount,
+      billed: billedCount,
       urgent: urgentCount
     };
   }, [orders]);
@@ -148,20 +211,24 @@ function ServiceOrders() {
   // Filtered orders
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
+      const effective = getEffectiveOrderStatus(order);
+
       // 1. KPI Tab Filter
-      if (activeKpiFilter === 'open' && order.status !== 'open') return false;
-      if (activeKpiFilter === 'in_progress' && order.status !== 'in_progress') return false;
-      if (activeKpiFilter === 'completed' && order.status !== 'completed') return false;
+      if (activeKpiFilter === 'open' && effective !== 'open') return false;
+      if (activeKpiFilter === 'in_progress' && effective !== 'in_progress') return false;
+      if (activeKpiFilter === 'completed' && effective !== 'completed') return false;
+      if (activeKpiFilter === 'billing_pending' && effective !== 'billing_pending') return false;
+      if (activeKpiFilter === 'billed' && effective !== 'billed') return false;
       if (activeKpiFilter === 'urgent') {
         const p = (order.priority || '').toLowerCase();
         const createdAt = new Date(order.created_at);
         const hoursOld = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60);
-        const isUrgent = order.status !== 'completed' && (p === 'urgent' || p === 'high' || hoursOld > 24);
+        const isUrgent = effective !== 'completed' && effective !== 'billed' && (p === 'urgent' || p === 'high' || hoursOld > 24);
         if (!isUrgent) return false;
       }
 
       // 2. Status Filter Dropdown
-      if (statusFilter !== 'all' && order.status !== statusFilter) return false;
+      if (statusFilter !== 'all' && effective !== statusFilter) return false;
 
       // 3. Priority Filter Dropdown
       if (priorityFilter !== 'all') {
@@ -208,40 +275,10 @@ function ServiceOrders() {
     return 'ticket-priority-badge--normal';
   }
 
-  function getStatusLabel(status) {
-    switch (status) {
-      case 'open':
-        return 'Aberta';
-      case 'in_progress':
-        return 'Em andamento';
-      case 'completed':
-        return 'Concluída';
-      case 'cancelled':
-        return 'Cancelada';
-      default:
-        return status;
-    }
-  }
-
-  function getStatusBadgeClass(status) {
-    switch (status) {
-      case 'open':
-        return 'os-status-badge--open';
-      case 'in_progress':
-        return 'os-status-badge--in_progress';
-      case 'completed':
-        return 'os-status-badge--completed';
-      case 'cancelled':
-        return 'os-status-badge--cancelled';
-      default:
-        return 'os-status-badge--open';
-    }
-  }
-
   const exportColumns = [
     { header: 'Prioridade', accessor: (o) => getPriorityLabel(o.priority) },
     { header: 'Número OS', accessor: (o) => `OS-${String(o.order_number).padStart(5, '0')}` },
-    { header: 'Estado', accessor: (o) => getStatusLabel(o.status) },
+    { header: 'Estado', accessor: (o) => getOrderStatusLabel(getEffectiveOrderStatus(o)) },
     { header: 'Solicitante / Setor', accessor: (o) => o.patient_name || 'Setor Não Informado' },
     { header: 'Equipamento / Ativo', accessor: (o) => o.equipment_name || 'Serviço Geral' },
     { header: 'Responsável Técnico', accessor: (o) => o.technician_name || 'Não atribuído' },
@@ -270,7 +307,9 @@ function ServiceOrders() {
         { label: 'Total Filtrado', value: filteredOrders.length },
         { label: 'Abertas', value: kpis.open },
         { label: 'Em Andamento', value: kpis.inProgress },
-        { label: 'Concluídas', value: kpis.completed },
+        { label: 'Concluídas (< 2 dias)', value: kpis.completed },
+        { label: 'Faturamento Pendente (> 2 dias)', value: kpis.billingPending },
+        { label: 'Faturadas', value: kpis.billed },
         { label: 'Urgentes / Atrasadas', value: kpis.urgent }
       ]
     });
@@ -339,6 +378,47 @@ function ServiceOrders() {
         </div>
 
         <div
+          className={`ticket-kpi-card ${activeKpiFilter === 'completed' ? 'ticket-kpi-card--active' : ''}`}
+          onClick={() => setActiveKpiFilter('completed')}
+          role="button"
+          tabIndex={0}
+        >
+          <div className="ticket-kpi-info">
+            <span className="ticket-kpi-title">Concluídas</span>
+            <span className="ticket-kpi-sub">Dentro de 2 dias</span>
+          </div>
+          <strong className="ticket-kpi-count">{kpis.completed}</strong>
+        </div>
+
+        <div
+          className={`ticket-kpi-card ${activeKpiFilter === 'billing_pending' ? 'ticket-kpi-card--active' : ''}`}
+          onClick={() => setActiveKpiFilter('billing_pending')}
+          role="button"
+          tabIndex={0}
+          style={{ borderLeft: '3px solid #d97706' }}
+        >
+          <div className="ticket-kpi-info">
+            <span className="ticket-kpi-title" style={{ color: '#b45309' }}>Faturamento Pendente</span>
+            <span className="ticket-kpi-sub">Concluídas há &gt; 2 dias</span>
+          </div>
+          <strong className="ticket-kpi-count" style={{ color: '#b45309' }}>{kpis.billingPending}</strong>
+        </div>
+
+        <div
+          className={`ticket-kpi-card ${activeKpiFilter === 'billed' ? 'ticket-kpi-card--active' : ''}`}
+          onClick={() => setActiveKpiFilter('billed')}
+          role="button"
+          tabIndex={0}
+          style={{ borderLeft: '3px solid #059669' }}
+        >
+          <div className="ticket-kpi-info">
+            <span className="ticket-kpi-title" style={{ color: '#065f46' }}>Faturadas</span>
+            <span className="ticket-kpi-sub">Pagas &amp; liberadas</span>
+          </div>
+          <strong className="ticket-kpi-count" style={{ color: '#065f46' }}>{kpis.billed}</strong>
+        </div>
+
+        <div
           className={`ticket-kpi-card ${activeKpiFilter === 'urgent' ? 'ticket-kpi-card--active' : ''}`}
           onClick={() => setActiveKpiFilter('urgent')}
           role="button"
@@ -349,19 +429,6 @@ function ServiceOrders() {
             <span className="ticket-kpi-sub">Atenção prioritária</span>
           </div>
           <strong className="ticket-kpi-count">{kpis.urgent}</strong>
-        </div>
-
-        <div
-          className={`ticket-kpi-card ${activeKpiFilter === 'completed' ? 'ticket-kpi-card--active' : ''}`}
-          onClick={() => setActiveKpiFilter('completed')}
-          role="button"
-          tabIndex={0}
-        >
-          <div className="ticket-kpi-info">
-            <span className="ticket-kpi-title">Concluídas</span>
-            <span className="ticket-kpi-sub">Ordens finalizadas</span>
-          </div>
-          <strong className="ticket-kpi-count">{kpis.completed}</strong>
         </div>
       </div>
 
@@ -387,7 +454,9 @@ function ServiceOrders() {
             <option value="all">Todos os estados</option>
             <option value="open">Abertas</option>
             <option value="in_progress">Em andamento</option>
-            <option value="completed">Concluídas</option>
+            <option value="completed">Concluídas (&lt; 2 dias)</option>
+            <option value="billing_pending">Pendência de Faturamento (&gt; 2 dias)</option>
+            <option value="billed">Faturadas (Pagas)</option>
             <option value="cancelled">Canceladas</option>
           </select>
 
@@ -464,8 +533,12 @@ function ServiceOrders() {
                 {filteredOrders.map((order) => {
                   const priorityText = getPriorityLabel(order.priority);
                   const priorityClass = getPriorityBadgeClass(order.priority);
-                  const statusText = getStatusLabel(order.status);
-                  const statusClass = getStatusBadgeClass(order.status);
+                  const effectiveStatus = getEffectiveOrderStatus(order);
+                  const statusText = getOrderStatusLabel(effectiveStatus);
+                  const statusClass = getOrderStatusBadgeClass(effectiveStatus);
+                  const daysOld = getDaysSinceCompletion(order);
+                  const isPendingBilling = effectiveStatus === 'billing_pending';
+                  const isOrderBilled = effectiveStatus === 'billed';
 
                   return (
                     <tr key={order.id}>
@@ -483,9 +556,18 @@ function ServiceOrders() {
 
                       {/* Status */}
                       <td>
-                        <span className={`os-status-badge ${statusClass}`}>
-                          {statusText}
-                        </span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                          <span className={`os-status-badge ${statusClass}`}>
+                            {isPendingBilling && <Clock size={11} />}
+                            {isOrderBilled && <CheckCircle2 size={11} />}
+                            {statusText}
+                          </span>
+                          {isPendingBilling && (
+                            <span style={{ fontSize: '10px', color: '#b45309', fontWeight: 600 }}>
+                              Concluída há {daysOld}d • s/ pgto
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       {/* Requester / Sector */}
@@ -546,16 +628,29 @@ function ServiceOrders() {
                       </td>
 
                       {/* Action */}
-                      <td style={{ textAlign: 'right' }}>
-                        <button
-                          type="button"
-                          className="inventory-action-btn"
-                          onClick={() => startEditing(order)}
-                          title={`Editar OS-${String(order.order_number).padStart(5, '0')}`}
-                          aria-label={`Editar OS ${order.order_number}`}
-                        >
-                          <Edit3 size={15} />
-                        </button>
+                      <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
+                          {isPendingBilling && (
+                            <button
+                              type="button"
+                              className="billing-quick-bill-btn"
+                              onClick={() => setConfirmingBillingOrder(order)}
+                              disabled={isSaving}
+                              title="Informar pagamento e faturar OS (ceder acesso ao técnico)"
+                            >
+                              <DollarSign size={13} /> Faturar
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            className="inventory-action-btn"
+                            onClick={() => startEditing(order)}
+                            title={`Editar OS-${String(order.order_number).padStart(5, '0')}`}
+                            aria-label={`Editar OS ${order.order_number}`}
+                          >
+                            <Edit3 size={15} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -567,175 +662,255 @@ function ServiceOrders() {
       </section>
 
       {/* Edit Order Modal */}
-      {editingOrder && (
-        <div
-          className="inventory-modal-backdrop"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) closeEditing();
-          }}
-        >
-          <div className="inventory-modal" style={{ width: 'min(100%, 580px)' }}>
-            <div className="inventory-modal-header">
-              <div>
-                <p className="eyebrow">OS-{String(editingOrder.order_number).padStart(5, '0')}</p>
-                <h2>Editar Ordem de Serviço</h2>
-              </div>
-              <button
-                type="button"
-                className="inventory-modal-close"
-                onClick={closeEditing}
-                aria-label="Fechar"
-              >
-                <X size={18} />
-              </button>
-            </div>
+      {editingOrder && (() => {
+        const editingEffective = getEffectiveOrderStatus(editingOrder);
+        const isPendingBillingModal = editingEffective === 'billing_pending';
+        const isTechnicianLocked = !isAdmin && isPendingBillingModal;
+        const daysSinceCompletion = getDaysSinceCompletion(editingOrder);
+        const isOrderBilled = editingEffective === 'billed';
 
-            {errorMessage && <p className="ticket-feedback" style={{ marginBottom: '16px', background: '#fee2e2', color: '#dc2626' }}>{errorMessage}</p>}
-
-            <form onSubmit={saveOrder} className="inventory-form">
-              {/* Requester & Linked Equipment */}
-              <div className="inventory-grid-2">
-                <div className="inventory-field">
-                  <label>Solicitante / Setor</label>
-                  <input
-                    value={editingOrder.patient_name || ''}
-                    disabled
-                    style={{ background: '#f0f3f1', cursor: 'not-allowed', color: '#687b76' }}
-                  />
+        return (
+          <div
+            className="inventory-modal-backdrop"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) closeEditing();
+            }}
+          >
+            <div className="inventory-modal" style={{ width: 'min(100%, 580px)' }}>
+              <div className="inventory-modal-header">
+                <div>
+                  <p className="eyebrow">OS-{String(editingOrder.order_number).padStart(5, '0')}</p>
+                  <h2>Editar Ordem de Serviço</h2>
                 </div>
-
-                <div className="inventory-field">
-                  <label>Equipamento Vinculado</label>
-                  <input
-                    value={editingOrder.equipment_name || 'Nenhum equipamento vinculado'}
-                    disabled
-                    style={{ background: '#f0f3f1', cursor: 'not-allowed', color: '#687b76' }}
-                  />
-                </div>
-              </div>
-
-              {/* Service Type & Priority */}
-              <div className="inventory-grid-2">
-                <div className="inventory-field">
-                  <label>
-                    Tipo de Serviço <span className="required">*</span>
-                  </label>
-                  <input
-                    value={editingOrder.service_type || ''}
-                    onChange={(e) => setEditingOrder({ ...editingOrder, service_type: e.target.value })}
-                    required
-                    placeholder="Ex: Manutenção Corretiva, Calibração..."
-                  />
-                </div>
-
-                <div className="inventory-field">
-                  <label>
-                    Prioridade <span className="required">*</span>
-                  </label>
-                  <select
-                    value={editingOrder.priority}
-                    onChange={(e) => setEditingOrder({ ...editingOrder, priority: e.target.value })}
-                    required
-                  >
-                    <option value="Pouco urgente">Pouco urgente</option>
-                    <option value="Normal">Normal</option>
-                    <option value="Alta">Alta</option>
-                    <option value="Urgente">Urgente</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Status */}
-              <div className="inventory-field">
-                <label>
-                  Estado da Ordem <span className="required">*</span>
-                </label>
-                <select
-                  value={editingOrder.status}
-                  onChange={(e) => setEditingOrder({ ...editingOrder, status: e.target.value })}
-                  required
-                >
-                  <option value="open">Aberta (Pendente de atendimento)</option>
-                  <option value="in_progress">Em andamento (Técnico trabalhando)</option>
-                  <option value="completed">Concluída (Finalizada com sucesso)</option>
-                  <option value="cancelled">Cancelada</option>
-                </select>
-              </div>
-
-              {/* Requested Description */}
-              <div className="inventory-field">
-                <label>Descrição Solicitada / Observação</label>
-                <textarea
-                  value={editingOrder.service_requested_description ?? editingOrder.description ?? ''}
-                  onChange={(e) =>
-                    setEditingOrder({
-                      ...editingOrder,
-                      service_requested_description: e.target.value,
-                      description: e.target.value
-                    })
-                  }
-                  rows={2}
-                  placeholder="Descrição da solicitação ou observação..."
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    border: '1px solid var(--line)',
-                    borderRadius: '10px',
-                    outline: '0',
-                    color: 'var(--teal)',
-                    background: '#fbfcfa',
-                    fontFamily: 'inherit',
-                    fontSize: '13px'
-                  }}
-                />
-              </div>
-
-              {/* Performed Service */}
-              <div className="inventory-field">
-                <label>Serviço Realizado pelo Técnico</label>
-                <textarea
-                  value={editingOrder.service_performed_description || ''}
-                  onChange={(e) =>
-                    setEditingOrder({ ...editingOrder, service_performed_description: e.target.value })
-                  }
-                  rows={4}
-                  placeholder="Descreva detalhadamente o diagnóstico, peças trocadas e ações realizadas..."
-                  style={{
-                    width: '100%',
-                    padding: '12px 14px',
-                    border: '1px solid var(--line)',
-                    borderRadius: '10px',
-                    outline: '0',
-                    color: 'var(--teal)',
-                    background: '#fbfcfa',
-                    fontFamily: 'inherit',
-                    fontSize: '13px'
-                  }}
-                />
-              </div>
-
-              {/* Modal Actions */}
-              <div className="inventory-modal-actions">
                 <button
                   type="button"
-                  className="secondary-button"
+                  className="inventory-modal-close"
                   onClick={closeEditing}
-                  disabled={isSaving}
+                  aria-label="Fechar"
                 >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="primary-button"
-                  disabled={isSaving}
-                >
-                  {isSaving ? 'Salvando...' : 'Salvar Alterações'}
+                  <X size={18} />
                 </button>
               </div>
-            </form>
+
+              {errorMessage && <p className="ticket-feedback" style={{ marginBottom: '16px', background: '#fee2e2', color: '#dc2626' }}>{errorMessage}</p>}
+
+              {/* Technician Lock Banner */}
+              {isTechnicianLocked && (
+                <div className="billing-technician-lock" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', flex: 1 }}>
+                    <Lock size={20} style={{ flexShrink: 0, marginTop: '2px' }} />
+                    <div>
+                      <strong>Acesso Técnico Bloqueado</strong>
+                      <span>Esta ordem de serviço está com pendência de faturamento (concluída há {daysSinceCompletion} dias). O acesso a modificações está temporariamente bloqueado até a confirmação de quitação/faturamento.</span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="billing-quick-bill-btn"
+                    onClick={() => setConfirmingBillingOrder(editingOrder)}
+                    disabled={isSaving}
+                    style={{ marginLeft: 'auto' }}
+                  >
+                    <DollarSign size={14} /> Informar como Faturada
+                  </button>
+                </div>
+              )}
+
+              {/* Admin Billing Alert & Action */}
+              {isAdmin && isPendingBillingModal && (
+                <div className="billing-client-alert">
+                  <AlertTriangle size={20} style={{ flexShrink: 0, marginTop: '2px' }} />
+                  <div style={{ flex: 1 }}>
+                    <strong>Pendência de Faturamento</strong>
+                    <p>Esta OS foi concluída há {daysSinceCompletion} dias e ainda não foi paga pelo cliente. O técnico está com acesso bloqueado até o faturamento.</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="billing-quick-bill-btn"
+                    onClick={() => setConfirmingBillingOrder(editingOrder)}
+                    disabled={isSaving}
+                  >
+                    <CheckCircle2 size={15} /> Confirmar &amp; Faturar
+                  </button>
+                </div>
+              )}
+
+              {/* Order Billed Notification */}
+              {isOrderBilled && (
+                <div className="billing-client-alert billing-client-alert--success">
+                  <CheckCircle2 size={20} style={{ flexShrink: 0, marginTop: '2px' }} />
+                  <div>
+                    <strong>Ordem Faturada</strong>
+                    <p>Pagamento confirmado pelo administrador. Acesso técnico liberado.</p>
+                  </div>
+                </div>
+              )}
+
+              <form onSubmit={saveOrder} className="inventory-form">
+                {/* Requester & Linked Equipment */}
+                <div className="inventory-grid-2">
+                  <div className="inventory-field">
+                    <label>Solicitante / Setor</label>
+                    <input
+                      value={editingOrder.patient_name || ''}
+                      disabled
+                      style={{ background: '#f0f3f1', cursor: 'not-allowed', color: '#687b76' }}
+                    />
+                  </div>
+
+                  <div className="inventory-field">
+                    <label>Equipamento Vinculado</label>
+                    <input
+                      value={editingOrder.equipment_name || 'Nenhum equipamento vinculado'}
+                      disabled
+                      style={{ background: '#f0f3f1', cursor: 'not-allowed', color: '#687b76' }}
+                    />
+                  </div>
+                </div>
+
+                {/* Service Type & Priority */}
+                <div className="inventory-grid-2">
+                  <div className="inventory-field">
+                    <label>
+                      Tipo de Serviço <span className="required">*</span>
+                    </label>
+                    <input
+                      value={editingOrder.service_type || ''}
+                      onChange={(e) => setEditingOrder({ ...editingOrder, service_type: e.target.value })}
+                      required
+                      disabled={isTechnicianLocked}
+                      placeholder="Ex: Manutenção Corretiva, Calibração..."
+                    />
+                  </div>
+
+                  <div className="inventory-field">
+                    <label>
+                      Prioridade <span className="required">*</span>
+                    </label>
+                    <select
+                      value={editingOrder.priority}
+                      onChange={(e) => setEditingOrder({ ...editingOrder, priority: e.target.value })}
+                      required
+                      disabled={isTechnicianLocked}
+                    >
+                      <option value="Pouco urgente">Pouco urgente</option>
+                      <option value="Normal">Normal</option>
+                      <option value="Alta">Alta</option>
+                      <option value="Urgente">Urgente</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Status */}
+                <div className="inventory-field">
+                  <label>
+                    Estado da Ordem <span className="required">*</span>
+                  </label>
+                  <select
+                    value={editingOrder.status}
+                    onChange={(e) => setEditingOrder({ ...editingOrder, status: e.target.value })}
+                    disabled={isTechnicianLocked}
+                    required
+                  >
+                    <option value="open">Aberta (Pendente de atendimento)</option>
+                    <option value="in_progress">Em andamento (Técnico trabalhando)</option>
+                    <option value="completed">Concluída (Finalizada recentemente)</option>
+                    <option value="billing_pending">Pendência de Faturamento (Aguardando pagamento)</option>
+                    <option value="billed">Faturada (Paga - Acesso concedido ao técnico)</option>
+                    <option value="cancelled">Cancelada</option>
+                  </select>
+                </div>
+
+                {/* Requested Description */}
+                <div className="inventory-field">
+                  <label>Descrição Solicitada / Observação</label>
+                  <textarea
+                    value={editingOrder.service_requested_description ?? editingOrder.description ?? ''}
+                    onChange={(e) =>
+                      setEditingOrder({
+                        ...editingOrder,
+                        service_requested_description: e.target.value,
+                        description: e.target.value
+                      })
+                    }
+                    disabled={isTechnicianLocked}
+                    rows={2}
+                    placeholder="Descrição da solicitação ou observação..."
+                    style={{
+                      width: '100%',
+                      padding: '10px 14px',
+                      border: '1px solid var(--line)',
+                      borderRadius: '10px',
+                      outline: '0',
+                      color: 'var(--teal)',
+                      background: '#fbfcfa',
+                      fontFamily: 'inherit',
+                      fontSize: '13px'
+                    }}
+                  />
+                </div>
+
+                {/* Performed Service */}
+                <div className="inventory-field">
+                  <label>Serviço Realizado pelo Técnico</label>
+                  <textarea
+                    value={editingOrder.service_performed_description || ''}
+                    onChange={(e) =>
+                      setEditingOrder({ ...editingOrder, service_performed_description: e.target.value })
+                    }
+                    disabled={isTechnicianLocked}
+                    rows={4}
+                    placeholder="Descreva detalhadamente o diagnóstico, peças trocadas e ações realizadas..."
+                    style={{
+                      width: '100%',
+                      padding: '12px 14px',
+                      border: '1px solid var(--line)',
+                      borderRadius: '10px',
+                      outline: '0',
+                      color: 'var(--teal)',
+                      background: '#fbfcfa',
+                      fontFamily: 'inherit',
+                      fontSize: '13px'
+                    }}
+                  />
+                </div>
+
+                {/* Modal Actions */}
+                <div className="inventory-modal-actions">
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={closeEditing}
+                    disabled={isSaving}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="primary-button"
+                    disabled={isSaving || isTechnicianLocked}
+                  >
+                    {isSaving ? 'Salvando...' : 'Salvar Alterações'}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
+
+      {/* Confirmation Modal for Billing */}
+      <BillingConfirmationModal
+        isOpen={Boolean(confirmingBillingOrder)}
+        order={confirmingBillingOrder}
+        onConfirm={async () => {
+          const target = confirmingBillingOrder;
+          setConfirmingBillingOrder(null);
+          await handleQuickBill(target);
+        }}
+        onClose={() => setConfirmingBillingOrder(null)}
+        isSubmitting={isSaving}
+      />
     </div>
   );
 }

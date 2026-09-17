@@ -1,8 +1,10 @@
 import {
   AlertCircle,
+  AlertTriangle,
   ArrowRight,
   CheckCircle2,
   Clock,
+  DollarSign,
   FileUp,
   Filter,
   Headset,
@@ -18,13 +20,24 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 
 import ExportDropdown from '../components/ExportDropdown.jsx';
+import BillingConfirmationModal from '../components/BillingConfirmationModal.jsx';
 import {
   assignSupportTicket,
   createSupportTicket,
   getInventory,
+  getServiceOrders,
   getStoredUser,
-  getSupportTickets
+  getSupportTickets,
+  updateServiceOrder
 } from '../services/api.js';
+import {
+  getDaysSinceCompletion,
+  getEffectiveOrderStatus,
+  getOrderStatusBadgeClass,
+  getOrderStatusLabel,
+  isBillingPending,
+  isBilled
+} from '../utils/billingUtils.js';
 import { exportToPdf, exportToXls } from '../utils/exportReport.js';
 
 const SERVICE_PROBLEMS = [
@@ -147,6 +160,8 @@ function Tickets() {
   const [form, setForm] = useState(emptyForm);
   const [isSaving, setIsSaving] = useState(false);
   const [assigningId, setAssigningId] = useState(null);
+  const [confirmingBillingTicket, setConfirmingBillingTicket] = useState(null);
+  const [isBillingSubmitting, setIsBillingSubmitting] = useState(false);
 
   // Filters
   const [activeKpiFilter, setActiveKpiFilter] = useState('all'); // 'all', 'unassigned', 'overdue', 'in_progress', 'resolved'
@@ -239,20 +254,66 @@ function Tickets() {
   }
 
   async function handleAssign(ticketId) {
+    if (!user?.id) {
+      setFeedback('Faça login para assumir chamados.');
+      return;
+    }
+
     setAssigningId(ticketId);
-    setFeedback('');
     try {
-      const updatedTicket = await assignSupportTicket(ticketId, user?.id);
-      setTickets(
-        tickets.map((t) =>
-          t.id === ticketId ? { ...t, ...updatedTicket, assigned_to_name: user?.name, status: 'in_progress' } : t
+      const updated = await assignSupportTicket(ticketId, user.id);
+      setTickets((prev) =>
+        prev.map((t) =>
+          t.id === ticketId
+            ? { ...t, assigned_to: user.id, assigned_to_name: user.name, status: updated.status }
+            : t
         )
       );
-      setFeedback('Chamado assumido com sucesso!');
     } catch (error) {
       setFeedback(error.message);
     } finally {
       setAssigningId(null);
+    }
+  }
+
+  async function handleConfirmBilling() {
+    if (!confirmingBillingTicket) return;
+    setIsBillingSubmitting(true);
+    try {
+      let orderId = confirmingBillingTicket.service_order_id;
+      if (!orderId) {
+        const orders = await getServiceOrders();
+        const found = orders.find(
+          (o) =>
+            o.support_ticket_id === confirmingBillingTicket.id ||
+            String(o.order_number) === String(confirmingBillingTicket.service_order_number) ||
+            String(o.order_number) === String(confirmingBillingTicket.ticket_number)
+        );
+        if (found) orderId = found.id;
+      }
+
+      if (orderId) {
+        await updateServiceOrder(orderId, { status: 'billed' });
+      }
+
+      setTickets((prev) =>
+        prev.map((t) =>
+          t.id === confirmingBillingTicket.id
+            ? {
+                ...t,
+                service_order_status: 'billed',
+                service_order_billed_at: new Date().toISOString()
+              }
+            : t
+        )
+      );
+      setFeedback(`Ordem de serviço vinculada ao chamado #${confirmingBillingTicket.ticket_number} informada como faturada com sucesso!`);
+      setConfirmingBillingTicket(null);
+    } catch (err) {
+      console.error('Erro ao confirmar faturamento:', err);
+      setFeedback('Não foi possível registrar o faturamento. Tente novamente.');
+    } finally {
+      setIsBillingSubmitting(false);
     }
   }
 
@@ -263,12 +324,23 @@ function Tickets() {
     let inProgress = 0;
     let overdue = 0;
     let resolved = 0;
+    let billingPending = 0;
 
     tickets.forEach((t) => {
       const isUnassigned = !t.assigned_to_name && t.status !== 'resolved';
       if (isUnassigned) unassigned++;
       if (t.status === 'in_progress') inProgress++;
       if (t.status === 'resolved') resolved++;
+
+      const effectiveSO = getEffectiveOrderStatus({
+        status: t.service_order_status,
+        completed_at: t.service_order_completed_at,
+        updated_at: t.service_order_updated_at,
+        created_at: t.created_at
+      });
+      if (effectiveSO === 'billing_pending') {
+        billingPending++;
+      }
 
       // Overdue logic: open/in_progress older than 24 hours or marked urgent
       const createdAt = new Date(t.created_at);
@@ -283,7 +355,8 @@ function Tickets() {
       unassigned,
       inProgress,
       overdue,
-      resolved
+      resolved,
+      billingPending
     };
   }, [tickets]);
 
@@ -297,6 +370,14 @@ function Tickets() {
         if (ticket.status !== 'in_progress') return false;
       } else if (activeKpiFilter === 'resolved') {
         if (ticket.status !== 'resolved') return false;
+      } else if (activeKpiFilter === 'billing_pending') {
+        const effectiveSO = getEffectiveOrderStatus({
+          status: ticket.service_order_status,
+          completed_at: ticket.service_order_completed_at,
+          updated_at: ticket.service_order_updated_at,
+          created_at: ticket.created_at
+        });
+        if (effectiveSO !== 'billing_pending') return false;
       } else if (activeKpiFilter === 'overdue') {
         const createdAt = new Date(ticket.created_at);
         const hoursOld = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60);
@@ -414,6 +495,19 @@ function Tickets() {
 
       {feedback && !isFormOpen && <p className="ticket-feedback">{feedback}</p>}
 
+      {/* Alert banner for pending billing */}
+      {kpis.billingPending > 0 && (
+        <div className="billing-client-alert" style={{ marginBottom: '18px' }}>
+          <AlertCircle size={20} style={{ flexShrink: 0, marginTop: '2px', color: '#b45309' }} />
+          <div>
+            <strong>Aviso de Faturamento Pendente ({kpis.billingPending} chamado{kpis.billingPending > 1 ? 's' : ''})</strong>
+            <p>
+              O atendimento técnico foi finalizado há mais de 2 dias, porém esta solicitação ainda consta com <strong>pendência de faturamento/pagamento freelancer</strong>. Os clientes são informados deste status até a confirmação manual de quitação pelo administrador.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Interactive Metric / KPI Cards */}
       <div className="tickets-kpi-grid">
         <div
@@ -443,19 +537,6 @@ function Tickets() {
         </div>
 
         <div
-          className={`ticket-kpi-card ${activeKpiFilter === 'overdue' ? 'ticket-kpi-card--active' : ''}`}
-          onClick={() => setActiveKpiFilter('overdue')}
-          role="button"
-          tabIndex={0}
-        >
-          <div className="ticket-kpi-info">
-            <span className="ticket-kpi-title">Vencidas</span>
-            <span className="ticket-kpi-sub">Atendimento atrasado</span>
-          </div>
-          <strong className="ticket-kpi-count">{kpis.overdue}</strong>
-        </div>
-
-        <div
           className={`ticket-kpi-card ${activeKpiFilter === 'in_progress' ? 'ticket-kpi-card--active' : ''}`}
           onClick={() => setActiveKpiFilter('in_progress')}
           role="button"
@@ -469,6 +550,20 @@ function Tickets() {
         </div>
 
         <div
+          className={`ticket-kpi-card ${activeKpiFilter === 'billing_pending' ? 'ticket-kpi-card--active' : ''}`}
+          onClick={() => setActiveKpiFilter('billing_pending')}
+          role="button"
+          tabIndex={0}
+          style={{ borderLeft: '3px solid #d97706' }}
+        >
+          <div className="ticket-kpi-info">
+            <span className="ticket-kpi-title" style={{ color: '#b45309' }}>Faturamento Pendente</span>
+            <span className="ticket-kpi-sub">Concluídos há &gt; 2 dias</span>
+          </div>
+          <strong className="ticket-kpi-count" style={{ color: '#b45309' }}>{kpis.billingPending}</strong>
+        </div>
+
+        <div
           className={`ticket-kpi-card ${activeKpiFilter === 'resolved' ? 'ticket-kpi-card--active' : ''}`}
           onClick={() => setActiveKpiFilter('resolved')}
           role="button"
@@ -479,6 +574,19 @@ function Tickets() {
             <span className="ticket-kpi-sub">Chamados atendidos</span>
           </div>
           <strong className="ticket-kpi-count">{kpis.resolved}</strong>
+        </div>
+
+        <div
+          className={`ticket-kpi-card ${activeKpiFilter === 'overdue' ? 'ticket-kpi-card--active' : ''}`}
+          onClick={() => setActiveKpiFilter('overdue')}
+          role="button"
+          tabIndex={0}
+        >
+          <div className="ticket-kpi-info">
+            <span className="ticket-kpi-title">Vencidas</span>
+            <span className="ticket-kpi-sub">Atendimento atrasado</span>
+          </div>
+          <strong className="ticket-kpi-count">{kpis.overdue}</strong>
         </div>
       </div>
 
@@ -569,6 +677,17 @@ function Tickets() {
                   const priorityText = getPriorityLabel(ticket.priority);
                   const badgeClass = getPriorityBadgeClass(ticket.priority);
 
+                  const linkedOrder = {
+                    status: ticket.service_order_status,
+                    completed_at: ticket.service_order_completed_at,
+                    updated_at: ticket.service_order_updated_at,
+                    created_at: ticket.created_at
+                  };
+                  const effectiveSO = getEffectiveOrderStatus(linkedOrder);
+                  const isOrderBillingPending = effectiveSO === 'billing_pending';
+                  const isOrderBilled = effectiveSO === 'billed';
+                  const daysSinceCompleted = getDaysSinceCompletion(linkedOrder);
+
                   return (
                     <tr key={ticket.id}>
                       {/* Priority */}
@@ -578,9 +697,23 @@ function Tickets() {
                         </span>
                       </td>
 
-                      {/* OS Number */}
-                      <td style={{ fontWeight: 700, color: 'var(--teal)', fontSize: '12px' }}>
-                        OS-{String(ticket.service_order_number || ticket.ticket_number).padStart(5, '0')}
+                      {/* OS Number & Billing Chip */}
+                      <td>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                          <span style={{ fontWeight: 700, color: 'var(--teal)', fontSize: '12px' }}>
+                            OS-{String(ticket.service_order_number || ticket.ticket_number).padStart(5, '0')}
+                          </span>
+                          {isOrderBillingPending && (
+                            <span className="billing-chip-badge" title={`Concluída há ${daysSinceCompleted} dias - Aguardando pagamento`}>
+                              <AlertTriangle size={10} /> Pgto Pendente
+                            </span>
+                          )}
+                          {isOrderBilled && (
+                            <span style={{ fontSize: '10px', color: '#065f46', background: '#ecfdf5', padding: '1px 6px', borderRadius: '8px', border: '1px solid #a7f3d0', fontWeight: 600, width: 'fit-content' }}>
+                              <CheckCircle2 size={10} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '2px' }} /> Faturada
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       {/* Company / Sector */}
@@ -617,7 +750,7 @@ function Tickets() {
                       </td>
 
                       {/* Related Problem & Observations & Technician Performed Service */}
-                      <td style={{ color: 'var(--muted)', maxWidth: '220px' }}>
+                      <td style={{ color: 'var(--muted)', maxWidth: '240px' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                           <strong style={{ color: 'var(--teal)', display: 'block', fontSize: '12px', fontWeight: 600 }}>
                             {ticket.related_problem}
@@ -636,6 +769,27 @@ function Tickets() {
                               Em execução pelo técnico
                             </span>
                           ) : null}
+                          {/* Client notice if billing is pending */}
+                          {isOrderBillingPending && (
+                            <div style={{ marginTop: '5px', padding: '6px 10px', borderRadius: '6px', background: '#fffbeb', border: '1px solid #fde68a', color: '#92400e', fontSize: '11px', lineHeight: 1.35, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
+                              <span><strong>⚠️ Faturamento Pendente:</strong> Concluído há {daysSinceCompleted}d. Aguardando confirmação de pagamento.</span>
+                              <button
+                                type="button"
+                                className="billing-quick-bill-btn"
+                                onClick={() => setConfirmingBillingTicket(ticket)}
+                                style={{ padding: '2px 7px', fontSize: '10px' }}
+                                title="Informar que esta ordem de serviço já foi faturada / paga"
+                              >
+                                <DollarSign size={11} /> Informar Faturada
+                              </button>
+                            </div>
+                          )}
+                          {/* Client notice if billed */}
+                          {isOrderBilled && (
+                            <div style={{ marginTop: '4px', padding: '4px 7px', borderRadius: '6px', background: '#ecfdf5', border: '1px solid #a7f3d0', color: '#065f46', fontSize: '11px', lineHeight: 1.3 }}>
+                              <strong>✅ Faturada:</strong> Pagamento confirmado com sucesso.
+                            </div>
+                          )}
                         </div>
                       </td>
 
@@ -653,7 +807,7 @@ function Tickets() {
                       </td>
 
                       {/* Action */}
-                      <td style={{ textAlign: 'right' }}>
+                      <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                         {isUnassigned ? (
                           <button
                             type="button"
@@ -665,6 +819,19 @@ function Tickets() {
                             {assigningId === ticket.id ? 'Atendendo...' : 'Atender'}
                             <ArrowRight size={13} />
                           </button>
+                        ) : isOrderBillingPending ? (
+                          <button
+                            type="button"
+                            className="billing-quick-bill-btn"
+                            onClick={() => setConfirmingBillingTicket(ticket)}
+                            title="Informar faturamento desta ordem de serviço"
+                          >
+                            <DollarSign size={12} /> Informar Faturada
+                          </button>
+                        ) : isOrderBilled ? (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', padding: '4px 8px', borderRadius: '6px', background: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0', fontWeight: 600 }}>
+                            <CheckCircle2 size={12} /> Faturada
+                          </span>
                         ) : (
                           <span className="assigned-label" style={{ fontSize: '11px', padding: '5px 9px' }}>
                             {ticket.status === 'resolved' ? 'Resolvido' : 'Atendido'}
@@ -875,6 +1042,24 @@ function Tickets() {
           </div>
         </div>
       )}
+
+      {/* Confirmation Modal for Billing */}
+      <BillingConfirmationModal
+        isOpen={Boolean(confirmingBillingTicket)}
+        order={confirmingBillingTicket ? {
+          id: confirmingBillingTicket.service_order_id,
+          order_number: confirmingBillingTicket.service_order_number || confirmingBillingTicket.ticket_number,
+          patient_name: confirmingBillingTicket.requester,
+          service_type: confirmingBillingTicket.ticket_type === 'equipment' ? (confirmingBillingTicket.equipment_name || 'Equipamento') : 'Serviço Geral',
+          company_sector: confirmingBillingTicket.company_sector,
+          related_problem: confirmingBillingTicket.related_problem,
+          completed_at: confirmingBillingTicket.service_order_completed_at || confirmingBillingTicket.updated_at,
+          status: confirmingBillingTicket.service_order_status
+        } : null}
+        onConfirm={handleConfirmBilling}
+        onClose={() => setConfirmingBillingTicket(null)}
+        isSubmitting={isBillingSubmitting}
+      />
     </div>
   );
 }
