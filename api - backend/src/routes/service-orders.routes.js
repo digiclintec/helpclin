@@ -258,14 +258,14 @@ router.delete('/:id', async (request, response) => {
 
       const order = orderRes.rows[0];
       const supportTicketId = order.support_ticket_id;
-      const shouldDeleteTicket = request.query.deleteTicket === 'true';
+      const shouldKeepTicket = request.query.keepTicket === 'true' || request.query.deleteTicket === 'false';
 
       // 1. Excluir a ordem de serviço primeiro (evita restrições de chave estrangeira)
       await client.query('DELETE FROM service_orders WHERE id = $1', [request.params.id]);
 
-      // 2. Se houver chamado vinculado, atualizar ou excluir conforme solicitado
+      // 2. Se houver chamado vinculado, excluir o chamado também para não deixar órfãos na fila
       if (supportTicketId) {
-        if (shouldDeleteTicket) {
+        if (!shouldKeepTicket) {
           await client.query('DELETE FROM support_tickets WHERE id = $1', [supportTicketId]);
         } else {
           const orderNumStr = order.order_number != null ? String(order.order_number).padStart(5, '0') : '';
@@ -284,6 +284,9 @@ router.delete('/:id', async (request, response) => {
             [cancelNote, supportTicketId]
           );
         }
+      } else if (order.order_number && !shouldKeepTicket) {
+        // Fallback: se não tiver support_ticket_id gravado, verifica por service_order_number
+        await client.query('DELETE FROM support_tickets WHERE service_order_number = $1', [order.order_number]);
       }
 
       await client.query('COMMIT');

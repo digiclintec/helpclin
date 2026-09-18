@@ -1029,7 +1029,7 @@ function Tickets() {
               </thead>
               <tbody>
                 {filteredTickets.map((ticket) => {
-                  const isUnassigned = !ticket.assigned_to_name && ticket.status !== 'resolved';
+                  const isUnassigned = !ticket.assigned_to_name && ticket.status !== 'resolved' && ticket.status !== 'cancelled';
                   const priorityText = getPriorityLabel(ticket.priority);
                   const badgeClass = getPriorityBadgeClass(ticket.priority);
 
@@ -1092,8 +1092,24 @@ function Tickets() {
 
                       {/* 3. Estado */}
                       <td>
-                        <span className={`ticket-status ticket-status--${ticket.status}`} style={{ alignSelf: 'flex-start', fontSize: '10px', padding: '2px 6px', display: 'inline-block' }}>
-                          {ticket.status === 'open' ? 'Aberto' : ticket.status === 'in_progress' ? 'Em andamento' : 'Resolvido'}
+                        <span
+                          className={`ticket-status ticket-status--${ticket.status}`}
+                          style={{
+                            alignSelf: 'flex-start',
+                            fontSize: '10px',
+                            padding: '2px 6px',
+                            display: 'inline-block',
+                            backgroundColor: ticket.status === 'cancelled' ? '#fee2e2' : undefined,
+                            color: ticket.status === 'cancelled' ? '#b91c1c' : undefined
+                          }}
+                        >
+                          {ticket.status === 'open'
+                            ? 'Aberto'
+                            : ticket.status === 'in_progress'
+                            ? 'Em andamento'
+                            : ticket.status === 'cancelled'
+                            ? 'Cancelado'
+                            : 'Resolvido'}
                         </span>
                       </td>
 
