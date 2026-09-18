@@ -2070,6 +2070,213 @@ button { font: inherit; cursor: pointer; }
   color: #ffffff !important;
 }
 
+/* ==========================================================================
+   REPORTS PAGE ADVANCED FILTERS & SUMMARY CARDS
+   ========================================================================== */
+.report-filter-card {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 22px 24px;
+  box-shadow: 0 4px 18px rgba(18, 59, 61, 0.04);
+}
 
+.report-filter-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 18px;
+}
 
+.report-preset-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #edf3ef;
+}
 
+.report-filter-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #475569;
+}
+
+.report-preset-pills {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.report-preset-pill {
+  height: 32px;
+  padding: 0 13px;
+  border-radius: 8px;
+  border: 1px solid #dce7df;
+  background: #f8faf8;
+  color: var(--teal);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+}
+
+.report-preset-pill:hover {
+  border-color: var(--coral);
+  color: var(--coral);
+  background: #fdf6f4;
+}
+
+.report-preset-pill--active {
+  background: var(--teal) !important;
+  border-color: var(--teal) !important;
+  color: #ffffff !important;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(18, 59, 61, 0.2);
+}
+
+.report-date-inputs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.report-secondary-filters-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 14px;
+  align-items: end;
+}
+
+.report-filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.report-filter-field label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #475569;
+}
+
+.report-filter-field input,
+.report-filter-field select {
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #fbfcfa;
+  color: var(--teal);
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.report-filter-field input:focus,
+.report-filter-field select:focus {
+  border-color: var(--coral);
+  box-shadow: 0 0 0 3px rgba(231, 131, 104, 0.12);
+}
+
+.report-summary-cards {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 12px;
+}
+
+.report-summary-card {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-top: 3px solid #123b3d;
+  border-radius: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 2px 10px rgba(18, 59, 61, 0.03);
+}
+
+.report-summary-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(18, 59, 61, 0.08);
+}
+
+.report-summary-card--active {
+  box-shadow: 0 0 0 2px var(--teal), 0 6px 18px rgba(18, 59, 61, 0.12) !important;
+  background: #f8fbf9;
+}
+
+.report-summary-card--open {
+  border-top-color: #316c79;
+}
+
+.report-summary-card--progress {
+  border-top-color: #e78368;
+}
+
+.report-summary-card--completed {
+  border-top-color: #397c65;
+}
+
+.report-summary-card--pending {
+  border-top-color: #d97706;
+}
+
+.report-summary-card--billed {
+  border-top-color: #059669;
+}
+
+.report-summary-card--urgent {
+  border-top-color: #dc2626;
+}
+
+.report-summary-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  margin-bottom: 6px;
+  line-height: 1.2;
+}
+
+.report-summary-value {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--teal);
+  line-height: 1.1;
+}
+
+.report-summary-hint {
+  font-size: 11px;
+  color: #94a3b8;
+  margin-top: 4px;
+}
+
+@media (max-width: 1200px) {
+  .report-summary-cards {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .report-summary-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .report-date-inputs-grid,
+  .report-secondary-filters-grid {
+    grid-template-columns: 1fr;
+  }
+}

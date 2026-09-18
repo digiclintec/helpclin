@@ -37,7 +37,6 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
-import ExportDropdown from '../components/ExportDropdown.jsx';
 import {
   createEquipment,
   createServiceOrder,
@@ -57,7 +56,6 @@ import {
   isBillingPending,
   isBilled
 } from '../utils/billingUtils.js';
-import { exportToPdf, exportToXls } from '../utils/exportReport.js';
 
 function formatDate(value) {
   if (!value) return '—';
@@ -420,47 +418,6 @@ function Dashboard() {
     }
   }
 
-  // Export handlers
-  const exportColumns = [
-    { header: 'Prioridade', accessor: (o) => getPriorityLabel(o.priority) },
-    { header: 'Número OS', accessor: (o) => `OS-${String(o.order_number || o.id).padStart(5, '0')}` },
-    { header: 'Estado', accessor: (o) => getStatusLabel(o.status) },
-    { header: 'Solicitante / Setor', accessor: (o) => o.patient_name || 'Setor Geral' },
-    { header: 'Equipamento / Ativo', accessor: (o) => o.equipment_name || 'Serviço Geral' },
-    { header: 'Responsável Técnico', accessor: (o) => o.technician_name || 'Não atribuído' },
-    { header: 'Tipo de Serviço', accessor: (o) => o.service_type || 'Manutenção' },
-    { header: 'Criada em', accessor: (o) => formatDate(o.created_at) },
-    { header: 'Concluída em', accessor: (o) => formatDate(o.completed_at) },
-    { header: 'Data do Faturamento / Pagamento', accessor: (o) => o.billed_at ? formatDate(o.billed_at) : (o.status === 'billed' ? 'Faturada' : 'Pendente') },
-    { header: 'Situação de Faturamento', accessor: (o) => o.status === 'billed' ? `Faturada em ${formatDate(o.billed_at || o.updated_at)}` : 'Aguardando faturamento' },
-    { header: 'Descrição', accessor: (o) => o.service_requested_description || o.description || '—' },
-    { header: 'Serviço Realizado', accessor: (o) => o.service_performed_description || '—' }
-  ];
-
-  function handleExportXls() {
-    exportToXls({
-      title: 'Relatório Executivo & Ordens de Serviço',
-      filename: 'Relatorio_Geral_HelpClin',
-      columns: exportColumns,
-      data: filteredOrders
-    });
-  }
-
-  function handleExportPdf() {
-    exportToPdf({
-      title: 'Painel de Controle e Desempenho Operacional',
-      subtitle: `Relatório Executivo Geral - ${orders.length} ordens de serviço, ${inventory.length} equipamentos e ${tickets.length} chamados`,
-      columns: exportColumns,
-      data: filteredOrders,
-      summary: [
-        { label: 'Total Atendimentos', value: kpis.totalServices },
-        { label: 'OS Criadas', value: kpis.totalOrders },
-        { label: 'OS Finalizadas', value: kpis.completed },
-        { label: 'Equipamentos Ativos', value: kpis.totalEquipments },
-        { label: 'Taxa de Resolução', value: `${kpis.ticketResolutionRate}%` }
-      ]
-    });
-  }
 
   // Billed Orders Filtering & Export
   const billedOrders = useMemo(() => {
@@ -475,39 +432,6 @@ function Dashboard() {
       return str.includes(term);
     });
   }, [billedOrders, billedSearch]);
-
-  const billedExportColumns = [
-    { header: 'Ordem de Serviço', accessor: (o) => `OS-${String(o.order_number || o.id).padStart(5, '0')}` },
-    { header: 'Setor / Solicitante', accessor: 'patient_name' },
-    { header: 'Serviço / Ativo', accessor: (o) => o.equipment_name ? `${o.equipment_name} (${o.service_type})` : o.service_type },
-    { header: 'Técnico Responsável', accessor: (o) => o.technician_name || 'Técnico Responsável' },
-    { header: 'Data de Conclusão Técnica', accessor: (o) => formatDate(o.completed_at || o.updated_at) },
-    { header: 'Data do Faturamento / Pagamento', accessor: (o) => formatDate(o.billed_at || o.updated_at) },
-    { header: 'Status Financeiro', accessor: (o) => `Faturada (Paga em ${formatDate(o.billed_at || o.updated_at)})` }
-  ];
-
-  function handleExportBilledXls() {
-    exportToXls({
-      title: 'Relatório de Ordens de Serviço Faturadas',
-      filename: 'Ordens_Faturadas_HelpClin',
-      columns: billedExportColumns,
-      data: filteredBilledOrders
-    });
-  }
-
-  function handleExportBilledPdf() {
-    exportToPdf({
-      title: 'Relatório Financeiro de Ordens Faturadas',
-      subtitle: `HelpClin - Total de ${filteredBilledOrders.length} ordens faturadas emitidas`,
-      columns: billedExportColumns,
-      data: filteredBilledOrders,
-      summary: [
-        { label: 'Ordens Faturadas', value: filteredBilledOrders.length },
-        { label: 'Pendência de Faturamento', value: kpis.billingPending },
-        { label: 'Taxa de Faturamento', value: `${kpis.billingRate}%` }
-      ]
-    });
-  }
 
   // Create New Order
   async function handleCreateOrder(event) {
@@ -1189,7 +1113,9 @@ function Dashboard() {
                 </p>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <ExportDropdown onExportXls={handleExportBilledXls} onExportPdf={handleExportBilledPdf} />
+                <a href="/relatorios" className="secondary-button" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px' }} title="Ir para a Central de Relatórios">
+                  <BarChart3 size={15} /> Central de Relatórios
+                </a>
                 <a href="/ordens" className="secondary-button" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <FileText size={15} /> Todas as OS
                 </a>
