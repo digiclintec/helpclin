@@ -187,7 +187,15 @@ function Dashboard() {
     // 1 chamado gera automaticamente 1 ordem de serviço com número de controle.
     // Cada ordem representa um atendimento real. Contabilizamos apenas chamados sem OS para compatibilidade.
     const unlinkedTicketsCount = tickets.filter(
-      (t) => !t.service_order_id && !orders.some((o) => o.support_ticket_id === t.id)
+      (t) =>
+        !t.service_order_id &&
+        !orders.some(
+          (o) =>
+            o.support_ticket_id === t.id ||
+            (o.order_number != null &&
+              (Number(o.order_number) === Number(t.service_order_number) ||
+                Number(o.order_number) === Number(t.ticket_number)))
+        )
     ).length;
     const totalServices = totalOrders + unlinkedTicketsCount;
 
