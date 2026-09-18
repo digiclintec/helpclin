@@ -10,6 +10,8 @@ import {
   RefreshCw,
   RotateCcw,
   Search,
+  Trash2,
+  AlertTriangle,
   UserCheck,
   Wrench,
   X
@@ -20,6 +22,7 @@ import ExportDropdown from '../components/ExportDropdown.jsx';
 import {
   assignSupportTicket,
   createSupportTicket,
+  deleteSupportTicket,
   getInventory,
   getStoredUser,
   getSupportTickets
@@ -149,6 +152,8 @@ function Tickets() {
   const [form, setForm] = useState(emptyForm);
   const [isSaving, setIsSaving] = useState(false);
   const [assigningId, setAssigningId] = useState(null);
+  const [ticketToDelete, setTicketToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Filters
   const [activeKpiFilter, setActiveKpiFilter] = useState('all');
@@ -253,7 +258,15 @@ function Tickets() {
       setTickets((prev) =>
         prev.map((t) =>
           t.id === ticketId
-            ? { ...t, assigned_to: user.id, assigned_to_name: user.name, status: updated.status }
+            ? {
+                ...t,
+                assigned_to: user.id,
+                assigned_to_name: user.name,
+                status: updated.status || 'in_progress',
+                service_order_number: updated.service_order_number || updated.service_order?.order_number || t.service_order_number,
+                order_number: updated.order_number || updated.service_order?.order_number || t.order_number,
+                service_order_id: updated.service_order_id || updated.service_order?.id || t.service_order_id
+              }
             : t
         )
       );
@@ -261,6 +274,21 @@ function Tickets() {
       setFeedback(error.message);
     } finally {
       setAssigningId(null);
+    }
+  }
+
+  async function handleConfirmDeleteTicket() {
+    if (!ticketToDelete) return;
+    setIsDeleting(true);
+    try {
+      await deleteSupportTicket(ticketToDelete.id);
+      setTickets((prev) => prev.filter((t) => t.id !== ticketToDelete.id));
+      setFeedback(`Chamado ${ticketToDelete.service_order_number ? `OS-${String(ticketToDelete.service_order_number).padStart(5, '0')}` : `#${ticketToDelete.ticket_number || ticketToDelete.id}`} excluído com sucesso.`);
+      setTicketToDelete(null);
+    } catch (error) {
+      setFeedback(error.message);
+    } finally {
+      setIsDeleting(false);
     }
   }
 
@@ -673,6 +701,7 @@ function Tickets() {
             <option value="open">Aberto</option>
             <option value="in_progress">Em andamento</option>
             <option value="resolved">Resolvido</option>
+            <option value="cancelled">Cancelado</option>
           </select>
 
           {!isClient && (
@@ -823,12 +852,21 @@ function Tickets() {
                       <td>
                         <span
                           className={`ticket-status ticket-status--${ticket.status}`}
-                          style={{ alignSelf: 'flex-start', fontSize: '10px', padding: '3px 7px', display: 'inline-block' }}
+                          style={{
+                            alignSelf: 'flex-start',
+                            fontSize: '10px',
+                            padding: '3px 7px',
+                            display: 'inline-block',
+                            backgroundColor: ticket.status === 'cancelled' ? '#fee2e2' : undefined,
+                            color: ticket.status === 'cancelled' ? '#b91c1c' : undefined
+                          }}
                         >
                           {ticket.status === 'open'
                             ? 'Aberto'
                             : ticket.status === 'in_progress'
                             ? 'Em andamento'
+                            : ticket.status === 'cancelled'
+                            ? 'Cancelado'
                             : 'Resolvido'}
                         </span>
                       </td>
@@ -912,28 +950,59 @@ function Tickets() {
                         )}
                       </td>
 
-                      {/* 7. Ação: Link to Service Orders */}
+                      {/* 7. Ação: Link to Service Orders & Delete */}
                       <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
-                        <a
-                          href="/ordens"
-                          className="secondary-button"
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            padding: '5px 10px',
-                            fontSize: '11px',
-                            fontWeight: 600,
-                            color: 'var(--teal)',
-                            backgroundColor: '#ffffff',
-                            borderColor: '#cbd5e1',
-                            textDecoration: 'none',
-                            borderRadius: '6px'
-                          }}
-                          title="Qualquer dúvida, laudo técnico ou faturamento, acesse a Ordem de Serviço"
-                        >
-                          Ver na OS <ExternalLink size={12} />
-                        </a>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                          {ticket.service_order_id ? (
+                            <a
+                              href="/ordens"
+                              className="secondary-button"
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                padding: '5px 9px',
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                color: 'var(--teal)',
+                                backgroundColor: '#ffffff',
+                                borderColor: '#cbd5e1',
+                                textDecoration: 'none',
+                                borderRadius: '6px'
+                              }}
+                              title="Acessar a Ordem de Serviço vinculada"
+                            >
+                              Ver na OS <ExternalLink size={12} />
+                            </a>
+                          ) : (
+                            <span style={{ fontSize: '11px', color: '#94a3b8', fontStyle: 'italic', padding: '0 4px' }}>
+                              {ticket.status === 'cancelled' ? 'OS Cancelada' : 'Sem OS'}
+                            </span>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => setTicketToDelete(ticket)}
+                            className="secondary-button"
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              padding: '5px 8px',
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              color: '#dc2626',
+                              backgroundColor: '#fff',
+                              borderColor: '#fecaca',
+                              borderRadius: '6px',
+                              cursor: 'pointer'
+                            }}
+                            title="Apagar chamado (teste ou duplicado)"
+                          >
+                            <Trash2 size={12} />
+                            <span>Apagar</span>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -968,23 +1037,45 @@ function Tickets() {
                     <tr key={ticket.id}>
                       {/* 1. Ações */}
                       <td style={{ textAlign: 'left', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
-                        {isUnassigned ? (
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                          {isUnassigned ? (
+                            <button
+                              type="button"
+                              className="ticket-attend-btn"
+                              onClick={() => handleAssign(ticket.id)}
+                              disabled={assigningId === ticket.id}
+                              title="Assumir chamado para atendimento"
+                              style={{ padding: '4px 8px', fontSize: '11px', height: '28px' }}
+                            >
+                              {assigningId === ticket.id ? 'Atendendo...' : 'Atender'}
+                              <ArrowRight size={12} />
+                            </button>
+                          ) : (
+                            <span className="assigned-label" style={{ fontSize: '10px', padding: '3px 6px' }}>
+                              {ticket.status === 'resolved' ? 'Resolvido' : ticket.status === 'cancelled' ? 'Cancelado' : 'Atendido'}
+                            </span>
+                          )}
+
                           <button
                             type="button"
-                            className="ticket-attend-btn"
-                            onClick={() => handleAssign(ticket.id)}
-                            disabled={assigningId === ticket.id}
-                            title="Assumir chamado para atendimento"
-                            style={{ padding: '4px 8px', fontSize: '11px', height: '28px' }}
+                            onClick={() => setTicketToDelete(ticket)}
+                            className="secondary-button"
+                            style={{
+                              padding: '4px 7px',
+                              height: '28px',
+                              borderRadius: '6px',
+                              color: '#dc2626',
+                              borderColor: '#fecaca',
+                              backgroundColor: '#fff',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              cursor: 'pointer'
+                            }}
+                            title="Excluir este chamado de teste"
                           >
-                            {assigningId === ticket.id ? 'Atendendo...' : 'Atender'}
-                            <ArrowRight size={12} />
+                            <Trash2 size={12} />
                           </button>
-                        ) : (
-                          <span className="assigned-label" style={{ fontSize: '10px', padding: '3px 6px' }}>
-                            {ticket.status === 'resolved' ? 'Resolvido' : 'Atendido'}
-                          </span>
-                        )}
+                        </div>
                       </td>
 
                       {/* 2. OS & Prioridade */}
@@ -1305,6 +1396,45 @@ function Tickets() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Confirmação de Exclusão de Chamado */}
+      {ticketToDelete && (
+        <div className="dash-modal-backdrop" onClick={() => setTicketToDelete(null)}>
+          <div className="dash-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '440px' }}>
+            <div className="dash-modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#dc2626' }}>
+                <AlertTriangle size={20} />
+                <h2 style={{ fontSize: '17px', margin: 0, color: '#dc2626' }}>Excluir Chamado</h2>
+              </div>
+              <button type="button" className="dash-modal-close" onClick={() => setTicketToDelete(null)}>
+                <X size={18} />
+              </button>
+            </div>
+            <div style={{ padding: '16px 20px', color: '#475569', fontSize: '13px', lineHeight: '1.5' }}>
+              <p style={{ margin: '0 0 10px 0' }}>
+                Tem certeza que deseja apagar o chamado <strong>{ticketToDelete.service_order_number ? `OS-${String(ticketToDelete.service_order_number).padStart(5, '0')}` : `#${String(ticketToDelete.ticket_number || ticketToDelete.id).padStart(5, '0')}`}</strong>?
+              </p>
+              <p style={{ margin: 0, color: '#64748b', fontSize: '12px' }}>
+                Esta ação removerá este chamado de teste permanentemente do sistema e do banco de dados.
+              </p>
+            </div>
+            <div className="dash-modal-actions" style={{ padding: '12px 20px', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button type="button" className="secondary-button" onClick={() => setTicketToDelete(null)} disabled={isDeleting}>
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="primary-button"
+                style={{ backgroundColor: '#dc2626', borderColor: '#dc2626', color: '#fff' }}
+                onClick={handleConfirmDeleteTicket}
+                disabled={isDeleting}
+              >
+                {isDeleting ? 'Excluindo...' : 'Confirmar Exclusão'}
+              </button>
+            </div>
           </div>
         </div>
       )}

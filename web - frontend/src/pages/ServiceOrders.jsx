@@ -85,6 +85,7 @@ function ServiceOrders() {
 
   // Delete modal state
   const [deletingOrder, setDeletingOrder] = useState(null);
+  const [deleteLinkedTicket, setDeleteLinkedTicket] = useState(true);
 
   const techniciansList = useMemo(() => {
     const list = orders.map((o) => o.technician_name).filter(Boolean);
@@ -278,7 +279,7 @@ function ServiceOrders() {
     setErrorMessage('');
     setSuccessMessage('');
     try {
-      const res = await deleteServiceOrder(deletingOrder.id);
+      const res = await deleteServiceOrder(deletingOrder.id, deleteLinkedTicket);
       setOrders((prev) => prev.filter((o) => o.id !== deletingOrder.id));
       if (editingOrder?.id === deletingOrder.id) {
         setEditingOrder(null);
@@ -887,7 +888,10 @@ function ServiceOrders() {
                             <button
                               type="button"
                               className="inventory-action-btn inventory-action-btn--delete"
-                              onClick={() => setDeletingOrder(order)}
+                              onClick={() => {
+                                setDeletingOrder(order);
+                                setDeleteLinkedTicket(true);
+                              }}
                               title={`Excluir OS-${String(order.order_number).padStart(5, '0')}`}
                               aria-label={`Excluir OS ${order.order_number}`}
                               style={{ width: '26px', height: '26px', flexShrink: 0, padding: 0 }}
@@ -1430,6 +1434,39 @@ function ServiceOrders() {
                   <strong>{deletingOrder.service_type || 'Manutenção'}</strong>
                 </div>
               </div>
+
+              {deletingOrder.support_ticket_id && (
+                <div
+                  style={{
+                    marginTop: '12px',
+                    padding: '10px 12px',
+                    background: '#eff6ff',
+                    border: '1px solid #bfdbfe',
+                    borderRadius: '8px'
+                  }}
+                >
+                  <label
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                      color: '#1e40af',
+                      fontWeight: 600,
+                      margin: 0
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={deleteLinkedTicket}
+                      onChange={(e) => setDeleteLinkedTicket(e.target.checked)}
+                      style={{ accentColor: '#2563eb', width: '15px', height: '15px', cursor: 'pointer' }}
+                    />
+                    <span>Excluir também o chamado de suporte aberto que originou esta OS</span>
+                  </label>
+                </div>
+              )}
             </div>
 
             <div className="inventory-modal-actions" style={{ justifyContent: 'flex-end', gap: '10px' }}>

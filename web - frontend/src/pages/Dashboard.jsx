@@ -33,6 +33,8 @@ import {
   UserCheck,
   Users,
   Wrench,
+  Trash2,
+  AlertTriangle,
   X
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
@@ -41,6 +43,7 @@ import {
   createEquipment,
   createServiceOrder,
   createSupportTicket,
+  deleteSupportTicket,
   getInventory,
   getReportSummary,
   getServiceOrders,
@@ -128,6 +131,12 @@ function Dashboard() {
   const [onlyMyOrders, setOnlyMyOrders] = useState(false);
   const [search, setSearch] = useState('');
   const [billedSearch, setBilledSearch] = useState('');
+
+  // Tickets tab & deletion state on Dashboard
+  const [ticketSearch, setTicketSearch] = useState('');
+  const [ticketStatusFilter, setTicketStatusFilter] = useState('all');
+  const [ticketToDelete, setTicketToDelete] = useState(null);
+  const [isDeletingTicket, setIsDeletingTicket] = useState(false);
 
   useEffect(() => {
     loadAllData();
@@ -433,6 +442,36 @@ function Dashboard() {
     });
   }, [billedOrders, billedSearch]);
 
+  // Filtered Tickets for Dashboard Chamados tab
+  const filteredDashboardTickets = useMemo(() => {
+    return tickets.filter((t) => {
+      if (ticketStatusFilter !== 'all' && t.status !== ticketStatusFilter) return false;
+      if (ticketSearch.trim()) {
+        const term = ticketSearch.toLowerCase();
+        const str = `${t.ticket_number || ''} ${t.service_order_number || ''} ${t.requester || ''} ${t.company_sector || ''} ${t.related_problem || ''} ${t.equipment_name || ''} ${t.observations || ''} ${t.assigned_to_name || ''}`.toLowerCase();
+        if (!str.includes(term)) return false;
+      }
+      return true;
+    });
+  }, [tickets, ticketStatusFilter, ticketSearch]);
+
+  async function handleConfirmDeleteTicket() {
+    if (!ticketToDelete) return;
+    setIsDeletingTicket(true);
+    setErrorMessage('');
+    setSuccessMessage('');
+    try {
+      await deleteSupportTicket(ticketToDelete.id);
+      setTickets((prev) => prev.filter((t) => t.id !== ticketToDelete.id));
+      setSuccessMessage(`Chamado ${ticketToDelete.service_order_number ? `OS-${String(ticketToDelete.service_order_number).padStart(5, '0')}` : `#${ticketToDelete.ticket_number || ticketToDelete.id}`} excluído com sucesso.`);
+      setTicketToDelete(null);
+    } catch (error) {
+      setErrorMessage(error.message);
+    } finally {
+      setIsDeletingTicket(false);
+    }
+  }
+
   // Create New Order
   async function handleCreateOrder(event) {
     event.preventDefault();
@@ -575,6 +614,14 @@ function Dashboard() {
             >
               <BarChart3 size={16} />
               <span>Visão Geral & Relatórios</span>
+            </button>
+            <button
+              type="button"
+              className={`dash-tab-btn ${activeTab === 'chamados' ? 'dash-tab-btn--active' : ''}`}
+              onClick={() => setActiveTab('chamados')}
+            >
+              <Headset size={16} />
+              <span>Chamados ({tickets.length})</span>
             </button>
             <button
               type="button"
@@ -730,7 +777,14 @@ function Dashboard() {
           </div>
         </article>
 
-        <article className="dash-kpi-card">
+        <article
+          className="dash-kpi-card"
+          onClick={() => setActiveTab('chamados')}
+          role="button"
+          tabIndex={0}
+          style={{ cursor: 'pointer' }}
+          title="Clique para ver e gerenciar chamados de suporte"
+        >
           <div className="dash-kpi-header">
             <span className="dash-kpi-label">Chamados & Suporte</span>
             <div className="dash-kpi-icon-pill dash-kpi-icon-pill--coral">
@@ -1287,6 +1341,274 @@ function Dashboard() {
         </section>
       )}
 
+      {/* 8. TAB 4: CHAMADOS DE SUPORTE (GERENCIAMENTO NO DASHBOARD) */}
+      {activeTab === 'chamados' && (
+        <section className="dash-chamados-section" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div className="dash-card" style={{ padding: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
+              <div>
+                <span className="dash-card-eyebrow" style={{ color: '#e78368', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Headset size={14} /> Atendimento & Suporte
+                </span>
+                <h2 style={{ margin: '4px 0 8px 0', fontSize: '20px', color: 'var(--teal)' }}>
+                  Chamados Técnicos Registrados
+                </h2>
+                <p style={{ margin: 0, fontSize: '14px', color: '#64748b', maxWidth: '650px' }}>
+                  Acompanhe os chamados de suporte, filtre por situação e apague chamados realizados para testes.
+                </p>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <a
+                  href="/chamados?novo=1"
+                  className="primary-button"
+                  style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}
+                >
+                  <Plus size={15} /> Novo Chamado
+                </a>
+                <a
+                  href="/chamados"
+                  className="secondary-button"
+                  style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}
+                >
+                  Central Completa <ArrowRight size={14} />
+                </a>
+              </div>
+            </div>
+
+            {/* Mini KPIs de Chamados */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '14px', marginTop: '24px' }}>
+              <div
+                style={{ padding: '14px', borderRadius: '10px', background: '#f8fafc', border: '1px solid #e2e8f0', cursor: 'pointer' }}
+                onClick={() => setTicketStatusFilter('all')}
+              >
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#475569', display: 'block', textTransform: 'uppercase' }}>Total</span>
+                <strong style={{ fontSize: '22px', color: 'var(--teal)' }}>{tickets.length}</strong>
+                <small style={{ color: '#64748b', display: 'block' }}>registrados</small>
+              </div>
+
+              <div
+                style={{ padding: '14px', borderRadius: '10px', background: '#eff6ff', border: '1px solid #bfdbfe', cursor: 'pointer' }}
+                onClick={() => setTicketStatusFilter('open')}
+              >
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#1e40af', display: 'block', textTransform: 'uppercase' }}>Abertos</span>
+                <strong style={{ fontSize: '22px', color: '#1d4ed8' }}>{tickets.filter((t) => t.status === 'open').length}</strong>
+                <small style={{ color: '#1e40af', display: 'block' }}>aguardando</small>
+              </div>
+
+              <div
+                style={{ padding: '14px', borderRadius: '10px', background: '#fff7ed', border: '1px solid #fed7aa', cursor: 'pointer' }}
+                onClick={() => setTicketStatusFilter('in_progress')}
+              >
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#9a3412', display: 'block', textTransform: 'uppercase' }}>Em Andamento</span>
+                <strong style={{ fontSize: '22px', color: '#c2410c' }}>{tickets.filter((t) => t.status === 'in_progress').length}</strong>
+                <small style={{ color: '#9a3412', display: 'block' }}>em execução</small>
+              </div>
+
+              <div
+                style={{ padding: '14px', borderRadius: '10px', background: '#f0fdf4', border: '1px solid #bbf7d0', cursor: 'pointer' }}
+                onClick={() => setTicketStatusFilter('resolved')}
+              >
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#166534', display: 'block', textTransform: 'uppercase' }}>Resolvidos</span>
+                <strong style={{ fontSize: '22px', color: '#15803d' }}>{tickets.filter((t) => t.status === 'resolved').length}</strong>
+                <small style={{ color: '#166534', display: 'block' }}>finalizados</small>
+              </div>
+
+              <div
+                style={{ padding: '14px', borderRadius: '10px', background: '#fef2f2', border: '1px solid #fecaca', cursor: 'pointer' }}
+                onClick={() => setTicketStatusFilter('cancelled')}
+              >
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#991b1b', display: 'block', textTransform: 'uppercase' }}>Cancelados / Teste</span>
+                <strong style={{ fontSize: '22px', color: '#dc2626' }}>{tickets.filter((t) => t.status === 'cancelled').length}</strong>
+                <small style={{ color: '#991b1b', display: 'block' }}>OS apagada / cancelado</small>
+              </div>
+            </div>
+          </div>
+
+          {/* Barra de Filtros de Chamados */}
+          <div className="dash-card" style={{ padding: '16px 20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                <div className="search-control" style={{ width: '280px' }}>
+                  <Search size={16} />
+                  <input
+                    value={ticketSearch}
+                    onChange={(e) => setTicketSearch(e.target.value)}
+                    placeholder="Filtrar por OS, setor, problema, técnico..."
+                    aria-label="Filtrar chamados"
+                  />
+                </div>
+
+                <select
+                  value={ticketStatusFilter}
+                  onChange={(e) => setTicketStatusFilter(e.target.value)}
+                  style={{
+                    height: '38px',
+                    padding: '0 12px',
+                    border: '1px solid var(--line)',
+                    borderRadius: '9px',
+                    background: '#fbfcfa',
+                    color: 'var(--teal)',
+                    fontSize: '12px',
+                    fontWeight: 600
+                  }}
+                  aria-label="Filtro de status de chamado"
+                >
+                  <option value="all">Todos os status</option>
+                  <option value="open">Abertos</option>
+                  <option value="in_progress">Em andamento</option>
+                  <option value="resolved">Resolvidos</option>
+                  <option value="cancelled">Cancelados / Testes</option>
+                </select>
+
+                {(ticketSearch || ticketStatusFilter !== 'all') && (
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    style={{ padding: '6px 12px', fontSize: '12px' }}
+                    onClick={() => {
+                      setTicketSearch('');
+                      setTicketStatusFilter('all');
+                    }}
+                  >
+                    Limpar
+                  </button>
+                )}
+              </div>
+
+              <span style={{ fontSize: '13px', color: '#64748b' }}>
+                Mostrando <b>{filteredDashboardTickets.length}</b> de <b>{tickets.length}</b> chamados
+              </span>
+            </div>
+          </div>
+
+          {/* Listagem de Chamados */}
+          <div className="dash-card" style={{ padding: '0', overflow: 'hidden' }}>
+            {filteredDashboardTickets.length === 0 ? (
+              <div className="dash-empty-text" style={{ padding: '60px 20px', textAlign: 'center' }}>
+                <Headset size={36} style={{ color: '#8faea1', margin: '0 auto 12px', display: 'block' }} />
+                <strong style={{ display: 'block', color: 'var(--teal)', fontSize: '16px', marginBottom: '6px' }}>
+                  {ticketSearch || ticketStatusFilter !== 'all' ? 'Nenhum chamado encontrado para os filtros' : 'Nenhum chamado registrado'}
+                </strong>
+                <p style={{ fontSize: '13px', color: '#64748b', maxWidth: '500px', margin: '0 auto 16px' }}>
+                  {ticketSearch || ticketStatusFilter !== 'all'
+                    ? 'Tente ajustar os termos de pesquisa ou selecionar outro status.'
+                    : 'Novas solicitações de suporte aparecerão aqui.'}
+                </p>
+                <a href="/chamados?novo=1" className="primary-button" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                  <Plus size={16} /> Abrir Chamado
+                </a>
+              </div>
+            ) : (
+              <div className="helpclin-table-wrapper">
+                <table className="helpclin-table">
+                  <thead>
+                    <tr>
+                      <th style={{ width: '110px' }}>Chamado / OS</th>
+                      <th style={{ width: '120px' }}>Situação</th>
+                      <th>Solicitante / Setor</th>
+                      <th>Equipamento / Ativo</th>
+                      <th>Problema Relatado</th>
+                      <th>Responsável Técnico</th>
+                      <th style={{ width: '130px' }}>Aberto em</th>
+                      <th style={{ width: '140px', textAlign: 'center' }}>Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredDashboardTickets.map((ticket) => (
+                      <tr key={ticket.id}>
+                        <td>
+                          <span style={{ fontWeight: 700, color: 'var(--teal)', fontSize: '13px' }}>
+                            OS-{String(ticket.service_order_number || ticket.ticket_number || ticket.id).padStart(5, '0')}
+                          </span>
+                        </td>
+                        <td>
+                          <span
+                            className={`ticket-status ticket-status--${ticket.status}`}
+                            style={{
+                              fontSize: '11px',
+                              padding: '3px 8px',
+                              borderRadius: '6px',
+                              display: 'inline-block',
+                              backgroundColor: ticket.status === 'cancelled' ? '#fee2e2' : undefined,
+                              color: ticket.status === 'cancelled' ? '#b91c1c' : undefined
+                            }}
+                          >
+                            {ticket.status === 'open'
+                              ? 'Aberto'
+                              : ticket.status === 'in_progress'
+                              ? 'Em andamento'
+                              : ticket.status === 'cancelled'
+                              ? 'Cancelado'
+                              : 'Resolvido'}
+                          </span>
+                        </td>
+                        <td style={{ fontWeight: 600, color: 'var(--teal)' }}>
+                          {ticket.requester || ticket.company_sector || 'Recepção'}
+                        </td>
+                        <td>{ticket.equipment_name || 'Serviço Geral'}</td>
+                        <td>
+                          <div style={{ maxWidth: '280px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={ticket.related_problem || ticket.title}>
+                            {ticket.related_problem || ticket.title || '—'}
+                          </div>
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: ticket.assigned_to_name ? '#2b6351' : '#94a3b8' }}>
+                            <UserCheck size={13} />
+                            <span>{ticket.assigned_to_name || 'Aguardando atendimento'}</span>
+                          </div>
+                        </td>
+                        <td style={{ fontSize: '13px', color: '#64748b' }}>
+                          {formatDate(ticket.created_at)}
+                        </td>
+                        <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                            {ticket.service_order_id ? (
+                              <a
+                                href="/ordens"
+                                className="secondary-button"
+                                style={{ padding: '4px 8px', fontSize: '11px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                title="Acessar Ordem de Serviço"
+                              >
+                                Ver na OS <ExternalLink size={11} />
+                              </a>
+                            ) : (
+                              <span style={{ fontSize: '11px', color: '#94a3b8', fontStyle: 'italic' }}>
+                                {ticket.status === 'cancelled' ? 'OS Cancelada' : 'Sem OS'}
+                              </span>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => setTicketToDelete(ticket)}
+                              className="secondary-button"
+                              style={{
+                                padding: '4px 7px',
+                                fontSize: '11px',
+                                color: '#dc2626',
+                                borderColor: '#fecaca',
+                                backgroundColor: '#fff',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '3px',
+                                cursor: 'pointer'
+                              }}
+                              title="Apagar chamado de teste"
+                            >
+                              <Trash2 size={12} />
+                              <span>Apagar</span>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
       {/* MODAL: NOVA ORDEM DE SERVIÇO */}
       {isNewOrderModalOpen && (
         <div className="dash-modal-backdrop" onClick={() => setIsNewOrderModalOpen(false)}>
@@ -1559,6 +1881,45 @@ function Dashboard() {
                 disabled={isSaving}
               >
                 {isSaving ? 'Salvando...' : 'Salvar Alterações'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: CONFIRMAÇÃO DE EXCLUSÃO DE CHAMADO */}
+      {ticketToDelete && (
+        <div className="dash-modal-backdrop" onClick={() => setTicketToDelete(null)}>
+          <div className="dash-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '440px' }}>
+            <div className="dash-modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#dc2626' }}>
+                <AlertTriangle size={20} />
+                <h2 style={{ fontSize: '17px', margin: 0, color: '#dc2626' }}>Excluir Chamado de Teste</h2>
+              </div>
+              <button type="button" className="dash-modal-close" onClick={() => setTicketToDelete(null)}>
+                <X size={18} />
+              </button>
+            </div>
+            <div style={{ padding: '16px 20px', color: '#475569', fontSize: '13px', lineHeight: '1.5' }}>
+              <p style={{ margin: '0 0 10px 0' }}>
+                Tem certeza que deseja apagar o chamado <strong>{ticketToDelete.service_order_number ? `OS-${String(ticketToDelete.service_order_number).padStart(5, '0')}` : `#${ticketToDelete.ticket_number || ticketToDelete.id}`}</strong>?
+              </p>
+              <p style={{ margin: 0, color: '#64748b', fontSize: '12px' }}>
+                Esta ação removerá este registro de teste definitivamente do banco de dados e do histórico operacional.
+              </p>
+            </div>
+            <div className="dash-modal-actions" style={{ padding: '12px 20px', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button type="button" className="secondary-button" onClick={() => setTicketToDelete(null)} disabled={isDeletingTicket}>
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="primary-button"
+                style={{ backgroundColor: '#dc2626', borderColor: '#dc2626', color: '#fff' }}
+                onClick={handleConfirmDeleteTicket}
+                disabled={isDeletingTicket}
+              >
+                {isDeletingTicket ? 'Excluindo...' : 'Confirmar Exclusão'}
               </button>
             </div>
           </div>

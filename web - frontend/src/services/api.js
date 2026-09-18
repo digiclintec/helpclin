@@ -101,8 +101,9 @@ export async function rejectPaymentReceipt(orderId, technicianId, reason) {
   return data.order;
 }
 
-export async function deleteServiceOrder(orderId) {
-  const response = await fetch(`${apiUrl}/service-orders/${orderId}`, {
+export async function deleteServiceOrder(orderId, deleteTicket = false) {
+  const query = deleteTicket ? '?deleteTicket=true' : '';
+  const response = await fetch(`${apiUrl}/service-orders/${orderId}${query}`, {
     method: 'DELETE'
   });
   const data = await response.json();
@@ -139,6 +140,16 @@ export async function assignSupportTicket(ticketId, userId) {
   const data = await response.json();
   if (!response.ok) throw new Error(data.message ?? 'Não foi possível assumir o chamado');
   return data.ticket;
+}
+
+export async function deleteSupportTicket(ticketId) {
+  const response = await fetch(`${apiUrl}/support-tickets/${ticketId}`, {
+    method: 'DELETE'
+  });
+
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.message ?? 'Não foi possível excluir o chamado');
+  return data;
 }
 
 export async function getReportSummary() {

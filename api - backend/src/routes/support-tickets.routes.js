@@ -7,8 +7,20 @@ const priorityMap = { 'Pouco urgente': 'low', Baixa: 'low', low: 'low', Normal: 
 
 router.get('/', async (_request, response) => {
   try {
+    // Sincronizar em lote quaisquer chamados cujo service_order_number divirja do order_number da OS vinculada
+    await pool.query(
+      `UPDATE support_tickets st
+       SET service_order_number = so.order_number
+       FROM service_orders so
+       WHERE so.support_ticket_id = st.id
+         AND st.service_order_number IS DISTINCT FROM so.order_number`
+    ).catch((syncErr) => console.warn('Aviso na sincronização de OS em chamados:', syncErr.message));
+
     const result = await pool.query(
-      `SELECT st.id, st.ticket_number, st.service_order_number, st.title, st.requester, st.ticket_type, st.company_sector, st.location, st.related_problem, st.observations, st.attachment_name, st.priority, st.status, st.created_at, st.assigned_to, assigned.name AS assigned_to_name, st.equipment_id, eq.name AS equipment_name,
+      `SELECT st.id, st.ticket_number,
+              COALESCE(so.order_number, st.service_order_number, st.ticket_number) AS service_order_number,
+              so.order_number,
+              st.title, st.requester, st.ticket_type, st.company_sector, st.location, st.related_problem, st.observations, st.attachment_name, st.priority, st.status, st.created_at, st.assigned_to, assigned.name AS assigned_to_name, st.equipment_id, eq.name AS equipment_name,
               so.id AS service_order_id, so.service_performed_description, so.service_requested_description, so.status AS service_order_status, so.completed_at AS service_order_completed_at, so.billed_at AS service_order_billed_at, so.payment_informed_at AS service_order_payment_informed_at, so.payment_rejection_reason AS service_order_payment_rejection_reason, so.updated_at AS service_order_updated_at
        FROM support_tickets st
        LEFT JOIN users assigned ON assigned.id = st.assigned_to
@@ -62,7 +74,26 @@ router.post('/:id/assign', async (request, response) => {
       [source.service_order_number || source.ticket_number, source.requester, source.title, source.priority, source.observations, source.created_by, request.params.id, userId, source.equipment_id]
     );
 
-    return response.json({ ticket: { ...result.rows[0], assigned_to_name: assignedUser.rows[0].name, service_order: order.rows[0] } });
+    const activeOrderNumber = order.rows[0].order_number;
+
+    // Atualiza o chamado com o número exato da OS capturada/gerada
+    await pool.query(
+      `UPDATE support_tickets
+       SET service_order_number = $1
+       WHERE id = $2`,
+      [activeOrderNumber, request.params.id]
+    );
+
+    return response.json({
+      ticket: {
+        ...result.rows[0],
+        service_order_number: activeOrderNumber,
+        order_number: activeOrderNumber,
+        service_order_id: order.rows[0].id,
+        assigned_to_name: assignedUser.rows[0].name,
+        service_order: order.rows[0]
+      }
+    });
   } catch (error) {
     if (error.code === '23503') {
       return response.status(400).json({ message: 'Usuário atendente não encontrado.' });
@@ -141,6 +172,40 @@ router.post('/', async (request, response) => {
     return response.status(500).json({ message: 'Não foi possível criar o chamado.' });
   } finally {
     client.release();
+  }
+});
+
+router.delete('/:id', async (request, response) => {
+  try {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const ticketRes = await client.query('SELECT id, ticket_number, service_order_number FROM support_tickets WHERE id = $1', [request.params.id]);
+      if (!ticketRes.rowCount) {
+        await client.query('ROLLBACK');
+        return response.status(404).json({ message: 'Chamado não encontrado.' });
+      }
+
+      const ticket = ticketRes.rows[0];
+
+      // Exclui a ordem de serviço vinculada se houver (para não deixar órfãos)
+      await client.query('DELETE FROM service_orders WHERE support_ticket_id = $1', [request.params.id]);
+
+      // Exclui o chamado
+      await client.query('DELETE FROM support_tickets WHERE id = $1', [request.params.id]);
+
+      await client.query('COMMIT');
+      const ticketRef = ticket.service_order_number ? `OS-${String(ticket.service_order_number).padStart(5, '0')}` : `#${String(ticket.ticket_number || ticket.id).padStart(5, '0')}`;
+      return response.json({ message: `Chamado ${ticketRef} excluído com sucesso.` });
+    } catch (transactionError) {
+      await client.query('ROLLBACK');
+      throw transactionError;
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Falha ao excluir chamado:', error.message);
+    return response.status(500).json({ message: 'Não foi possível excluir o chamado.' });
   }
 });
 

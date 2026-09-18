@@ -257,18 +257,35 @@ router.delete('/:id', async (request, response) => {
       }
 
       const order = orderRes.rows[0];
-      if (order.support_ticket_id) {
-        await client.query(
-          `UPDATE support_tickets
-           SET status = 'open',
-               assigned_to = NULL,
-               updated_at = NOW()
-           WHERE id = $1`,
-          [order.support_ticket_id]
-        );
+      const supportTicketId = order.support_ticket_id;
+      const shouldDeleteTicket = request.query.deleteTicket === 'true';
+
+      // 1. Excluir a ordem de serviço primeiro (evita restrições de chave estrangeira)
+      await client.query('DELETE FROM service_orders WHERE id = $1', [request.params.id]);
+
+      // 2. Se houver chamado vinculado, atualizar ou excluir conforme solicitado
+      if (supportTicketId) {
+        if (shouldDeleteTicket) {
+          await client.query('DELETE FROM support_tickets WHERE id = $1', [supportTicketId]);
+        } else {
+          const orderNumStr = order.order_number != null ? String(order.order_number).padStart(5, '0') : '';
+          const cancelNote = orderNumStr ? ` [Ordem de serviço OS-${orderNumStr} excluída]` : ' [Ordem de serviço excluída]';
+
+          await client.query(
+            `UPDATE support_tickets
+             SET status = 'cancelled',
+                 assigned_to = NULL,
+                 observations = CASE
+                   WHEN observations IS NULL OR observations = '' THEN $1
+                   ELSE observations || $1
+                 END,
+                 updated_at = NOW()
+             WHERE id = $2`,
+            [cancelNote, supportTicketId]
+          );
+        }
       }
 
-      await client.query('DELETE FROM service_orders WHERE id = $1', [request.params.id]);
       await client.query('COMMIT');
       return response.json({ message: `Ordem de serviço OS-${String(order.order_number).padStart(5, '0')} excluída com sucesso.` });
     } catch (transactionError) {
