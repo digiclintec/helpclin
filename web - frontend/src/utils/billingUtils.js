@@ -1,42 +1,14 @@
 /**
  * Utilitários para gestão do ciclo de faturamento e estados da Ordem de Serviço
- * Regra de negócio: Ordens concluídas há mais de 48 horas (2 dias) passam para
- * o estado "Pendência de Faturamento", alertando o cliente e bloqueando acesso
- * técnico até o faturamento manual pelo administrador freelancer.
+ * Regra de negócio HelpClin:
+ * - As ordens de serviço têm prazo de 30 dias para serem faturadas após a conclusão técnica.
+ * - Durante os 30 dias (dias <= 30), a ordem consta com observação de faturamento no prazo, sem qualquer exclamação (⚠️ ou !).
+ * - Apenas ordens que ultrapassarem os 30 dias (dias > 30) recebem alerta com exclamações (⚠️ Faturamento Atrasado!).
+ * - Ordens faturadas recebem status "Faturada".
  */
 
-export const BILLING_PENDING_HOURS = 48; // 2 dias = 48 horas
-
-/**
- * Calcula o estado efetivo da Ordem de Serviço considerando o prazo de 2 dias após a conclusão.
- * @param {Object} order
- * @returns {'open'|'in_progress'|'completed'|'billing_pending'|'billed'|'cancelled'}
- */
-export function getEffectiveOrderStatus(order) {
-  if (!order) return 'open';
-
-  // Se já foi faturada explicitamente
-  if (order.status === 'billed') return 'billed';
-
-  // Se já foi gravada como pendência de faturamento
-  if (order.status === 'billing_pending') return 'billing_pending';
-
-  // Se estiver concluída, avaliar se já passaram 2 dias (48 horas)
-  if (order.status === 'completed') {
-    const completionTimestamp = order.completed_at || order.updated_at || order.created_at;
-    if (completionTimestamp) {
-      const completionDate = new Date(completionTimestamp);
-      const elapsedHours = (Date.now() - completionDate.getTime()) / (1000 * 60 * 60);
-
-      if (elapsedHours >= BILLING_PENDING_HOURS) {
-        return 'billing_pending';
-      }
-    }
-    return 'completed';
-  }
-
-  return order.status || 'open';
-}
+export const BILLING_MAX_DAYS = 30; // 30 dias de prazo para faturamento
+export const BILLING_PENDING_HOURS = 30 * 24; // 30 dias = 720 horas
 
 /**
  * Retorna os dias decorridos desde a conclusão da ordem.
@@ -44,7 +16,14 @@ export function getEffectiveOrderStatus(order) {
  * @returns {number}
  */
 export function getDaysSinceCompletion(order) {
-  const completionTimestamp = order?.completed_at || order?.updated_at || order?.created_at;
+  if (!order) return 0;
+  const completionTimestamp =
+    order.completed_at ||
+    order.service_order_completed_at ||
+    order.updated_at ||
+    order.service_order_updated_at ||
+    order.created_at;
+
   if (!completionTimestamp) return 0;
   const completionDate = new Date(completionTimestamp);
   const diffInHours = (Date.now() - completionDate.getTime()) / (1000 * 60 * 60);
@@ -52,17 +31,85 @@ export function getDaysSinceCompletion(order) {
 }
 
 /**
- * Verifica se a ordem está com faturamento pendente.
+ * Verifica se a ordem já foi faturada.
+ * @param {Object} order
+ * @returns {boolean}
  */
-export function isBillingPending(order) {
-  return getEffectiveOrderStatus(order) === 'billing_pending';
+export function isBilled(order) {
+  if (!order) return false;
+  return order.status === 'billed' || order.service_order_status === 'billed';
 }
 
 /**
- * Verifica se a ordem já foi faturada.
+ * Verifica se o cliente já informou o pagamento e aguarda confirmação do técnico.
+ * @param {Object} order
+ * @returns {boolean}
  */
-export function isBilled(order) {
-  return order?.status === 'billed';
+export function isPaymentInformed(order) {
+  if (!order) return false;
+  const status = order.status || order.service_order_status;
+  return status === 'payment_informed';
+}
+
+export function isWaitingTechnicianConfirmation(order) {
+  return isPaymentInformed(order);
+}
+
+/**
+ * Verifica se a ordem está concluída e aguarda faturamento pelo cliente (dentro do prazo ou atrasada).
+ * @param {Object} order
+ * @returns {boolean}
+ */
+export function isAwaitingBilling(order) {
+  if (!order) return false;
+  if (isBilled(order)) return false;
+  if (isPaymentInformed(order)) return false;
+  const status = order.status || order.service_order_status;
+  if (status === 'cancelled') return false;
+  return status === 'completed' || status === 'billing_pending' || order.is_completed === true;
+}
+
+/**
+ * Verifica se o faturamento ultrapassou os 30 dias regulamentares (atraso crítico).
+ * Apenas estes casos devem exibir exclamações (⚠️ ou !).
+ * @param {Object} order
+ * @returns {boolean}
+ */
+export function isBillingOverdue(order) {
+  if (!isAwaitingBilling(order)) return false;
+  return getDaysSinceCompletion(order) > BILLING_MAX_DAYS;
+}
+
+/**
+ * Verifica se a ordem está com faturamento pendente (aguardando baixa).
+ * @param {Object} order
+ * @returns {boolean}
+ */
+export function isBillingPending(order) {
+  return isAwaitingBilling(order);
+}
+
+/**
+ * Calcula o estado efetivo da Ordem de Serviço considerando o prazo de 30 dias após a conclusão.
+ * @param {Object} order
+ * @returns {'open'|'in_progress'|'completed'|'billing_pending'|'payment_informed'|'billed'|'cancelled'}
+ */
+export function getEffectiveOrderStatus(order) {
+  if (!order) return 'open';
+
+  // Se já foi faturada explicitamente
+  if (isBilled(order)) return 'billed';
+
+  // Se o cliente já informou o pagamento e aguarda confirmação do técnico
+  if (isPaymentInformed(order)) return 'payment_informed';
+
+  // Se ultrapassou os 30 dias, status de faturamento atrasado
+  if (isBillingOverdue(order)) return 'billing_pending';
+
+  // Se está aguardando faturamento dentro do prazo normal (<= 30 dias)
+  if (isAwaitingBilling(order)) return 'completed';
+
+  return order.status || order.service_order_status || 'open';
 }
 
 /**
@@ -77,7 +124,9 @@ export function getOrderStatusLabel(status) {
     case 'completed':
       return 'Concluída';
     case 'billing_pending':
-      return 'Pendência de Faturamento';
+      return 'Faturamento Atrasado';
+    case 'payment_informed':
+      return 'Aguardando Confirmação';
     case 'billed':
       return 'Faturada';
     case 'cancelled':
@@ -100,6 +149,8 @@ export function getOrderStatusBadgeClass(status) {
       return 'os-status-badge--completed';
     case 'billing_pending':
       return 'os-status-badge--billing_pending';
+    case 'payment_informed':
+      return 'os-status-badge--payment_informed';
     case 'billed':
       return 'os-status-badge--billed';
     case 'cancelled':

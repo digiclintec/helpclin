@@ -9,7 +9,7 @@ router.get('/', async (_request, response) => {
   try {
     const result = await pool.query(
       `SELECT st.id, st.ticket_number, st.service_order_number, st.title, st.requester, st.ticket_type, st.company_sector, st.location, st.related_problem, st.observations, st.attachment_name, st.priority, st.status, st.created_at, st.assigned_to, assigned.name AS assigned_to_name, st.equipment_id, eq.name AS equipment_name,
-              so.id AS service_order_id, so.service_performed_description, so.service_requested_description, so.status AS service_order_status, so.completed_at AS service_order_completed_at, so.billed_at AS service_order_billed_at, so.updated_at AS service_order_updated_at
+              so.id AS service_order_id, so.service_performed_description, so.service_requested_description, so.status AS service_order_status, so.completed_at AS service_order_completed_at, so.billed_at AS service_order_billed_at, so.payment_informed_at AS service_order_payment_informed_at, so.payment_rejection_reason AS service_order_payment_rejection_reason, so.updated_at AS service_order_updated_at
        FROM support_tickets st
        LEFT JOIN users assigned ON assigned.id = st.assigned_to
        LEFT JOIN inventory_equipments eq ON eq.id = st.equipment_id
@@ -38,7 +38,7 @@ router.post('/:id/assign', async (request, response) => {
 
     const result = await pool.query(
       `UPDATE support_tickets AS ticket
-      SET assigned_to = $1, status = 'in_progress', updated_at = NOW()
+       SET assigned_to = $1, status = 'in_progress', updated_at = NOW()
        WHERE ticket.id = $2 AND ticket.status NOT IN ('resolved', 'cancelled')
        RETURNING ticket.id, ticket.service_order_number, ticket.status, ticket.assigned_to`,
       [userId, request.params.id]
@@ -48,14 +48,18 @@ router.post('/:id/assign', async (request, response) => {
       return response.status(409).json({ message: 'Chamado não disponível para atendimento.' });
     }
 
-    const ticketDetails = await pool.query('SELECT ticket_number, title, requester, description, ticket_type, company_sector, location, related_problem, observations, priority, created_by, equipment_id FROM support_tickets WHERE id = $1', [request.params.id]);
+    const ticketDetails = await pool.query('SELECT ticket_number, service_order_number, title, requester, description, ticket_type, company_sector, location, related_problem, observations, priority, created_by, equipment_id FROM support_tickets WHERE id = $1', [request.params.id]);
     const source = ticketDetails.rows[0];
     const order = await pool.query(
       `INSERT INTO service_orders (order_number, patient_name, service_type, priority, description, service_requested_description, status, created_by, support_ticket_id, technician_id, equipment_id)
-       VALUES ($1, $2, $3, $4, $5, $5, 'in_progress', $6, $7, $8, $9)
-       ON CONFLICT (support_ticket_id) DO UPDATE SET technician_id = EXCLUDED.technician_id, order_number = EXCLUDED.order_number, status = 'in_progress', updated_at = NOW(), equipment_id = EXCLUDED.equipment_id
+       VALUES (COALESCE($1, nextval('service_orders_order_number_seq'::regclass)), $2, $3, $4, $5, $5, 'in_progress', $6, $7, $8, $9)
+       ON CONFLICT (support_ticket_id) DO UPDATE
+       SET technician_id = EXCLUDED.technician_id,
+           status = 'in_progress',
+           updated_at = NOW(),
+           equipment_id = COALESCE(EXCLUDED.equipment_id, service_orders.equipment_id)
        RETURNING id, order_number, patient_name, service_type, priority, description, status, technician_id, equipment_id`,
-      [source.ticket_number, source.requester, source.title, source.priority, source.observations, source.created_by, request.params.id, userId, source.equipment_id]
+      [source.service_order_number || source.ticket_number, source.requester, source.title, source.priority, source.observations, source.created_by, request.params.id, userId, source.equipment_id]
     );
 
     return response.json({ ticket: { ...result.rows[0], assigned_to_name: assignedUser.rows[0].name, service_order: order.rows[0] } });
@@ -86,8 +90,12 @@ router.post('/', async (request, response) => {
     return response.status(400).json({ message: 'Prioridade inválida.' });
   }
 
+  const client = await pool.connect();
   try {
-    const result = await pool.query(
+    await client.query('BEGIN');
+
+    // 1. Inserir a solicitação formal de chamado técnico (sem número próprio)
+    const result = await client.query(
       `INSERT INTO support_tickets (title, requester, description, ticket_type, company_sector, location, related_problem, observations, attachment_name, priority, created_by, equipment_id)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
        RETURNING id, ticket_number, service_order_number, title, requester, ticket_type, company_sector, location, related_problem, observations, attachment_name, priority, status, created_at, equipment_id`,
@@ -95,16 +103,44 @@ router.post('/', async (request, response) => {
     );
     const ticket = result.rows[0];
 
+    // 2. Gerar automaticamente a Ordem de Serviço (1 chamado gera automaticamente 1 ordem numerada)
+    const serviceTypeDesc = normalizedType === 'equipment' ? 'Manutenção de Equipamento' : 'Suporte / Atendimento a Sistemas';
+    const orderResult = await client.query(
+      `INSERT INTO service_orders (patient_name, service_type, priority, description, service_requested_description, status, created_by, support_ticket_id, equipment_id)
+       VALUES ($1, $2, $3, $4, $4, 'open', $5, $6, $7)
+       RETURNING id, order_number, patient_name, service_type, priority, description, status, created_at, equipment_id`,
+      [companySector.trim(), serviceTypeDesc, normalizedPriority, observations.trim(), createdBy, ticket.id, equipmentId || null]
+    );
+    const order = orderResult.rows[0];
+
+    // 3. Vincular o número sequencial da Ordem de Serviço ao chamado
+    await client.query(
+      `UPDATE support_tickets SET service_order_number = $1 WHERE id = $2`,
+      [order.order_number, ticket.id]
+    );
+
+    await client.query('COMMIT');
+
     return response.status(201).json({
-      ticket: { ...ticket, protocol: `OS-${String(ticket.service_order_number).padStart(5, '0')}` }
+      ticket: {
+        ...ticket,
+        service_order_id: order.id,
+        service_order_number: order.order_number,
+        order_number: order.order_number,
+        protocol: `OS-${String(order.order_number).padStart(5, '0')}`
+      },
+      order
     });
   } catch (error) {
+    await client.query('ROLLBACK');
     if (error.code === '23503') {
       return response.status(400).json({ message: 'Usuário criador não encontrado.' });
     }
 
-    console.error('Falha ao criar chamado:', error.message);
+    console.error('Falha ao criar chamado e gerar ordem:', error.message);
     return response.status(500).json({ message: 'Não foi possível criar o chamado.' });
+  } finally {
+    client.release();
   }
 });
 

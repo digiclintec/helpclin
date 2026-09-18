@@ -68,6 +68,48 @@ export async function updateServiceOrder(orderId, orderData) {
   return data.order;
 }
 
+export async function informServiceOrderPayment(orderId, paymentDate) {
+  const response = await fetch(`${apiUrl}/service-orders/${orderId}/inform-payment`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ paymentDate })
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.message ?? 'Não foi possível informar o pagamento');
+  return data.order;
+}
+
+export async function confirmPaymentReceipt(orderId, technicianId) {
+  const response = await fetch(`${apiUrl}/service-orders/${orderId}/confirm-receipt`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ technicianId })
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.message ?? 'Não foi possível confirmar o recebimento');
+  return data.order;
+}
+
+export async function rejectPaymentReceipt(orderId, technicianId, reason) {
+  const response = await fetch(`${apiUrl}/service-orders/${orderId}/reject-receipt`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ technicianId, reason })
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.message ?? 'Não foi possível recusar o recebimento');
+  return data.order;
+}
+
+export async function deleteServiceOrder(orderId) {
+  const response = await fetch(`${apiUrl}/service-orders/${orderId}`, {
+    method: 'DELETE'
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.message ?? 'Não foi possível excluir a ordem');
+  return data;
+}
+
 export async function createSupportTicket(ticketData) {
   const response = await fetch(`${apiUrl}/support-tickets`, {
     method: 'POST',

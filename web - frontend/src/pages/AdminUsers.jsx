@@ -18,6 +18,7 @@ import {
   UserCheck,
   UserCog,
   UserX,
+  Wrench,
   X
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
@@ -50,7 +51,7 @@ function AdminUsers() {
   const [editForm, setEditForm] = useState({
     name: '',
     email: '',
-    role: 'user',
+    role: 'client',
     isActive: true,
     newPassword: ''
   });
@@ -95,7 +96,7 @@ function AdminUsers() {
     setEditForm({
       name: userItem.name || '',
       email: userItem.email || '',
-      role: userItem.role || 'user',
+      role: userItem.role === 'user' ? 'client' : (userItem.role || 'client'),
       isActive: Boolean(userItem.is_active),
       newPassword: ''
     });
@@ -158,6 +159,8 @@ function AdminUsers() {
       if (filterTab === 'pending' && u.is_active) return false;
       if (filterTab === 'active' && !u.is_active) return false;
       if (filterTab === 'admin' && u.role !== 'admin') return false;
+      if (filterTab === 'technician' && u.role !== 'technician') return false;
+      if (filterTab === 'client' && u.role !== 'client' && u.role !== 'user') return false;
 
       if (search.trim()) {
         const term = search.toLowerCase();
@@ -172,6 +175,8 @@ function AdminUsers() {
   const pendingCount = users.filter((u) => !u.is_active).length;
   const activeCount = users.filter((u) => u.is_active).length;
   const adminCount = users.filter((u) => u.role === 'admin').length;
+  const technicianCount = users.filter((u) => u.role === 'technician').length;
+  const clientCount = users.filter((u) => u.role === 'client' || u.role === 'user').length;
 
   return (
     <div className="simple-page admin-users-page">
@@ -221,20 +226,20 @@ function AdminUsers() {
 
           <button
             type="button"
-            className={`dash-tab-btn ${filterTab === 'pending' ? 'dash-tab-btn--active' : ''}`}
-            onClick={() => setFilterTab('pending')}
-            style={{ padding: '8px 14px', fontSize: '12px', color: pendingCount > 0 ? '#b45309' : undefined }}
+            className={`dash-tab-btn ${filterTab === 'client' ? 'dash-tab-btn--active' : ''}`}
+            onClick={() => setFilterTab('client')}
+            style={{ padding: '8px 14px', fontSize: '12px' }}
           >
-            Aguardando Aprovação ({pendingCount})
+            Clientes ({clientCount})
           </button>
 
           <button
             type="button"
-            className={`dash-tab-btn ${filterTab === 'active' ? 'dash-tab-btn--active' : ''}`}
-            onClick={() => setFilterTab('active')}
+            className={`dash-tab-btn ${filterTab === 'technician' ? 'dash-tab-btn--active' : ''}`}
+            onClick={() => setFilterTab('technician')}
             style={{ padding: '8px 14px', fontSize: '12px' }}
           >
-            Ativos ({activeCount})
+            Técnicos ({technicianCount})
           </button>
 
           <button
@@ -244,6 +249,15 @@ function AdminUsers() {
             style={{ padding: '8px 14px', fontSize: '12px' }}
           >
             Administradores ({adminCount})
+          </button>
+
+          <button
+            type="button"
+            className={`dash-tab-btn ${filterTab === 'pending' ? 'dash-tab-btn--active' : ''}`}
+            onClick={() => setFilterTab('pending')}
+            style={{ padding: '8px 14px', fontSize: '12px', color: pendingCount > 0 ? '#b45309' : undefined }}
+          >
+            Aguardando Aprovação ({pendingCount})
           </button>
         </div>
 
@@ -308,8 +322,8 @@ function AdminUsers() {
                           style={{
                             width: '36px',
                             height: '36px',
-                            backgroundColor: userItem.role === 'admin' ? '#e2eff1' : '#e5f1eb',
-                            color: userItem.role === 'admin' ? '#316c79' : '#286756'
+                            backgroundColor: userItem.role === 'admin' ? '#fae3dc' : userItem.role === 'technician' ? '#ecfdf5' : '#f0f9ff',
+                            color: userItem.role === 'admin' ? 'var(--coral)' : userItem.role === 'technician' ? '#047857' : '#0369a1'
                           }}
                         >
                           {initials}
@@ -330,15 +344,46 @@ function AdminUsers() {
                       <td style={{ color: '#4a5b57', fontSize: '12px' }}>{userItem.email}</td>
 
                       <td>
-                        <span
-                          className="pending-role"
-                          style={{
-                            background: userItem.role === 'admin' ? '#fae3dc' : '#eef3ef',
-                            color: userItem.role === 'admin' ? 'var(--coral)' : '#53655f'
-                          }}
-                        >
-                          {userItem.role === 'admin' ? 'Administrador' : 'Usuário / Técnico'}
-                        </span>
+                        {userItem.role === 'admin' ? (
+                          <span
+                            className="pending-role"
+                            style={{
+                              background: '#fae3dc',
+                              color: 'var(--coral)',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '5px'
+                            }}
+                          >
+                            <ShieldCheck size={12} /> Administrador
+                          </span>
+                        ) : userItem.role === 'technician' ? (
+                          <span
+                            className="pending-role"
+                            style={{
+                              background: '#ecfdf5',
+                              color: '#047857',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '5px'
+                            }}
+                          >
+                            <Wrench size={12} /> Técnico
+                          </span>
+                        ) : (
+                          <span
+                            className="pending-role"
+                            style={{
+                              background: '#f0f9ff',
+                              color: '#0369a1',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '5px'
+                            }}
+                          >
+                            <User size={12} /> Cliente
+                          </span>
+                        )}
                       </td>
 
                       <td>
@@ -446,14 +491,18 @@ function AdminUsers() {
 
               <div className="dash-form-row">
                 <div className="dash-form-field">
-                  <label>Perfil de Acesso</label>
+                  <label>Perfil de Acesso / Cargo *</label>
                   <select
-                    value={editForm.role}
+                    value={editForm.role === 'user' ? 'client' : editForm.role}
                     onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
                   >
-                    <option value="user">Usuário / Técnico</option>
-                    <option value="admin">Administrador Geral</option>
+                    <option value="client">Cliente (Abre chamados e relata problemas)</option>
+                    <option value="technician">Técnico (Trata, altera e edita ordens de serviço)</option>
+                    <option value="admin">Administrador Geral (Acesso total)</option>
                   </select>
+                  <small style={{ color: '#64748b', fontSize: '11px', display: 'block', marginTop: '4px' }}>
+                    Clientes abrem chamados e informam pagamento. Técnicos tratam ordens e confirmam recebimentos.
+                  </small>
                 </div>
 
                 <div className="dash-form-field">

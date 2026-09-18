@@ -1,17 +1,14 @@
 import {
-  AlertCircle,
-  AlertTriangle,
   ArrowRight,
-  CheckCircle2,
   Clock,
-  DollarSign,
+  ExternalLink,
+  FilePlus2,
   FileUp,
-  Filter,
-  Headset,
   Laptop,
   MessageSquare,
   Plus,
   RefreshCw,
+  RotateCcw,
   Search,
   UserCheck,
   Wrench,
@@ -20,24 +17,13 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 
 import ExportDropdown from '../components/ExportDropdown.jsx';
-import BillingConfirmationModal from '../components/BillingConfirmationModal.jsx';
 import {
   assignSupportTicket,
   createSupportTicket,
   getInventory,
-  getServiceOrders,
   getStoredUser,
-  getSupportTickets,
-  updateServiceOrder
+  getSupportTickets
 } from '../services/api.js';
-import {
-  getDaysSinceCompletion,
-  getEffectiveOrderStatus,
-  getOrderStatusBadgeClass,
-  getOrderStatusLabel,
-  isBillingPending,
-  isBilled
-} from '../utils/billingUtils.js';
 import { exportToPdf, exportToXls } from '../utils/exportReport.js';
 
 const SERVICE_PROBLEMS = [
@@ -150,6 +136,9 @@ function formatDate(value) {
 
 function Tickets() {
   const user = getStoredUser();
+  const isAdmin = user?.role === 'admin';
+  const isTechnician = user?.role === 'technician' || isAdmin;
+  const isClient = !isTechnician;
   const [tickets, setTickets] = useState([]);
   const [inventory, setInventory] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -160,11 +149,10 @@ function Tickets() {
   const [form, setForm] = useState(emptyForm);
   const [isSaving, setIsSaving] = useState(false);
   const [assigningId, setAssigningId] = useState(null);
-  const [confirmingBillingTicket, setConfirmingBillingTicket] = useState(null);
-  const [isBillingSubmitting, setIsBillingSubmitting] = useState(false);
 
   // Filters
-  const [activeKpiFilter, setActiveKpiFilter] = useState('all'); // 'all', 'unassigned', 'overdue', 'in_progress', 'resolved'
+  const [activeKpiFilter, setActiveKpiFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [onlyMyTickets, setOnlyMyTickets] = useState(false);
   const [search, setSearch] = useState('');
@@ -245,7 +233,7 @@ function Tickets() {
       setTickets([ticket, ...tickets]);
       setForm(emptyForm);
       setIsFormOpen(false);
-      setFeedback(`Chamado criado com o protocolo ${ticket.protocol || 'OS-' + ticket.ticket_number}.`);
+      setFeedback(`Chamado registrado com sucesso! A Ordem de Serviço ${ticket.protocol || 'OS-' + String(ticket.service_order_number || ticket.ticket_number || '').padStart(5, '0')} foi gerada automaticamente.`);
     } catch (error) {
       setFeedback(error.message);
     } finally {
@@ -276,71 +264,21 @@ function Tickets() {
     }
   }
 
-  async function handleConfirmBilling() {
-    if (!confirmingBillingTicket) return;
-    setIsBillingSubmitting(true);
-    try {
-      let orderId = confirmingBillingTicket.service_order_id;
-      if (!orderId) {
-        const orders = await getServiceOrders();
-        const found = orders.find(
-          (o) =>
-            o.support_ticket_id === confirmingBillingTicket.id ||
-            String(o.order_number) === String(confirmingBillingTicket.service_order_number) ||
-            String(o.order_number) === String(confirmingBillingTicket.ticket_number)
-        );
-        if (found) orderId = found.id;
-      }
-
-      if (orderId) {
-        await updateServiceOrder(orderId, { status: 'billed' });
-      }
-
-      setTickets((prev) =>
-        prev.map((t) =>
-          t.id === confirmingBillingTicket.id
-            ? {
-                ...t,
-                service_order_status: 'billed',
-                service_order_billed_at: new Date().toISOString()
-              }
-            : t
-        )
-      );
-      setFeedback(`Ordem de serviço vinculada ao chamado #${confirmingBillingTicket.ticket_number} informada como faturada com sucesso!`);
-      setConfirmingBillingTicket(null);
-    } catch (err) {
-      console.error('Erro ao confirmar faturamento:', err);
-      setFeedback('Não foi possível registrar o faturamento. Tente novamente.');
-    } finally {
-      setIsBillingSubmitting(false);
-    }
-  }
-
   // Calculate KPIs
   const now = new Date();
   const kpis = useMemo(() => {
+    let openCount = 0;
     let unassigned = 0;
     let inProgress = 0;
     let overdue = 0;
     let resolved = 0;
-    let billingPending = 0;
 
     tickets.forEach((t) => {
+      if (t.status === 'open') openCount++;
       const isUnassigned = !t.assigned_to_name && t.status !== 'resolved';
       if (isUnassigned) unassigned++;
       if (t.status === 'in_progress') inProgress++;
       if (t.status === 'resolved') resolved++;
-
-      const effectiveSO = getEffectiveOrderStatus({
-        status: t.service_order_status,
-        completed_at: t.service_order_completed_at,
-        updated_at: t.service_order_updated_at,
-        created_at: t.created_at
-      });
-      if (effectiveSO === 'billing_pending') {
-        billingPending++;
-      }
 
       // Overdue logic: open/in_progress older than 24 hours or marked urgent
       const createdAt = new Date(t.created_at);
@@ -352,11 +290,11 @@ function Tickets() {
 
     return {
       total: tickets.length,
+      open: openCount,
       unassigned,
       inProgress,
       overdue,
-      resolved,
-      billingPending
+      resolved
     };
   }, [tickets]);
 
@@ -364,20 +302,14 @@ function Tickets() {
   const filteredTickets = useMemo(() => {
     return tickets.filter((ticket) => {
       // 1. KPI Tab Filter
-      if (activeKpiFilter === 'unassigned') {
+      if (activeKpiFilter === 'open') {
+        if (ticket.status !== 'open') return false;
+      } else if (activeKpiFilter === 'unassigned') {
         if (ticket.assigned_to_name || ticket.status === 'resolved') return false;
       } else if (activeKpiFilter === 'in_progress') {
         if (ticket.status !== 'in_progress') return false;
       } else if (activeKpiFilter === 'resolved') {
         if (ticket.status !== 'resolved') return false;
-      } else if (activeKpiFilter === 'billing_pending') {
-        const effectiveSO = getEffectiveOrderStatus({
-          status: ticket.service_order_status,
-          completed_at: ticket.service_order_completed_at,
-          updated_at: ticket.service_order_updated_at,
-          created_at: ticket.created_at
-        });
-        if (effectiveSO !== 'billing_pending') return false;
       } else if (activeKpiFilter === 'overdue') {
         const createdAt = new Date(ticket.created_at);
         const hoursOld = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60);
@@ -385,7 +317,12 @@ function Tickets() {
         if (!isOverdue) return false;
       }
 
-      // 2. Priority Filter
+      // 2. Status Filter
+      if (statusFilter !== 'all') {
+        if (ticket.status !== statusFilter) return false;
+      }
+
+      // 3. Priority Filter
       if (priorityFilter !== 'all') {
         const p = (ticket.priority || '').toLowerCase();
         if (priorityFilter === 'low' && !['low', 'pouco urgente', 'baixa'].includes(p)) return false;
@@ -394,14 +331,14 @@ function Tickets() {
         if (priorityFilter === 'urgent' && !['urgent', 'urgente'].includes(p)) return false;
       }
 
-      // 3. Connected User Filter
+      // 4. Connected User Filter
       if (onlyMyTickets && user) {
         const isAssignedToMe = ticket.assigned_to === user.id || ticket.assigned_to_name === user.name;
         const isCreatedByMe = ticket.created_by === user.id || ticket.requester === user.name;
         if (!isAssignedToMe && !isCreatedByMe) return false;
       }
 
-      // 4. Search Text
+      // 5. Search Text
       if (search.trim()) {
         const term = search.toLowerCase();
         const str = `${ticket.ticket_number || ''} ${ticket.service_order_number || ''} ${ticket.related_problem || ''} ${ticket.company_sector || ''} ${ticket.location || ''} ${ticket.equipment_name || ''} ${ticket.assigned_to_name || ''} ${ticket.requester || ''} ${ticket.observations || ''}`.toLowerCase();
@@ -410,7 +347,22 @@ function Tickets() {
 
       return true;
     });
-  }, [tickets, activeKpiFilter, priorityFilter, onlyMyTickets, search, user]);
+  }, [tickets, activeKpiFilter, statusFilter, priorityFilter, onlyMyTickets, search, user]);
+
+  const isFiltered =
+    activeKpiFilter !== 'all' ||
+    statusFilter !== 'all' ||
+    priorityFilter !== 'all' ||
+    onlyMyTickets ||
+    search.trim() !== '';
+
+  function handleClearFilters() {
+    setActiveKpiFilter('all');
+    setStatusFilter('all');
+    setPriorityFilter('all');
+    setOnlyMyTickets(false);
+    setSearch('');
+  }
 
   function getPriorityLabel(priority) {
     const p = (priority || '').toLowerCase();
@@ -432,7 +384,7 @@ function Tickets() {
 
   const exportColumns = [
     { header: 'Prioridade', accessor: (t) => getPriorityLabel(t.priority) },
-    { header: 'OS / Protocolo', accessor: (t) => `OS-${String(t.service_order_number || t.ticket_number).padStart(5, '0')}` },
+    { header: 'Ordem de Serviço (OS)', accessor: (t) => `OS-${String(t.service_order_number || t.ticket_number).padStart(5, '0')}` },
     { header: 'Estado / Status', accessor: (t) => (t.status === 'resolved' ? 'Resolvido' : t.status === 'in_progress' ? 'Em andamento' : 'Aberto') },
     { header: 'Empresa / Setor', accessor: 'company_sector' },
     { header: 'Ativo / Serviço', accessor: (t) => t.equipment_name || (t.ticket_type === 'equipment' ? 'Equipamento' : 'Serviço Geral') },
@@ -474,12 +426,18 @@ function Tickets() {
       {/* Top Header */}
       <section className="simple-page-heading">
         <div>
-          <p className="eyebrow">Central de Atendimento</p>
-          <h1>Chamados</h1>
-          <p>Gerencie, acompanhe e atribua os chamados abertos da clínica em tempo real.</p>
+          <p className="eyebrow">Atendimento &amp; Chamados</p>
+          <h1>{isClient ? 'Abertura de Chamados' : 'Central de Chamados'}</h1>
+          <p>
+            {isClient
+              ? 'Abra novos chamados de suporte técnico e consulte os últimos chamados abertos.'
+              : 'Gerencie, acompanhe e atribua os chamados abertos da clínica em tempo real.'}
+          </p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <ExportDropdown onExportXls={handleExportXls} onExportPdf={handleExportPdf} />
+          {!isClient && (
+            <ExportDropdown onExportXls={handleExportXls} onExportPdf={handleExportPdf} />
+          )}
           <button
             className="primary-button"
             onClick={() => {
@@ -487,24 +445,85 @@ function Tickets() {
               setIsFormOpen(true);
             }}
             type="button"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '10px 18px',
+              fontSize: '14px',
+              fontWeight: 600,
+              borderRadius: '10px'
+            }}
           >
-            <Plus size={16} /> Abrir Chamado
+            <Plus size={18} /> Abrir Chamado
           </button>
         </div>
       </section>
 
       {feedback && !isFormOpen && <p className="ticket-feedback">{feedback}</p>}
 
-      {/* Alert banner for pending billing */}
-      {kpis.billingPending > 0 && (
-        <div className="billing-client-alert" style={{ marginBottom: '18px' }}>
-          <AlertCircle size={20} style={{ flexShrink: 0, marginTop: '2px', color: '#b45309' }} />
-          <div>
-            <strong>Aviso de Faturamento Pendente ({kpis.billingPending} chamado{kpis.billingPending > 1 ? 's' : ''})</strong>
-            <p>
-              O atendimento técnico foi finalizado há mais de 2 dias, porém esta solicitação ainda consta com <strong>pendência de faturamento/pagamento freelancer</strong>. Os clientes são informados deste status até a confirmação manual de quitação pelo administrador.
-            </p>
+      {/* Directional Banner to Service Orders for Clients */}
+      {isClient && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '14px',
+            padding: '14px 18px',
+            background: 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%)',
+            border: '1px solid #bbf7d0',
+            borderRadius: '12px',
+            marginBottom: '18px'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div
+              style={{
+                width: '38px',
+                height: '38px',
+                borderRadius: '10px',
+                background: '#dcfce7',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#166534',
+                flexShrink: 0
+              }}
+            >
+              <FilePlus2 size={20} />
+            </div>
+            <div>
+              <strong style={{ color: '#166534', fontSize: '14px', display: 'block' }}>
+                Central de Ordens de Serviço
+              </strong>
+              <span style={{ color: '#15803d', fontSize: '12px' }}>
+                Esta tela destina-se exclusivamente à abertura de chamados e consulta rápida das solicitações. Para esclarecer qualquer dúvida, acompanhar laudos técnicos, prazos de faturamento ou confirmar pagamentos, acesse a tela de Ordens de Serviço.
+              </span>
+            </div>
           </div>
+          <a
+            href="/ordens"
+            className="secondary-button"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 16px',
+              fontSize: '12px',
+              fontWeight: 600,
+              color: '#166534',
+              borderColor: '#86efac',
+              backgroundColor: '#ffffff',
+              textDecoration: 'none',
+              borderRadius: '8px',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            Ir para Ordens de Serviço
+            <ExternalLink size={14} />
+          </a>
         </div>
       )}
 
@@ -518,81 +537,112 @@ function Tickets() {
         >
           <div className="ticket-kpi-info">
             <span className="ticket-kpi-title">Total</span>
-            <span className="ticket-kpi-sub">Até o momento</span>
+            <span className="ticket-kpi-sub">Chamados registrados</span>
           </div>
           <strong className="ticket-kpi-count">{kpis.total}</strong>
         </div>
 
-        <div
-          className={`ticket-kpi-card ${activeKpiFilter === 'unassigned' ? 'ticket-kpi-card--active' : ''}`}
-          onClick={() => setActiveKpiFilter('unassigned')}
-          role="button"
-          tabIndex={0}
-        >
-          <div className="ticket-kpi-info">
-            <span className="ticket-kpi-title">A atender</span>
-            <span className="ticket-kpi-sub">Sem responsável</span>
-          </div>
-          <strong className="ticket-kpi-count">{kpis.unassigned}</strong>
-        </div>
+        {isClient ? (
+          <>
+            <div
+              className={`ticket-kpi-card ${activeKpiFilter === 'open' ? 'ticket-kpi-card--active' : ''}`}
+              onClick={() => setActiveKpiFilter('open')}
+              role="button"
+              tabIndex={0}
+            >
+              <div className="ticket-kpi-info">
+                <span className="ticket-kpi-title">Abertos</span>
+                <span className="ticket-kpi-sub">Aguardando atendimento</span>
+              </div>
+              <strong className="ticket-kpi-count">{kpis.open}</strong>
+            </div>
 
-        <div
-          className={`ticket-kpi-card ${activeKpiFilter === 'in_progress' ? 'ticket-kpi-card--active' : ''}`}
-          onClick={() => setActiveKpiFilter('in_progress')}
-          role="button"
-          tabIndex={0}
-        >
-          <div className="ticket-kpi-info">
-            <span className="ticket-kpi-title">Em andamento</span>
-            <span className="ticket-kpi-sub">Em execução</span>
-          </div>
-          <strong className="ticket-kpi-count">{kpis.inProgress}</strong>
-        </div>
+            <div
+              className={`ticket-kpi-card ${activeKpiFilter === 'in_progress' ? 'ticket-kpi-card--active' : ''}`}
+              onClick={() => setActiveKpiFilter('in_progress')}
+              role="button"
+              tabIndex={0}
+            >
+              <div className="ticket-kpi-info">
+                <span className="ticket-kpi-title">Em andamento</span>
+                <span className="ticket-kpi-sub">Em atendimento</span>
+              </div>
+              <strong className="ticket-kpi-count">{kpis.inProgress}</strong>
+            </div>
 
-        <div
-          className={`ticket-kpi-card ${activeKpiFilter === 'billing_pending' ? 'ticket-kpi-card--active' : ''}`}
-          onClick={() => setActiveKpiFilter('billing_pending')}
-          role="button"
-          tabIndex={0}
-          style={{ borderLeft: '3px solid #d97706' }}
-        >
-          <div className="ticket-kpi-info">
-            <span className="ticket-kpi-title" style={{ color: '#b45309' }}>Faturamento Pendente</span>
-            <span className="ticket-kpi-sub">Concluídos há &gt; 2 dias</span>
-          </div>
-          <strong className="ticket-kpi-count" style={{ color: '#b45309' }}>{kpis.billingPending}</strong>
-        </div>
+            <div
+              className={`ticket-kpi-card ${activeKpiFilter === 'resolved' ? 'ticket-kpi-card--active' : ''}`}
+              onClick={() => setActiveKpiFilter('resolved')}
+              role="button"
+              tabIndex={0}
+            >
+              <div className="ticket-kpi-info">
+                <span className="ticket-kpi-title">Resolvidos</span>
+                <span className="ticket-kpi-sub">Atendimento concluído</span>
+              </div>
+              <strong className="ticket-kpi-count">{kpis.resolved}</strong>
+            </div>
+          </>
+        ) : (
+          <>
+            <div
+              className={`ticket-kpi-card ${activeKpiFilter === 'unassigned' ? 'ticket-kpi-card--active' : ''}`}
+              onClick={() => setActiveKpiFilter('unassigned')}
+              role="button"
+              tabIndex={0}
+            >
+              <div className="ticket-kpi-info">
+                <span className="ticket-kpi-title">A atender</span>
+                <span className="ticket-kpi-sub">Sem responsável</span>
+              </div>
+              <strong className="ticket-kpi-count">{kpis.unassigned}</strong>
+            </div>
 
-        <div
-          className={`ticket-kpi-card ${activeKpiFilter === 'resolved' ? 'ticket-kpi-card--active' : ''}`}
-          onClick={() => setActiveKpiFilter('resolved')}
-          role="button"
-          tabIndex={0}
-        >
-          <div className="ticket-kpi-info">
-            <span className="ticket-kpi-title">Resolvidos</span>
-            <span className="ticket-kpi-sub">Chamados atendidos</span>
-          </div>
-          <strong className="ticket-kpi-count">{kpis.resolved}</strong>
-        </div>
+            <div
+              className={`ticket-kpi-card ${activeKpiFilter === 'in_progress' ? 'ticket-kpi-card--active' : ''}`}
+              onClick={() => setActiveKpiFilter('in_progress')}
+              role="button"
+              tabIndex={0}
+            >
+              <div className="ticket-kpi-info">
+                <span className="ticket-kpi-title">Em andamento</span>
+                <span className="ticket-kpi-sub">Em execução</span>
+              </div>
+              <strong className="ticket-kpi-count">{kpis.inProgress}</strong>
+            </div>
 
-        <div
-          className={`ticket-kpi-card ${activeKpiFilter === 'overdue' ? 'ticket-kpi-card--active' : ''}`}
-          onClick={() => setActiveKpiFilter('overdue')}
-          role="button"
-          tabIndex={0}
-        >
-          <div className="ticket-kpi-info">
-            <span className="ticket-kpi-title">Vencidas</span>
-            <span className="ticket-kpi-sub">Atendimento atrasado</span>
-          </div>
-          <strong className="ticket-kpi-count">{kpis.overdue}</strong>
-        </div>
+            <div
+              className={`ticket-kpi-card ${activeKpiFilter === 'resolved' ? 'ticket-kpi-card--active' : ''}`}
+              onClick={() => setActiveKpiFilter('resolved')}
+              role="button"
+              tabIndex={0}
+            >
+              <div className="ticket-kpi-info">
+                <span className="ticket-kpi-title">Resolvidos</span>
+                <span className="ticket-kpi-sub">Chamados atendidos</span>
+              </div>
+              <strong className="ticket-kpi-count">{kpis.resolved}</strong>
+            </div>
+
+            <div
+              className={`ticket-kpi-card ${activeKpiFilter === 'overdue' ? 'ticket-kpi-card--active' : ''}`}
+              onClick={() => setActiveKpiFilter('overdue')}
+              role="button"
+              tabIndex={0}
+            >
+              <div className="ticket-kpi-info">
+                <span className="ticket-kpi-title">Vencidos</span>
+                <span className="ticket-kpi-sub">Sem atendimento (&gt; 24h)</span>
+              </div>
+              <strong className="ticket-kpi-count">{kpis.overdue}</strong>
+            </div>
+          </>
+        )}
       </div>
 
-      {/* Toolbar Filters */}
-      <div className="tickets-filter-bar">
-        <div className="tickets-filter-left">
+      {/* Toolbar Filters (Aligned to Left) */}
+      <div className="tickets-filter-bar" style={{ justifyContent: 'flex-start', gap: '10px' }}>
+        <div className="tickets-filter-left" style={{ flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
           <button
             type="button"
             className="ticket-reload-btn"
@@ -603,72 +653,309 @@ function Tickets() {
             <RefreshCw size={15} />
           </button>
 
+          <div className="search-control" style={{ width: '250px' }}>
+            <Search size={16} />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={isClient ? 'Buscar chamados...' : 'Busque por chamados, setor...'}
+              aria-label="Busque por chamados"
+            />
+          </div>
+
           <select
             className="ticket-filter-select"
-            value={priorityFilter}
-            onChange={(e) => setPriorityFilter(e.target.value)}
-            aria-label="Filtrar por prioridade"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            aria-label="Filtrar por status"
           >
-            <option value="all">Todas as prioridades</option>
-            <option value="low">Pouco urgente</option>
-            <option value="normal">Normal</option>
-            <option value="high">Alta</option>
-            <option value="urgent">Urgente</option>
+            <option value="all">Todos os status</option>
+            <option value="open">Aberto</option>
+            <option value="in_progress">Em andamento</option>
+            <option value="resolved">Resolvido</option>
           </select>
 
-          <label className="ticket-filter-checkbox">
-            <input
-              type="checkbox"
-              checked={onlyMyTickets}
-              onChange={(e) => setOnlyMyTickets(e.target.checked)}
-            />
-            Filtrar por usuário conectado
-          </label>
-        </div>
+          {!isClient && (
+            <select
+              className="ticket-filter-select"
+              value={priorityFilter}
+              onChange={(e) => setPriorityFilter(e.target.value)}
+              aria-label="Filtrar por prioridade"
+            >
+              <option value="all">Todas as prioridades</option>
+              <option value="low">Pouco urgente</option>
+              <option value="normal">Normal</option>
+              <option value="high">Alta</option>
+              <option value="urgent">Urgente</option>
+            </select>
+          )}
 
-        <div className="search-control" style={{ width: '260px' }}>
-          <Search size={16} />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Busque por chamados..."
-            aria-label="Busque por chamados"
-          />
+          {isFiltered && (
+            <button
+              type="button"
+              className="ticket-filter-btn"
+              onClick={handleClearFilters}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '6px 12px',
+                borderRadius: '8px',
+                background: '#fee2e2',
+                color: '#dc2626',
+                border: '1px solid #fecaca',
+                fontSize: '12px',
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+              title="Limpar todos os filtros ativos"
+            >
+              <RotateCcw size={13} /> Limpar Filtros
+            </button>
+          )}
+
+          {!isClient && (
+            <label className="ticket-filter-checkbox" style={{ marginLeft: '4px' }}>
+              <input
+                type="checkbox"
+                checked={onlyMyTickets}
+                onChange={(e) => setOnlyMyTickets(e.target.checked)}
+              />
+              Filtrar por usuário conectado
+            </label>
+          )}
         </div>
       </div>
 
       {/* Table Section */}
       <section className="ticket-list-card" style={{ padding: '0', overflow: 'hidden' }}>
+        <div
+          style={{
+            padding: '14px 20px',
+            borderBottom: '1px solid #f1f5f9',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            backgroundColor: '#fafbfc'
+          }}
+        >
+          <div>
+            <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: 'var(--ink)' }}>
+              {isClient ? 'Últimos Chamados Abertos' : 'Fila de Chamados Registrados'}
+            </h3>
+            <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748b' }}>
+              {isClient
+                ? 'Histórico das suas solicitações abertas. Qualquer dúvida, consulte a tela de Ordens de Serviço.'
+                : 'Gerenciamento operacional e atribuição técnica de chamados.'}
+            </p>
+          </div>
+          <span
+            style={{
+              fontSize: '12px',
+              fontWeight: 600,
+              color: '#475569',
+              background: '#ffffff',
+              padding: '4px 10px',
+              borderRadius: '20px',
+              border: '1px solid #e2e8f0'
+            }}
+          >
+            {filteredTickets.length} chamado{filteredTickets.length !== 1 ? 's' : ''}
+          </span>
+        </div>
+
         {isLoading ? (
           <div className="data-state">Carregando chamados...</div>
         ) : filteredTickets.length === 0 ? (
           <div className="user-empty-state" style={{ padding: '3.5rem', textAlign: 'center' }}>
             <MessageSquare size={32} style={{ margin: '0 auto', color: '#67a486' }} />
             <strong style={{ display: 'block', marginTop: '1rem' }}>
-              {search || activeKpiFilter !== 'all' || priorityFilter !== 'all' || onlyMyTickets
+              {isFiltered
                 ? 'Nenhum chamado encontrado para os filtros selecionados'
                 : 'Nenhum chamado registrado'}
             </strong>
             <span>
-              {search || activeKpiFilter !== 'all'
+              {isFiltered
                 ? 'Tente limpar os filtros para visualizar outros chamados.'
-                : 'Clique em "Abrir Chamado" para registrar uma nova solicitação.'}
+                : 'Clique no botão "Abrir Chamado" acima para registrar uma nova solicitação.'}
             </span>
           </div>
-        ) : (
+        ) : isClient ? (
+          /* ========================================================== */
+          /* CLIENT VIEW: PURELY LATEST TICKETS + LINK TO SERVICE ORDERS */
+          /* ========================================================== */
           <div className="helpclin-table-wrapper">
-            <table className="helpclin-table">
+            <table className="helpclin-table" style={{ width: '100%' }}>
               <thead>
                 <tr>
-                  <th style={{ width: '120px' }}>Prioridade</th>
-                  <th style={{ width: '100px' }}>OS / Protocolo</th>
-                  <th>Setor</th>
-                  <th>Ativo / Serviço</th>
-                  <th>Responsável</th>
+                  <th style={{ width: '110px' }}>Chamado / OS</th>
+                  <th style={{ width: '115px' }}>Situação</th>
+                  <th style={{ width: '22%' }}>Equipamento / Serviço</th>
                   <th>Problema Relatado</th>
-                  <th>Solicitante / Local</th>
-                  <th style={{ width: '120px' }}>Abertura</th>
-                  <th style={{ width: '80px', textAlign: 'right' }}>Ação</th>
+                  <th style={{ width: '95px' }}>Aberto em</th>
+                  <th style={{ width: '18%' }}>Responsável Técnico</th>
+                  <th style={{ width: '95px', textAlign: 'center' }}>Ação</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredTickets.map((ticket) => {
+                  const priorityText = getPriorityLabel(ticket.priority);
+                  const badgeClass = getPriorityBadgeClass(ticket.priority);
+
+                  return (
+                    <tr key={ticket.id}>
+                      {/* 1. Chamado / OS */}
+                      <td>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                          <strong style={{ color: 'var(--teal)', fontSize: '12px' }}>
+                            OS-{String(ticket.service_order_number || ticket.ticket_number).padStart(5, '0')}
+                          </strong>
+                          <span
+                            className={`ticket-priority-badge ${badgeClass}`}
+                            style={{ alignSelf: 'flex-start', fontSize: '9px', padding: '2px 6px' }}
+                          >
+                            {priorityText}
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* 2. Situação */}
+                      <td>
+                        <span
+                          className={`ticket-status ticket-status--${ticket.status}`}
+                          style={{ alignSelf: 'flex-start', fontSize: '10px', padding: '3px 7px', display: 'inline-block' }}
+                        >
+                          {ticket.status === 'open'
+                            ? 'Aberto'
+                            : ticket.status === 'in_progress'
+                            ? 'Em andamento'
+                            : 'Resolvido'}
+                        </span>
+                      </td>
+
+                      {/* 3. Equipamento / Serviço */}
+                      <td>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--ink)', fontSize: '12px', fontWeight: 600 }}>
+                            <span style={{ color: '#4d8796', display: 'inline-flex' }}>
+                              {ticket.ticket_type === 'equipment' ? <Laptop size={13} /> : <Wrench size={13} />}
+                            </span>
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={ticket.equipment_name || (ticket.ticket_type === 'equipment' ? 'Equipamento' : 'Serviço Geral')}>
+                              {ticket.equipment_name || (ticket.ticket_type === 'equipment' ? 'Equipamento' : 'Serviço Geral')}
+                            </span>
+                          </div>
+                          <span style={{ fontSize: '11px', color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={ticket.company_sector || ticket.location || 'Geral'}>
+                            {ticket.company_sector || ticket.location || 'Geral'}
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* 4. Problema Relatado */}
+                      <td>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                          <strong
+                            style={{
+                              color: 'var(--ink)',
+                              fontSize: '12px',
+                              fontWeight: 600,
+                              lineHeight: 1.3,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              display: '-webkit-box',
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: 'vertical'
+                            }}
+                            title={ticket.related_problem}
+                          >
+                            {ticket.related_problem}
+                          </strong>
+                          {ticket.observations && (
+                            <span
+                              style={{
+                                fontSize: '11px',
+                                color: '#64748b',
+                                lineHeight: 1.2,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                              }}
+                              title={`Obs: ${ticket.observations}`}
+                            >
+                              <strong>Obs:</strong> {ticket.observations}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* 5. Aberto em */}
+                      <td>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', fontSize: '11px', color: 'var(--muted)', whiteSpace: 'nowrap' }}>
+                          <span>{new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(ticket.created_at))}</span>
+                          <span style={{ fontSize: '10px', color: '#9aa6a2' }}>{new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' }).format(new Date(ticket.created_at))}</span>
+                        </div>
+                      </td>
+
+                      {/* 6. Responsável Técnico */}
+                      <td>
+                        {ticket.assigned_to_name ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#166534', fontSize: '12px', fontWeight: 600 }}>
+                            <UserCheck size={13} style={{ color: '#15803d', flexShrink: 0 }} />
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={ticket.assigned_to_name}>
+                              {ticket.assigned_to_name}
+                            </span>
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#94a3b8', fontSize: '11px', fontStyle: 'italic' }}>
+                            <Clock size={12} style={{ flexShrink: 0 }} />
+                            <span>Aguardando atendimento</span>
+                          </div>
+                        )}
+                      </td>
+
+                      {/* 7. Ação: Link to Service Orders */}
+                      <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
+                        <a
+                          href="/ordens"
+                          className="secondary-button"
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            padding: '5px 10px',
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            color: 'var(--teal)',
+                            backgroundColor: '#ffffff',
+                            borderColor: '#cbd5e1',
+                            textDecoration: 'none',
+                            borderRadius: '6px'
+                          }}
+                          title="Qualquer dúvida, laudo técnico ou faturamento, acesse a Ordem de Serviço"
+                        >
+                          Ver na OS <ExternalLink size={12} />
+                        </a>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          /* ========================================================== */
+          /* TECHNICIAN VIEW: TICKET MANAGEMENT & ASSIGNMENT            */
+          /* ========================================================== */
+          <div className="helpclin-table-wrapper">
+            <table className="helpclin-table" style={{ width: '100%' }}>
+              <thead>
+                <tr>
+                  <th style={{ width: '95px', textAlign: 'left' }}>Ações</th>
+                  <th style={{ width: '105px' }}>OS &amp; Prioridade</th>
+                  <th style={{ width: '115px' }}>Estado</th>
+                  <th style={{ width: '20%' }}>Solicitante &amp; Setor</th>
+                  <th style={{ width: '20%' }}>Ativo &amp; Responsável</th>
+                  <th style={{ width: '85px' }}>Abertura</th>
+                  <th>Problema &amp; Observações</th>
                 </tr>
               </thead>
               <tbody>
@@ -677,166 +964,142 @@ function Tickets() {
                   const priorityText = getPriorityLabel(ticket.priority);
                   const badgeClass = getPriorityBadgeClass(ticket.priority);
 
-                  const linkedOrder = {
-                    status: ticket.service_order_status,
-                    completed_at: ticket.service_order_completed_at,
-                    updated_at: ticket.service_order_updated_at,
-                    created_at: ticket.created_at
-                  };
-                  const effectiveSO = getEffectiveOrderStatus(linkedOrder);
-                  const isOrderBillingPending = effectiveSO === 'billing_pending';
-                  const isOrderBilled = effectiveSO === 'billed';
-                  const daysSinceCompleted = getDaysSinceCompletion(linkedOrder);
-
                   return (
                     <tr key={ticket.id}>
-                      {/* Priority */}
-                      <td>
-                        <span className={`ticket-priority-badge ${badgeClass}`}>
-                          {priorityText}
-                        </span>
-                      </td>
-
-                      {/* OS Number & Billing Chip */}
-                      <td>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                          <span style={{ fontWeight: 700, color: 'var(--teal)', fontSize: '12px' }}>
-                            OS-{String(ticket.service_order_number || ticket.ticket_number).padStart(5, '0')}
-                          </span>
-                          {isOrderBillingPending && (
-                            <span className="billing-chip-badge" title={`Concluída há ${daysSinceCompleted} dias - Aguardando pagamento`}>
-                              <AlertTriangle size={10} /> Pgto Pendente
-                            </span>
-                          )}
-                          {isOrderBilled && (
-                            <span style={{ fontSize: '10px', color: '#065f46', background: '#ecfdf5', padding: '1px 6px', borderRadius: '8px', border: '1px solid #a7f3d0', fontWeight: 600, width: 'fit-content' }}>
-                              <CheckCircle2 size={10} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '2px' }} /> Faturada
-                            </span>
-                          )}
-                        </div>
-                      </td>
-
-                      {/* Company / Sector */}
-                      <td style={{ color: 'var(--teal)', fontWeight: 600 }}>
-                        {ticket.company_sector}
-                      </td>
-
-                      {/* Asset / Service */}
-                      <td style={{ color: 'var(--ink)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ color: '#4d8796' }}>
-                            {ticket.ticket_type === 'equipment' ? <Laptop size={15} /> : <Wrench size={15} />}
-                          </span>
-                          <span>
-                            {ticket.equipment_name
-                              ? ticket.equipment_name
-                              : ticket.ticket_type === 'equipment'
-                              ? 'Equipamento'
-                              : 'Serviço Geral'}
-                          </span>
-                        </div>
-                      </td>
-
-                      {/* Responsible */}
-                      <td>
-                        {ticket.assigned_to_name ? (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#2b6351', fontWeight: 600 }}>
-                            <UserCheck size={14} />
-                            <span>{ticket.assigned_to_name}</span>
-                          </div>
-                        ) : (
-                          <span style={{ color: '#9aa6a2', fontStyle: 'italic' }}>Sem responsável</span>
-                        )}
-                      </td>
-
-                      {/* Related Problem & Observations & Technician Performed Service */}
-                      <td style={{ color: 'var(--muted)', maxWidth: '240px' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                          <strong style={{ color: 'var(--teal)', display: 'block', fontSize: '12px', fontWeight: 600 }}>
-                            {ticket.related_problem}
-                          </strong>
-                          {ticket.observations && (
-                            <span style={{ fontSize: '11px', color: '#687b76', lineHeight: 1.3 }}>
-                              {ticket.observations}
-                            </span>
-                          )}
-                          {ticket.service_performed_description ? (
-                            <span style={{ fontSize: '11px', color: '#1f6e52', background: '#ecfdf5', padding: '3px 7px', borderRadius: '5px', border: '1px solid #d1fae5', marginTop: '2px', lineHeight: 1.3 }}>
-                              <strong>Técnico:</strong> {ticket.service_performed_description}
-                            </span>
-                          ) : ticket.status === 'in_progress' ? (
-                            <span style={{ fontSize: '10px', color: '#e78368', fontStyle: 'italic' }}>
-                              Em execução pelo técnico
-                            </span>
-                          ) : null}
-                          {/* Client notice if billing is pending */}
-                          {isOrderBillingPending && (
-                            <div style={{ marginTop: '5px', padding: '6px 10px', borderRadius: '6px', background: '#fffbeb', border: '1px solid #fde68a', color: '#92400e', fontSize: '11px', lineHeight: 1.35, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
-                              <span><strong>⚠️ Faturamento Pendente:</strong> Concluído há {daysSinceCompleted}d. Aguardando confirmação de pagamento.</span>
-                              <button
-                                type="button"
-                                className="billing-quick-bill-btn"
-                                onClick={() => setConfirmingBillingTicket(ticket)}
-                                style={{ padding: '2px 7px', fontSize: '10px' }}
-                                title="Informar que esta ordem de serviço já foi faturada / paga"
-                              >
-                                <DollarSign size={11} /> Informar Faturada
-                              </button>
-                            </div>
-                          )}
-                          {/* Client notice if billed */}
-                          {isOrderBilled && (
-                            <div style={{ marginTop: '4px', padding: '4px 7px', borderRadius: '6px', background: '#ecfdf5', border: '1px solid #a7f3d0', color: '#065f46', fontSize: '11px', lineHeight: 1.3 }}>
-                              <strong>✅ Faturada:</strong> Pagamento confirmado com sucesso.
-                            </div>
-                          )}
-                        </div>
-                      </td>
-
-                      {/* Requester / Location */}
-                      <td style={{ color: 'var(--muted)' }}>
-                        <span style={{ display: 'block', fontWeight: 600, color: 'var(--teal)' }}>
-                          {ticket.requester || 'Solicitante'}
-                        </span>
-                        <span style={{ fontSize: '11px' }}>{ticket.location}</span>
-                      </td>
-
-                      {/* Date */}
-                      <td style={{ color: 'var(--muted)', whiteSpace: 'nowrap' }}>
-                        {formatDate(ticket.created_at)}
-                      </td>
-
-                      {/* Action */}
-                      <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      {/* 1. Ações */}
+                      <td style={{ textAlign: 'left', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
                         {isUnassigned ? (
                           <button
                             type="button"
                             className="ticket-attend-btn"
                             onClick={() => handleAssign(ticket.id)}
                             disabled={assigningId === ticket.id}
-                            title="Assumir chamado"
+                            title="Assumir chamado para atendimento"
+                            style={{ padding: '4px 8px', fontSize: '11px', height: '28px' }}
                           >
                             {assigningId === ticket.id ? 'Atendendo...' : 'Atender'}
-                            <ArrowRight size={13} />
+                            <ArrowRight size={12} />
                           </button>
-                        ) : isOrderBillingPending ? (
-                          <button
-                            type="button"
-                            className="billing-quick-bill-btn"
-                            onClick={() => setConfirmingBillingTicket(ticket)}
-                            title="Informar faturamento desta ordem de serviço"
-                          >
-                            <DollarSign size={12} /> Informar Faturada
-                          </button>
-                        ) : isOrderBilled ? (
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', padding: '4px 8px', borderRadius: '6px', background: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0', fontWeight: 600 }}>
-                            <CheckCircle2 size={12} /> Faturada
-                          </span>
                         ) : (
-                          <span className="assigned-label" style={{ fontSize: '11px', padding: '5px 9px' }}>
+                          <span className="assigned-label" style={{ fontSize: '10px', padding: '3px 6px' }}>
                             {ticket.status === 'resolved' ? 'Resolvido' : 'Atendido'}
                           </span>
                         )}
+                      </td>
+
+                      {/* 2. OS & Prioridade */}
+                      <td>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                          <strong style={{ color: 'var(--teal)', fontSize: '12px' }}>
+                            OS-{String(ticket.service_order_number || ticket.ticket_number).padStart(5, '0')}
+                          </strong>
+                          <span className={`ticket-priority-badge ${badgeClass}`} style={{ alignSelf: 'flex-start', fontSize: '9px', padding: '2px 6px' }}>
+                            {priorityText}
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* 3. Estado */}
+                      <td>
+                        <span className={`ticket-status ticket-status--${ticket.status}`} style={{ alignSelf: 'flex-start', fontSize: '10px', padding: '2px 6px', display: 'inline-block' }}>
+                          {ticket.status === 'open' ? 'Aberto' : ticket.status === 'in_progress' ? 'Em andamento' : 'Resolvido'}
+                        </span>
+                      </td>
+
+                      {/* 4. Solicitante & Setor */}
+                      <td>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                          <strong style={{ color: 'var(--teal)', fontSize: '12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }} title={ticket.requester || 'Solicitante'}>
+                            {ticket.requester || 'Solicitante'}
+                          </strong>
+                          <span style={{ fontSize: '11px', color: '#59716e', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }} title={ticket.company_sector || ticket.location || 'Geral'}>
+                            {ticket.company_sector || ticket.location || 'Geral'}
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* 5. Ativo & Responsável */}
+                      <td>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--ink)', fontSize: '12px', fontWeight: 500 }}>
+                            <span style={{ color: '#4d8796', display: 'inline-flex' }}>
+                              {ticket.ticket_type === 'equipment' ? <Laptop size={13} /> : <Wrench size={13} />}
+                            </span>
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={ticket.equipment_name || (ticket.ticket_type === 'equipment' ? 'Equipamento' : 'Serviço Geral')}>
+                              {ticket.equipment_name || (ticket.ticket_type === 'equipment' ? 'Equipamento' : 'Serviço Geral')}
+                            </span>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: ticket.assigned_to_name ? '#2b6351' : '#9aa6a2' }}>
+                            <UserCheck size={12} />
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontStyle: ticket.assigned_to_name ? 'normal' : 'italic' }} title={ticket.assigned_to_name || 'Sem responsável'}>
+                              {ticket.assigned_to_name || 'Sem responsável'}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* 6. Abertura */}
+                      <td>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', fontSize: '11px', color: 'var(--muted)', whiteSpace: 'nowrap' }}>
+                          <span>{new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(ticket.created_at))}</span>
+                          <span style={{ fontSize: '10px', color: '#9aa6a2' }}>{new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' }).format(new Date(ticket.created_at))}</span>
+                        </div>
+                      </td>
+
+                      {/* 7. Problema & Observações */}
+                      <td>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                          <strong
+                            style={{
+                              color: 'var(--teal)',
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              lineHeight: 1.25,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              display: '-webkit-box',
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: 'vertical'
+                            }}
+                            title={ticket.related_problem}
+                          >
+                            {ticket.related_problem}
+                          </strong>
+                          {ticket.observations && (
+                            <span
+                              style={{
+                                fontSize: '10px',
+                                color: '#4b635d',
+                                lineHeight: 1.2,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                              }}
+                              title={`Obs: ${ticket.observations}`}
+                            >
+                              <strong>Obs:</strong> {ticket.observations}
+                            </span>
+                          )}
+                          {ticket.service_performed_description && (
+                            <span
+                              style={{
+                                fontSize: '10px',
+                                color: '#1f6e52',
+                                background: '#ecfdf5',
+                                padding: '2px 5px',
+                                borderRadius: '4px',
+                                border: '1px solid #d1fae5',
+                                lineHeight: 1.2,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                              }}
+                              title={`Técnico: ${ticket.service_performed_description}`}
+                            >
+                              <strong>Téc:</strong> {ticket.service_performed_description}
+                            </span>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -858,8 +1121,11 @@ function Tickets() {
           <div className="inventory-modal" style={{ width: 'min(100%, 580px)' }}>
             <div className="inventory-modal-header">
               <div>
-                <p className="eyebrow">Nova Solicitação</p>
-                <h2>Abertura de Chamado</h2>
+                <p className="eyebrow">Solicitação Formal</p>
+                <h2>Abertura de Chamado Técnico</h2>
+                <small style={{ color: '#64748b', fontSize: '12px', display: 'block', marginTop: '2px' }}>
+                  A Ordem de Serviço (OS numerada) é gerada automaticamente a partir desta solicitação.
+                </small>
               </div>
               <button
                 type="button"
@@ -1043,23 +1309,6 @@ function Tickets() {
         </div>
       )}
 
-      {/* Confirmation Modal for Billing */}
-      <BillingConfirmationModal
-        isOpen={Boolean(confirmingBillingTicket)}
-        order={confirmingBillingTicket ? {
-          id: confirmingBillingTicket.service_order_id,
-          order_number: confirmingBillingTicket.service_order_number || confirmingBillingTicket.ticket_number,
-          patient_name: confirmingBillingTicket.requester,
-          service_type: confirmingBillingTicket.ticket_type === 'equipment' ? (confirmingBillingTicket.equipment_name || 'Equipamento') : 'Serviço Geral',
-          company_sector: confirmingBillingTicket.company_sector,
-          related_problem: confirmingBillingTicket.related_problem,
-          completed_at: confirmingBillingTicket.service_order_completed_at || confirmingBillingTicket.updated_at,
-          status: confirmingBillingTicket.service_order_status
-        } : null}
-        onConfirm={handleConfirmBilling}
-        onClose={() => setConfirmingBillingTicket(null)}
-        isSubmitting={isBillingSubmitting}
-      />
     </div>
   );
 }

@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node --watch src/server.js",
+    "dev": "node --watch --watch-path=src src/server.js",
     "start": "node src/server.js",
     "build:hml": "node --env-file=.env.hml --check src/server.js",
     "build:prd": "node --env-file=.env.prd --check src/server.js",

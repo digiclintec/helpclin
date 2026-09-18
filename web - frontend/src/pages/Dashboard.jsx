@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   Clock,
   Clock3,
+  DollarSign,
   Download,
   Edit3,
   ExternalLink,
@@ -128,6 +129,7 @@ function Dashboard() {
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [onlyMyOrders, setOnlyMyOrders] = useState(false);
   const [search, setSearch] = useState('');
+  const [billedSearch, setBilledSearch] = useState('');
 
   useEffect(() => {
     loadAllData();
@@ -182,11 +184,19 @@ function Dashboard() {
     });
 
     const totalOrders = orders.length;
-    const totalServices = orders.length + tickets.length;
+    // 1 chamado gera automaticamente 1 ordem de serviço com número de controle.
+    // Cada ordem representa um atendimento real. Contabilizamos apenas chamados sem OS para compatibilidade.
+    const unlinkedTicketsCount = tickets.filter(
+      (t) => !t.service_order_id && !orders.some((o) => o.support_ticket_id === t.id)
+    ).length;
+    const totalServices = totalOrders + unlinkedTicketsCount;
+
     const resolvedTickets = tickets.filter((t) => t.status === 'resolved').length;
     const activeTickets = tickets.filter((t) => t.status !== 'resolved').length;
     const ticketResolutionRate = tickets.length ? Math.round((resolvedTickets / tickets.length) * 100) : 0;
-    const orderCompletionRate = totalOrders ? Math.round(((completedCount + billingPendingCount + billedCount) / totalOrders) * 100) : 0;
+    const totalFinished = completedCount + billingPendingCount + billedCount;
+    const orderCompletionRate = totalOrders ? Math.round((totalFinished / totalOrders) * 100) : 0;
+    const billingRate = totalFinished ? Math.round((billedCount / totalFinished) * 100) : 0;
 
     // Unique sectors / locations from actual data
     const sectorsSet = new Set();
@@ -217,6 +227,7 @@ function Dashboard() {
       billed: billedCount,
       urgent: urgentCount,
       orderCompletionRate,
+      billingRate,
       totalEquipments: inventory.length,
       totalSectors,
       totalTeam,
@@ -411,6 +422,9 @@ function Dashboard() {
     { header: 'Responsável Técnico', accessor: (o) => o.technician_name || 'Não atribuído' },
     { header: 'Tipo de Serviço', accessor: (o) => o.service_type || 'Manutenção' },
     { header: 'Criada em', accessor: (o) => formatDate(o.created_at) },
+    { header: 'Concluída em', accessor: (o) => formatDate(o.completed_at) },
+    { header: 'Data do Faturamento / Pagamento', accessor: (o) => o.billed_at ? formatDate(o.billed_at) : (o.status === 'billed' ? 'Faturada' : 'Pendente') },
+    { header: 'Situação de Faturamento', accessor: (o) => o.status === 'billed' ? `Faturada em ${formatDate(o.billed_at || o.updated_at)}` : 'Aguardando faturamento' },
     { header: 'Descrição', accessor: (o) => o.service_requested_description || o.description || '—' },
     { header: 'Serviço Realizado', accessor: (o) => o.service_performed_description || '—' }
   ];
@@ -436,6 +450,53 @@ function Dashboard() {
         { label: 'OS Finalizadas', value: kpis.completed },
         { label: 'Equipamentos Ativos', value: kpis.totalEquipments },
         { label: 'Taxa de Resolução', value: `${kpis.ticketResolutionRate}%` }
+      ]
+    });
+  }
+
+  // Billed Orders Filtering & Export
+  const billedOrders = useMemo(() => {
+    return orders.filter((o) => getEffectiveOrderStatus(o) === 'billed');
+  }, [orders]);
+
+  const filteredBilledOrders = useMemo(() => {
+    if (!billedSearch.trim()) return billedOrders;
+    const term = billedSearch.toLowerCase();
+    return billedOrders.filter((o) => {
+      const str = `${o.order_number || ''} ${o.patient_name || ''} ${o.service_type || ''} ${o.technician_name || ''} ${o.equipment_name || ''} ${o.description || ''}`.toLowerCase();
+      return str.includes(term);
+    });
+  }, [billedOrders, billedSearch]);
+
+  const billedExportColumns = [
+    { header: 'Ordem de Serviço', accessor: (o) => `OS-${String(o.order_number || o.id).padStart(5, '0')}` },
+    { header: 'Setor / Solicitante', accessor: 'patient_name' },
+    { header: 'Serviço / Ativo', accessor: (o) => o.equipment_name ? `${o.equipment_name} (${o.service_type})` : o.service_type },
+    { header: 'Técnico Responsável', accessor: (o) => o.technician_name || 'Técnico Responsável' },
+    { header: 'Data de Conclusão Técnica', accessor: (o) => formatDate(o.completed_at || o.updated_at) },
+    { header: 'Data do Faturamento / Pagamento', accessor: (o) => formatDate(o.billed_at || o.updated_at) },
+    { header: 'Status Financeiro', accessor: (o) => `Faturada (Paga em ${formatDate(o.billed_at || o.updated_at)})` }
+  ];
+
+  function handleExportBilledXls() {
+    exportToXls({
+      title: 'Relatório de Ordens de Serviço Faturadas',
+      filename: 'Ordens_Faturadas_HelpClin',
+      columns: billedExportColumns,
+      data: filteredBilledOrders
+    });
+  }
+
+  function handleExportBilledPdf() {
+    exportToPdf({
+      title: 'Relatório Financeiro de Ordens Faturadas',
+      subtitle: `HelpClin - Total de ${filteredBilledOrders.length} ordens faturadas emitidas`,
+      columns: billedExportColumns,
+      data: filteredBilledOrders,
+      summary: [
+        { label: 'Ordens Faturadas', value: filteredBilledOrders.length },
+        { label: 'Pendência de Faturamento', value: kpis.billingPending },
+        { label: 'Taxa de Faturamento', value: `${kpis.billingRate}%` }
       ]
     });
   }
@@ -583,6 +644,14 @@ function Dashboard() {
               <BarChart3 size={16} />
               <span>Visão Geral & Relatórios</span>
             </button>
+            <button
+              type="button"
+              className={`dash-tab-btn ${activeTab === 'faturadas' ? 'dash-tab-btn--active' : ''}`}
+              onClick={() => setActiveTab('faturadas')}
+            >
+              <DollarSign size={16} />
+              <span>Ordens Faturadas ({kpis.billed})</span>
+            </button>
             <a
               href="/ordens"
               className="dash-tab-btn"
@@ -662,7 +731,7 @@ function Dashboard() {
           <strong className="dash-kpi-value">{kpis.totalServices}</strong>
           <div className="dash-kpi-trend dash-kpi-trend--positive">
             <Activity size={12} />
-            <span>{kpis.totalOrders} ordens e {tickets.length} chamados</span>
+            <span>{kpis.totalOrders} ordens de serviço ativas</span>
           </div>
         </article>
 
@@ -680,7 +749,39 @@ function Dashboard() {
           </div>
         </article>
 
-        <article className="dash-kpi-card" style={kpis.billingPending > 0 ? { borderLeft: '3px solid #d97706' } : {}}>
+        <article
+          className="dash-kpi-card"
+          onClick={() => setActiveTab('faturadas')}
+          role="button"
+          tabIndex={0}
+          style={{ cursor: 'pointer' }}
+          title="Clique para ver a tela de ordens faturadas"
+        >
+          <div className="dash-kpi-header">
+            <span className="dash-kpi-label" style={{ color: '#065f46' }}>
+              Ordens Faturadas
+            </span>
+            <div className="dash-kpi-icon-pill" style={{ background: '#d1fae5', color: '#059669' }}>
+              <CheckCircle2 size={16} />
+            </div>
+          </div>
+          <strong className="dash-kpi-value" style={{ color: '#065f46' }}>
+            {kpis.billed}
+          </strong>
+          <div className="dash-kpi-trend" style={{ color: '#059669' }}>
+            <ArrowRight size={12} />
+            <span>{kpis.billingRate}% das finalizadas faturadas</span>
+          </div>
+        </article>
+
+        <article
+          className="dash-kpi-card"
+          style={kpis.billingPending > 0 ? { borderLeft: '3px solid #d97706', cursor: 'pointer' } : { cursor: 'pointer' }}
+          onClick={() => setActiveTab('faturadas')}
+          role="button"
+          tabIndex={0}
+          title="Clique para ver o painel financeiro"
+        >
           <div className="dash-kpi-header">
             <span className="dash-kpi-label" style={kpis.billingPending > 0 ? { color: '#b45309' } : {}}>
               Faturamento Pendente
@@ -1056,6 +1157,197 @@ function Dashboard() {
                   </div>
                 );
               })
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* 7. TAB 3: ORDENS FATURADAS (TELA DE FATURAMENTO DEDICADA) */}
+      {activeTab === 'faturadas' && (
+        <section className="dash-faturadas-section" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          {/* Header da Tela de Ordens Faturadas */}
+          <div className="dash-card" style={{ padding: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
+              <div>
+                <span className="dash-card-eyebrow" style={{ color: '#059669', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <CheckCircle2 size={14} /> Faturamento Confirmado
+                </span>
+                <h2 style={{ margin: '4px 0 8px 0', fontSize: '20px', color: 'var(--teal)' }}>
+                  Ordens de Serviço Faturadas
+                </h2>
+                <p style={{ margin: 0, fontSize: '14px', color: '#64748b', maxWidth: '650px' }}>
+                  Acompanhe e audite todas as ordens com faturamento formalizado pelo administrador freelancer. 
+                  Ordens concluídas entram em pendência após 48h caso não faturadas.
+                </p>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <ExportDropdown onExportXls={handleExportBilledXls} onExportPdf={handleExportBilledPdf} />
+                <a href="/ordens" className="secondary-button" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <FileText size={15} /> Todas as OS
+                </a>
+              </div>
+            </div>
+
+            {/* Mini KPIs de Faturamento */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginTop: '24px' }}>
+              <div style={{ padding: '16px', borderRadius: '10px', background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+                <span style={{ fontSize: '12px', fontWeight: 600, color: '#166534', display: 'block', marginBottom: '4px' }}>
+                  Ordens Faturadas
+                </span>
+                <strong style={{ fontSize: '24px', color: '#15803d' }}>{kpis.billed}</strong>
+                <span style={{ fontSize: '12px', color: '#166534', display: 'block', marginTop: '4px' }}>
+                  Faturamento concluído
+                </span>
+              </div>
+
+              <div style={{ padding: '16px', borderRadius: '10px', background: '#fffbeb', border: '1px solid #fde68a' }}>
+                <span style={{ fontSize: '12px', fontWeight: 600, color: '#92400e', display: 'block', marginBottom: '4px' }}>
+                  Pendência de Faturamento
+                </span>
+                <strong style={{ fontSize: '24px', color: '#b45309' }}>{kpis.billingPending}</strong>
+                <span style={{ fontSize: '12px', color: '#92400e', display: 'block', marginTop: '4px' }}>
+                  Aguardando faturamento (&gt; 48h)
+                </span>
+              </div>
+
+              <div style={{ padding: '16px', borderRadius: '10px', background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                <span style={{ fontSize: '12px', fontWeight: 600, color: '#475569', display: 'block', marginBottom: '4px' }}>
+                  Taxa de Faturamento
+                </span>
+                <strong style={{ fontSize: '24px', color: 'var(--teal)' }}>{kpis.billingRate}%</strong>
+                <span style={{ fontSize: '12px', color: '#64748b', display: 'block', marginTop: '4px' }}>
+                  Das ordens finalizadas
+                </span>
+              </div>
+
+              <div style={{ padding: '16px', borderRadius: '10px', background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                <span style={{ fontSize: '12px', fontWeight: 600, color: '#475569', display: 'block', marginBottom: '4px' }}>
+                  Total Finalizadas
+                </span>
+                <strong style={{ fontSize: '24px', color: 'var(--ink)' }}>
+                  {kpis.completed + kpis.billingPending + kpis.billed}
+                </strong>
+                <span style={{ fontSize: '12px', color: '#64748b', display: 'block', marginTop: '4px' }}>
+                  Prontas para cobrança
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Barra de Filtros da Tela de Faturadas */}
+          <div className="dash-card" style={{ padding: '16px 20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div className="search-control" style={{ width: '320px' }}>
+                  <Search size={16} />
+                  <input
+                    value={billedSearch}
+                    onChange={(e) => setBilledSearch(e.target.value)}
+                    placeholder="Filtrar por OS, setor, serviço ou técnico..."
+                    aria-label="Filtrar ordens faturadas"
+                  />
+                </div>
+                {billedSearch && (
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    style={{ padding: '6px 12px', fontSize: '12px' }}
+                    onClick={() => setBilledSearch('')}
+                  >
+                    Limpar
+                  </button>
+                )}
+              </div>
+
+              <span style={{ fontSize: '13px', color: '#64748b' }}>
+                Mostrando <b>{filteredBilledOrders.length}</b> de <b>{billedOrders.length}</b> faturadas
+              </span>
+            </div>
+          </div>
+
+          {/* Listagem / Tabela de Ordens Faturadas */}
+          <div className="dash-card" style={{ padding: '0', overflow: 'hidden' }}>
+            {filteredBilledOrders.length === 0 ? (
+              <div className="dash-empty-text" style={{ padding: '60px 20px', textAlign: 'center' }}>
+                <CheckCircle2 size={36} style={{ color: '#8faea1', margin: '0 auto 12px', display: 'block' }} />
+                <strong style={{ display: 'block', color: 'var(--teal)', fontSize: '16px', marginBottom: '6px' }}>
+                  {billedSearch ? 'Nenhuma ordem faturada encontrada para a busca' : 'Nenhuma ordem de serviço faturada no momento'}
+                </strong>
+                <p style={{ fontSize: '13px', color: '#64748b', maxWidth: '500px', margin: '0 auto 16px' }}>
+                  {billedSearch
+                    ? 'Tente ajustar os termos de pesquisa para localizar a ordem faturada.'
+                    : 'Quando uma ordem de serviço concluída for faturada pelo administrador, ela aparecerá listada aqui permanentemente com os dados de quitação.'}
+                </p>
+                <a href="/ordens" className="primary-button" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                  <FileText size={16} /> Ver Ordens de Serviço
+                </a>
+              </div>
+            ) : (
+              <div className="helpclin-table-wrapper">
+                <table className="helpclin-table">
+                  <thead>
+                    <tr>
+                      <th style={{ width: '110px' }}>Ordem</th>
+                      <th>Setor / Solicitante</th>
+                      <th>Serviço / Ativo</th>
+                      <th>Técnico Responsável</th>
+                      <th style={{ width: '135px' }}>Concluída em</th>
+                      <th style={{ width: '160px' }}>Data do Pagamento / Faturamento</th>
+                      <th style={{ width: '120px' }}>Status</th>
+                      <th style={{ width: '90px', textAlign: 'right' }}>Ação</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredBilledOrders.map((order) => (
+                      <tr key={order.id}>
+                        <td>
+                          <span style={{ fontWeight: 700, color: 'var(--teal)', fontSize: '13px' }}>
+                            OS-{String(order.order_number || order.id).padStart(5, '0')}
+                          </span>
+                        </td>
+                        <td style={{ fontWeight: 600, color: 'var(--teal)' }}>
+                          {order.patient_name}
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <span style={{ fontWeight: 500 }}>{order.service_type}</span>
+                            {order.equipment_name && (
+                              <small style={{ color: '#64748b' }}>{order.equipment_name}</small>
+                            )}
+                          </div>
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#2b6351', fontWeight: 500 }}>
+                            <UserCheck size={14} />
+                            <span>{order.technician_name || 'Técnico Responsável'}</span>
+                          </div>
+                        </td>
+                        <td style={{ fontSize: '13px', color: '#475569' }}>
+                          {formatDate(order.completed_at || order.updated_at)}
+                        </td>
+                        <td style={{ fontSize: '13px', color: '#065f46', fontWeight: 600 }}>
+                          {formatDate(order.billed_at || order.updated_at)}
+                        </td>
+                        <td>
+                          <span className="os-status-badge os-status-badge--billed" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                            <CheckCircle2 size={12} /> Faturada
+                          </span>
+                        </td>
+                        <td style={{ textAlign: 'right' }}>
+                          <button
+                            type="button"
+                            className="secondary-button"
+                            style={{ padding: '4px 10px', fontSize: '12px' }}
+                            onClick={() => setEditingOrder(order)}
+                          >
+                            Ver
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         </section>

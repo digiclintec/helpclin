@@ -23,7 +23,7 @@ function AppShell({ children }) {
 
   const userName = user?.name ?? 'Usuário';
   const userInitials = userName.split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
-  const roleLabel = user?.role === 'admin' ? 'Administrador' : 'Usuário';
+  const roleLabel = user?.role === 'admin' ? 'Administrador' : user?.role === 'technician' ? 'Técnico' : 'Cliente';
   const navigationItems = [...navigation, ...(user?.role === 'admin' ? [{ label: 'Usuários', icon: UserCheck, href: '/usuarios' }] : [])];
 
   function handleLogout() {

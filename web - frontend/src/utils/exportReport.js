@@ -87,7 +87,7 @@ export function exportToPdf({ title, subtitle = '', columns, data, summary = [] 
 
         @page {
           size: A4 portrait;
-          margin: 12mm 10mm;
+          margin: 0;
         }
 
         * {
@@ -449,9 +449,10 @@ export function exportToPdf({ title, subtitle = '', columns, data, summary = [] 
 
         /* Print Media Styles */
         @media print {
-          body {
-            background: #ffffff !important;
+          html, body {
+            margin: 0 !important;
             padding: 0 !important;
+            background: #ffffff !important;
           }
 
           .action-bar {
@@ -460,7 +461,8 @@ export function exportToPdf({ title, subtitle = '', columns, data, summary = [] 
 
           .document-wrapper {
             max-width: 100% !important;
-            padding: 0 !important;
+            margin: 0 auto !important;
+            padding: 12mm 12mm !important;
             border: 0 !important;
             border-radius: 0 !important;
             box-shadow: none !important;
@@ -584,6 +586,580 @@ export function exportToPdf({ title, subtitle = '', columns, data, summary = [] 
 
   printWindow.document.open();
   printWindow.document.write(printHtml);
+  printWindow.document.close();
+}
+
+/**
+ * HelpClin Print Service Order Voucher (Ficha de Ordem de Serviço)
+ */
+export function printServiceOrder(order) {
+  if (!order) return;
+
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) {
+    alert('Por favor, permita popups para imprimir a Ordem de Serviço.');
+    return;
+  }
+
+  const osNumber = `OS-${String(order.order_number || 0).padStart(5, '0')}`;
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('pt-BR');
+  const timeStr = now.toLocaleTimeString('pt-BR');
+
+  const fmt = (val) => {
+    if (!val) return '—';
+    try {
+      return new Intl.DateTimeFormat('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }).format(new Date(val));
+    } catch {
+      return '—';
+    }
+  };
+
+  const priorityLabels = {
+    low: 'Pouco urgente (Baixa)',
+    'pouco urgente': 'Pouco urgente',
+    baixa: 'Pouco urgente',
+    normal: 'Normal',
+    high: 'Alta',
+    alta: 'Alta',
+    urgent: 'Urgente',
+    urgente: 'Urgente'
+  };
+  const priorityStr = priorityLabels[(order.priority || '').toLowerCase()] || order.priority || 'Normal';
+
+  const statusLabels = {
+    open: 'Aberta',
+    in_progress: 'Em Andamento',
+    completed: 'Concluída',
+    billing_pending: 'Aguardando Faturamento (Prazo 30 dias)',
+    payment_informed: 'Pagamento Informado (Aguardando Confirmação)',
+    billed: 'Faturada (Paga)',
+    cancelled: 'Cancelada'
+  };
+  const statusStr = statusLabels[order.status] || order.status || 'Em atendimento';
+
+  const billingStatusStr =
+    order.status === 'billed'
+      ? `Faturada / Paga em ${fmt(order.billed_at || order.updated_at)}`
+      : order.status === 'payment_informed'
+      ? `Pagamento informado pelo cliente em ${fmt(order.payment_informed_at)} (Aguardando confirmação do técnico)`
+      : order.completed_at
+      ? 'Aguardando Faturamento (Prazo de até 30 dias)'
+      : 'Em Atendimento Técnico';
+
+  const html = `
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>${osNumber} - Ficha de Ordem de Serviço | HelpClinTec</title>
+      <style>
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Manrope:wght@600;700;800&display=swap');
+
+        @page {
+          size: A4 portrait;
+          margin: 0;
+        }
+
+        * {
+          box-sizing: border-box;
+          margin: 0;
+          padding: 0;
+        }
+
+        body {
+          font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          color: #143b3d;
+          background: #f4f7f5;
+          padding: 20px 16px;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+
+        .action-bar {
+          max-width: 850px;
+          margin: 0 auto 16px auto;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 12px 18px;
+          background: #ffffff;
+          border: 1px solid #dce7df;
+          border-radius: 10px;
+          box-shadow: 0 4px 16px rgba(18, 59, 61, 0.06);
+          gap: 12px;
+        }
+
+        .action-bar-info {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          font-size: 13px;
+          color: #59716e;
+          font-weight: 600;
+        }
+
+        .action-bar-badge {
+          display: inline-block;
+          padding: 4px 10px;
+          border-radius: 6px;
+          background: #123b3d;
+          color: #ffffff;
+          font-size: 12px;
+          font-weight: 700;
+          letter-spacing: 0.5px;
+        }
+
+        .action-buttons {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .btn-print {
+          display: inline-flex;
+          align-items: center;
+          gap: 7px;
+          height: 38px;
+          padding: 0 20px;
+          border: 0;
+          border-radius: 8px;
+          background: #123b3d;
+          color: #ffffff;
+          font-size: 13px;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          box-shadow: 0 2px 8px rgba(18, 59, 61, 0.2);
+        }
+
+        .btn-print:hover {
+          background: #1a4f52;
+        }
+
+        .btn-close {
+          display: inline-flex;
+          align-items: center;
+          height: 38px;
+          padding: 0 14px;
+          border: 1px solid #dce7df;
+          border-radius: 8px;
+          background: #ffffff;
+          color: #59716e;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+        }
+
+        .btn-close:hover {
+          background: #f8faf9;
+        }
+
+        /* Printable Sheet */
+        .voucher-sheet {
+          max-width: 850px;
+          margin: 0 auto;
+          background: #ffffff;
+          padding: 32px 36px;
+          border: 1px solid #dce7df;
+          border-radius: 12px;
+          box-shadow: 0 6px 28px rgba(18, 59, 61, 0.06);
+        }
+
+        /* Header */
+        .voucher-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          border-bottom: 2px solid #123b3d;
+          padding-bottom: 16px;
+          margin-bottom: 20px;
+          gap: 16px;
+        }
+
+        .brand-area {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .brand-mark {
+          display: grid;
+          place-items: center;
+          width: 44px;
+          height: 44px;
+          background: #e78368;
+          color: #ffffff;
+          border-radius: 10px;
+          font-weight: 800;
+          font-size: 22px;
+          flex-shrink: 0;
+        }
+
+        .brand-text h2 {
+          font-family: 'Manrope', sans-serif;
+          font-size: 24px;
+          font-weight: 800;
+          color: #123b3d;
+          letter-spacing: -0.5px;
+          line-height: 1.1;
+        }
+
+        .brand-text h2 span {
+          color: #e78368;
+        }
+
+        .brand-text p {
+          font-size: 11px;
+          color: #59716e;
+          margin-top: 2px;
+        }
+
+        .os-meta-card {
+          text-align: right;
+          font-size: 11px;
+          color: #59716e;
+          line-height: 1.5;
+        }
+
+        .os-number-badge {
+          display: inline-block;
+          font-family: 'Manrope', sans-serif;
+          font-size: 20px;
+          font-weight: 800;
+          color: #123b3d;
+          letter-spacing: 0.5px;
+          margin-bottom: 4px;
+        }
+
+        /* Banner */
+        .voucher-title-banner {
+          background: linear-gradient(135deg, #123b3d 0%, #1f5659 100%);
+          color: #ffffff;
+          padding: 12px 20px;
+          border-radius: 8px;
+          margin-bottom: 20px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+
+        .voucher-title-banner h1 {
+          font-size: 16px;
+          font-weight: 800;
+          letter-spacing: 0.5px;
+          text-transform: uppercase;
+        }
+
+        .voucher-title-banner span {
+          font-size: 12px;
+          background: rgba(255, 255, 255, 0.18);
+          padding: 4px 10px;
+          border-radius: 6px;
+          font-weight: 600;
+        }
+
+        /* Section Box */
+        .voucher-section {
+          margin-bottom: 18px;
+          border: 1px solid #dce7df;
+          border-radius: 8px;
+          overflow: hidden;
+        }
+
+        .voucher-section-title {
+          background: #f4f8f6;
+          border-bottom: 1px solid #dce7df;
+          padding: 8px 14px;
+          font-size: 12px;
+          font-weight: 700;
+          color: #123b3d;
+          text-transform: uppercase;
+          letter-spacing: 0.6px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .voucher-grid-2 {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 12px;
+          padding: 14px 16px;
+        }
+
+        .voucher-grid-3 {
+          display: grid;
+          grid-template-columns: 1fr 1fr 1fr;
+          gap: 12px;
+          padding: 14px 16px;
+        }
+
+        .voucher-field {
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+        }
+
+        .voucher-field-label {
+          font-size: 10px;
+          font-weight: 700;
+          color: #6f7f7c;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
+        .voucher-field-value {
+          font-size: 13px;
+          font-weight: 600;
+          color: #143b3d;
+        }
+
+        .voucher-field-value--highlight {
+          color: #123b3d;
+          font-weight: 700;
+        }
+
+        .voucher-description-box {
+          padding: 14px 16px;
+          font-size: 13px;
+          line-height: 1.5;
+          color: #243f3b;
+          white-space: pre-wrap;
+          min-height: 50px;
+          background: #ffffff;
+        }
+
+        .voucher-description-box--performed {
+          background: #fbfdfc;
+          border-left: 4px solid #123b3d;
+        }
+
+        /* Signatures */
+        .voucher-signatures {
+          margin-top: 30px;
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 36px;
+          padding: 0 10px;
+        }
+
+        .signature-box {
+          text-align: center;
+        }
+
+        .signature-line {
+          border-bottom: 1px solid #143b3d;
+          margin-bottom: 8px;
+          height: 44px;
+        }
+
+        .signature-name {
+          font-size: 12px;
+          font-weight: 700;
+          color: #123b3d;
+        }
+
+        .signature-role {
+          font-size: 10px;
+          color: #6f7f7c;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          margin-top: 2px;
+        }
+
+        /* Footer */
+        .voucher-footer {
+          margin-top: 28px;
+          border-top: 1px solid #dce7df;
+          padding-top: 12px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          font-size: 10px;
+          color: #8faea1;
+        }
+
+        @media print {
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+          }
+          .action-bar {
+            display: none !important;
+          }
+          .voucher-sheet {
+            max-width: 100% !important;
+            margin: 0 auto !important;
+            padding: 12mm 14mm !important;
+            border: 0 !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+          }
+          .voucher-title-banner {
+            background: #123b3d !important;
+            color: #ffffff !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="action-bar no-print">
+        <div class="action-bar-info">
+          <span class="action-bar-badge">${osNumber}</span>
+          <span>Ficha de Ordem de Serviço Pronta para Impressão</span>
+        </div>
+        <div class="action-buttons">
+          <button class="btn-close" onclick="window.close()">Fechar</button>
+          <button class="btn-print" onclick="window.print()">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+            Imprimir Ordem (Ctrl+P)
+          </button>
+        </div>
+      </div>
+
+      <div class="voucher-sheet">
+        <header class="voucher-header">
+          <div class="brand-area">
+            <div class="brand-mark">H</div>
+            <div class="brand-text">
+              <h2>help<span>clin</span>tec</h2>
+              <p>Tecnologia Inteligente para Gestão e Manutenção Clínica</p>
+            </div>
+          </div>
+          <div class="os-meta-card">
+            <div class="os-number-badge">${osNumber}</div>
+            <p>Emissão: <strong>${dateStr} às ${timeStr}</strong></p>
+            <p>Classificação: <strong>Documento Técnico Operacional</strong></p>
+          </div>
+        </header>
+
+        <section class="voucher-title-banner">
+          <h1>Ordem de Serviço Técnica</h1>
+          <span>Situação: ${statusStr}</span>
+        </section>
+
+        <!-- 1. Dados Gerais -->
+        <div class="voucher-section">
+          <div class="voucher-section-title">1. Informações de Identificação e Prazos</div>
+          <div class="voucher-grid-3">
+            <div class="voucher-field">
+              <span class="voucher-field-label">Solicitante / Setor</span>
+              <span class="voucher-field-value voucher-field-value--highlight">${order.patient_name || 'Setor Não Informado'}</span>
+            </div>
+            <div class="voucher-field">
+              <span class="voucher-field-label">Tipo de Serviço</span>
+              <span class="voucher-field-value">${order.service_type || 'Manutenção Corretiva'}</span>
+            </div>
+            <div class="voucher-field">
+              <span class="voucher-field-label">Prioridade de Atendimento</span>
+              <span class="voucher-field-value">${priorityStr}</span>
+            </div>
+            <div class="voucher-field">
+              <span class="voucher-field-label">Equipamento / Ativo Clínico</span>
+              <span class="voucher-field-value voucher-field-value--highlight">${order.equipment_name || 'Serviço Geral'}</span>
+            </div>
+            <div class="voucher-field">
+              <span class="voucher-field-label">Técnico Responsável</span>
+              <span class="voucher-field-value">${order.technician_name || 'Não atribuído'}</span>
+            </div>
+            <div class="voucher-field">
+              <span class="voucher-field-label">Data de Registro / Abertura</span>
+              <span class="voucher-field-value">${fmt(order.created_at)}</span>
+            </div>
+            <div class="voucher-field">
+              <span class="voucher-field-label">Previsão / Vencimento</span>
+              <span class="voucher-field-value">${fmt(order.due_date)}</span>
+            </div>
+            <div class="voucher-field">
+              <span class="voucher-field-label">Data de Conclusão</span>
+              <span class="voucher-field-value">${fmt(order.completed_at)}</span>
+            </div>
+            <div class="voucher-field">
+              <span class="voucher-field-label">Origem do Atendimento</span>
+              <span class="voucher-field-value">${order.support_ticket_id ? 'Chamado Técnico' : 'Abertura Direta'}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Descrição Solicitada -->
+        <div class="voucher-section">
+          <div class="voucher-section-title">2. Descrição da Demanda / Problema Informado pelo Cliente</div>
+          <div class="voucher-description-box">${order.service_requested_description || order.description || 'Nenhum detalhe adicional informado.'}</div>
+        </div>
+
+        <!-- 3. Parecer Técnico -->
+        <div class="voucher-section">
+          <div class="voucher-section-title">3. Parecer Técnico / Diagnóstico e Serviços Realizados</div>
+          <div class="voucher-description-box voucher-description-box--performed">${order.service_performed_description || 'Atendimento técnico em execução / Sem parecer final registrado.'}</div>
+        </div>
+
+        <!-- 4. Faturamento -->
+        <div class="voucher-section">
+          <div class="voucher-section-title">4. Controle Financeiro &amp; Faturamento</div>
+          <div class="voucher-grid-2">
+            <div class="voucher-field">
+              <span class="voucher-field-label">Condição de Faturamento</span>
+              <span class="voucher-field-value">${billingStatusStr}</span>
+            </div>
+            <div class="voucher-field">
+              <span class="voucher-field-label">Data de Liquidação / Pagamento</span>
+              <span class="voucher-field-value">${fmt(order.billed_at || order.payment_informed_at)}</span>
+            </div>
+          </div>
+          ${order.payment_rejection_reason ? `
+            <div style="padding: 8px 16px; background: #fee2e2; color: #dc2626; font-size: 11px; font-weight: 600; border-top: 1px solid #fecaca;">
+              Aviso Técnico: ${order.payment_rejection_reason}
+            </div>
+          ` : ''}
+        </div>
+
+        <!-- 5. Termo e Assinaturas -->
+        <div class="voucher-section" style="border: 0;">
+          <p style="font-size: 11px; color: #59716e; text-align: center; margin-bottom: 24px; font-style: italic;">
+            Declaramos que os serviços descritos nesta ordem foram executados e vistoriados em conformidade técnica.
+          </p>
+          <div class="voucher-signatures">
+            <div class="signature-box">
+              <div class="signature-line"></div>
+              <div class="signature-name">${order.technician_name || 'Técnico Responsável'}</div>
+              <div class="signature-role">Assinatura do Técnico HelpClinTec</div>
+            </div>
+            <div class="signature-box">
+              <div class="signature-line"></div>
+              <div class="signature-name">${order.patient_name || 'Responsável pelo Setor / Solicitante'}</div>
+              <div class="signature-role">Assinatura do Solicitante / Cliente</div>
+            </div>
+          </div>
+        </div>
+
+        <footer class="voucher-footer">
+          <span><strong>HelpClinTec</strong> · Gestão e Manutenção Hospitalar</span>
+          <span>Documento Oficial Eletrônico · ${osNumber}</span>
+        </footer>
+      </div>
+
+      <script>
+        window.onload = function() {
+          window.focus();
+        };
+      </script>
+    </body>
+    </html>
+  `;
+
+  printWindow.document.open();
+  printWindow.document.write(html);
   printWindow.document.close();
 }
 
