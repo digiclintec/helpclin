@@ -258,35 +258,16 @@ router.delete('/:id', async (request, response) => {
 
       const order = orderRes.rows[0];
       const supportTicketId = order.support_ticket_id;
-      const shouldKeepTicket = request.query.keepTicket === 'true' || request.query.deleteTicket === 'false';
 
       // 1. Excluir a ordem de serviço primeiro (evita restrições de chave estrangeira)
       await client.query('DELETE FROM service_orders WHERE id = $1', [request.params.id]);
 
-      // 2. Se houver chamado vinculado, excluir o chamado também para não deixar órfãos na fila
+      // 2. Excluir SEMPRE o chamado vinculado automaticamente (evita registros órfãos na fila)
       if (supportTicketId) {
-        if (!shouldKeepTicket) {
-          await client.query('DELETE FROM support_tickets WHERE id = $1', [supportTicketId]);
-        } else {
-          const orderNumStr = order.order_number != null ? String(order.order_number).padStart(5, '0') : '';
-          const cancelNote = orderNumStr ? ` [Ordem de serviço OS-${orderNumStr} excluída]` : ' [Ordem de serviço excluída]';
-
-          await client.query(
-            `UPDATE support_tickets
-             SET status = 'cancelled',
-                 assigned_to = NULL,
-                 observations = CASE
-                   WHEN observations IS NULL OR observations = '' THEN $1
-                   ELSE observations || $1
-                 END,
-                 updated_at = NOW()
-             WHERE id = $2`,
-            [cancelNote, supportTicketId]
-          );
-        }
-      } else if (order.order_number && !shouldKeepTicket) {
-        // Fallback: se não tiver support_ticket_id gravado, verifica por service_order_number
-        await client.query('DELETE FROM support_tickets WHERE service_order_number = $1', [order.order_number]);
+        await client.query('DELETE FROM support_tickets WHERE id = $1', [supportTicketId]);
+      } else if (order.order_number) {
+        // Fallback de segurança: vincula por número de ordem de serviço
+        await client.query('DELETE FROM support_tickets WHERE service_order_number = $1 OR ticket_number = $1', [order.order_number]);
       }
 
       await client.query('COMMIT');

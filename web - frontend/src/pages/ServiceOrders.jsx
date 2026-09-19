@@ -279,7 +279,7 @@ function ServiceOrders() {
     setErrorMessage('');
     setSuccessMessage('');
     try {
-      const res = await deleteServiceOrder(deletingOrder.id, deleteLinkedTicket);
+      const res = await deleteServiceOrder(deletingOrder.id, true);
       setOrders((prev) => prev.filter((o) => o.id !== deletingOrder.id));
       if (editingOrder?.id === deletingOrder.id) {
         setEditingOrder(null);
@@ -1404,7 +1404,7 @@ function ServiceOrders() {
                 <div>
                   <strong>Atenção: Ação irreversível!</strong>
                   <p style={{ marginTop: '3px', color: '#b91c1c' }}>
-                    Esta ordem será apagada do sistema. Se ela foi originada de um chamado técnico, o chamado retornará automaticamente para o status <em>Aberto</em> para novo atendimento.
+                    Esta ordem de serviço e o chamado técnico correspondente serão permanentemente excluídos do sistema.
                   </p>
                 </div>
               </div>
@@ -1434,39 +1434,6 @@ function ServiceOrders() {
                   <strong>{deletingOrder.service_type || 'Manutenção'}</strong>
                 </div>
               </div>
-
-              {deletingOrder.support_ticket_id && (
-                <div
-                  style={{
-                    marginTop: '12px',
-                    padding: '10px 12px',
-                    background: '#eff6ff',
-                    border: '1px solid #bfdbfe',
-                    borderRadius: '8px'
-                  }}
-                >
-                  <label
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      cursor: 'pointer',
-                      fontSize: '12px',
-                      color: '#1e40af',
-                      fontWeight: 600,
-                      margin: 0
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={deleteLinkedTicket}
-                      onChange={(e) => setDeleteLinkedTicket(e.target.checked)}
-                      style={{ accentColor: '#2563eb', width: '15px', height: '15px', cursor: 'pointer' }}
-                    />
-                    <span>Excluir também o chamado de suporte aberto que originou esta OS</span>
-                  </label>
-                </div>
-              )}
             </div>
 
             <div className="inventory-modal-actions" style={{ justifyContent: 'flex-end', gap: '10px' }}>
