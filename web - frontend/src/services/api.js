@@ -142,6 +142,18 @@ export async function assignSupportTicket(ticketId, userId) {
   return data.ticket;
 }
 
+export async function rejectSupportTicket(ticketId, reason) {
+  const response = await fetch(`${apiUrl}/support-tickets/${ticketId}/reject`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ reason })
+  });
+
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.message ?? 'Não foi possível recusar o chamado');
+  return data;
+}
+
 export async function deleteSupportTicket(ticketId) {
   const response = await fetch(`${apiUrl}/support-tickets/${ticketId}`, {
     method: 'DELETE'

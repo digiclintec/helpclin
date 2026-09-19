@@ -1,5 +1,7 @@
 import {
+  AlertTriangle,
   ArrowRight,
+  Check,
   Clock,
   ExternalLink,
   FilePlus2,
@@ -11,7 +13,6 @@ import {
   RotateCcw,
   Search,
   Trash2,
-  AlertTriangle,
   UserCheck,
   Wrench,
   X
@@ -25,7 +26,8 @@ import {
   deleteSupportTicket,
   getInventory,
   getStoredUser,
-  getSupportTickets
+  getSupportTickets,
+  rejectSupportTicket
 } from '../services/api.js';
 import { exportToPdf, exportToXls } from '../utils/exportReport.js';
 
@@ -154,6 +156,9 @@ function Tickets() {
   const [assigningId, setAssigningId] = useState(null);
   const [ticketToDelete, setTicketToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [ticketToReject, setTicketToReject] = useState(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [isRejecting, setIsRejecting] = useState(false);
 
   // Filters
   const [activeKpiFilter, setActiveKpiFilter] = useState('all');
@@ -238,7 +243,7 @@ function Tickets() {
       setTickets([ticket, ...tickets]);
       setForm(emptyForm);
       setIsFormOpen(false);
-      setFeedback(`Chamado registrado com sucesso! A Ordem de Serviço ${ticket.protocol || 'OS-' + String(ticket.service_order_number || ticket.ticket_number || '').padStart(5, '0')} foi gerada automaticamente.`);
+      setFeedback('Chamado registrado com sucesso! Aguardando o aceite do técnico para emissão da Ordem de Serviço.');
     } catch (error) {
       setFeedback(error.message);
     } finally {
@@ -259,21 +264,56 @@ function Tickets() {
         prev.map((t) =>
           t.id === ticketId
             ? {
-                ...t,
-                assigned_to: user.id,
-                assigned_to_name: user.name,
-                status: updated.status || 'in_progress',
-                service_order_number: updated.service_order_number || updated.service_order?.order_number || t.service_order_number,
-                order_number: updated.order_number || updated.service_order?.order_number || t.order_number,
-                service_order_id: updated.service_order_id || updated.service_order?.id || t.service_order_id
-              }
+              ...t,
+              assigned_to: user.id,
+              assigned_to_name: user.name,
+              status: updated.status || 'in_progress',
+              service_order_number: updated.service_order_number || updated.service_order?.order_number || t.service_order_number,
+              order_number: updated.order_number || updated.service_order?.order_number || t.order_number,
+              service_order_id: updated.service_order_id || updated.service_order?.id || t.service_order_id
+            }
             : t
         )
       );
+      setFeedback(`Chamado aceito com sucesso! A Ordem de Serviço OS-${String(updated.service_order_number || updated.order_number).padStart(5, '0')} foi vinculada.`);
     } catch (error) {
       setFeedback(error.message);
     } finally {
       setAssigningId(null);
+    }
+  }
+
+  async function handleConfirmRejectTicket() {
+    if (!ticketToReject) return;
+    setIsRejecting(true);
+    setFeedback('');
+    try {
+      await rejectSupportTicket(ticketToReject.id, rejectReason);
+      setTickets((prev) =>
+        prev.map((t) =>
+          t.id === ticketToReject.id
+            ? {
+              ...t,
+              status: 'cancelled',
+              assigned_to: null,
+              assigned_to_name: null,
+              observations: rejectReason
+                ? `${t.observations ? t.observations + ' ' : ''}[Atendimento recusado: ${rejectReason.trim()}]`
+                : `${t.observations ? t.observations + ' ' : ''}[Atendimento recusado pelo técnico]`
+            }
+            : t
+        )
+      );
+      const ticketRef = ticketToReject.service_order_number
+        ? `OS-${String(ticketToReject.service_order_number).padStart(5, '0')}`
+        : `#${String(ticketToReject.ticket_number || ticketToReject.id).padStart(5, '0')}`;
+      setFeedback(`Chamado ${ticketRef} e a ordem vinculada foram recusados/cancelados com sucesso.`);
+      setTicketToReject(null);
+      setRejectReason('');
+    } catch (error) {
+      setFeedback(error.message);
+    } finally {
+      setIsRejecting(false);
     }
   }
 
@@ -836,9 +876,15 @@ function Tickets() {
                       {/* 1. Chamado / OS */}
                       <td>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                          <strong style={{ color: 'var(--teal)', fontSize: '12px' }}>
-                            OS-{String(ticket.service_order_number || ticket.ticket_number).padStart(5, '0')}
-                          </strong>
+                          {ticket.service_order_number && (ticket.assigned_to_name || ticket.status !== 'open') ? (
+                            <strong style={{ color: 'var(--teal)', fontSize: '12px' }}>
+                              OS-{String(ticket.service_order_number).padStart(5, '0')}
+                            </strong>
+                          ) : (
+                            <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                              <Clock size={11} style={{ color: '#94a3b8' }} /> Aguardando aceite
+                            </span>
+                          )}
                           <span
                             className={`ticket-priority-badge ${badgeClass}`}
                             style={{ alignSelf: 'flex-start', fontSize: '9px', padding: '2px 6px' }}
@@ -864,10 +910,10 @@ function Tickets() {
                           {ticket.status === 'open'
                             ? 'Aberto'
                             : ticket.status === 'in_progress'
-                            ? 'Em andamento'
-                            : ticket.status === 'cancelled'
-                            ? 'Cancelado'
-                            : 'Resolvido'}
+                              ? 'Em andamento'
+                              : ticket.status === 'cancelled'
+                                ? 'Cancelado'
+                                : 'Resolvido'}
                         </span>
                       </td>
 
@@ -1081,9 +1127,15 @@ function Tickets() {
                       {/* 2. OS & Prioridade */}
                       <td>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                          <strong style={{ color: 'var(--teal)', fontSize: '12px' }}>
-                            OS-{String(ticket.service_order_number || ticket.ticket_number).padStart(5, '0')}
-                          </strong>
+                          {ticket.service_order_number && (ticket.assigned_to_name || ticket.status !== 'open') ? (
+                            <strong style={{ color: 'var(--teal)', fontSize: '12px' }}>
+                              OS-{String(ticket.service_order_number).padStart(5, '0')}
+                            </strong>
+                          ) : (
+                            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                              <Clock size={11} style={{ color: '#94a3b8' }} /> Aguardando aceite
+                            </span>
+                          )}
                           <span className={`ticket-priority-badge ${badgeClass}`} style={{ alignSelf: 'flex-start', fontSize: '9px', padding: '2px 6px' }}>
                             {priorityText}
                           </span>
@@ -1106,10 +1158,10 @@ function Tickets() {
                           {ticket.status === 'open'
                             ? 'Aberto'
                             : ticket.status === 'in_progress'
-                            ? 'Em andamento'
-                            : ticket.status === 'cancelled'
-                            ? 'Cancelado'
-                            : 'Resolvido'}
+                              ? 'Em andamento'
+                              : ticket.status === 'cancelled'
+                                ? 'Cancelado'
+                                : 'Resolvido'}
                         </span>
                       </td>
 
@@ -1449,6 +1501,61 @@ function Tickets() {
                 disabled={isDeleting}
               >
                 {isDeleting ? 'Excluindo...' : 'Confirmar Exclusão'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Confirmação de Recusa de Chamado */}
+      {ticketToReject && (
+        <div className="dash-modal-backdrop" onClick={() => setTicketToReject(null)}>
+          <div className="dash-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '460px' }}>
+            <div className="dash-modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#dc2626' }}>
+                <AlertTriangle size={20} />
+                <h2 style={{ fontSize: '17px', margin: 0, color: '#dc2626' }}>Recusar Chamado</h2>
+              </div>
+              <button type="button" className="dash-modal-close" onClick={() => setTicketToReject(null)}>
+                <X size={18} />
+              </button>
+            </div>
+            <div style={{ padding: '16px 20px', color: '#475569', fontSize: '13px', lineHeight: '1.5' }}>
+              <p style={{ margin: '0 0 10px 0' }}>
+                Deseja realmente recusar o atendimento do chamado <strong>{ticketToReject.service_order_number ? `OS-${String(ticketToReject.service_order_number).padStart(5, '0')}` : `#${String(ticketToReject.ticket_number || ticketToReject.id).padStart(5, '0')}`}</strong>?
+              </p>
+              <p style={{ margin: '0 0 12px 0', color: '#64748b', fontSize: '12px' }}>
+                Ao recusar, o chamado e a Ordem de Serviço vinculada serão cancelados. Você pode informar o motivo abaixo:
+              </p>
+              <textarea
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="Motivo da recusa (opcional)..."
+                rows={3}
+                style={{
+                  width: '100%',
+                  padding: '8px 10px',
+                  borderRadius: '6px',
+                  border: '1px solid #cbd5e1',
+                  fontSize: '13px',
+                  fontFamily: 'inherit',
+                  resize: 'vertical',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+            <div className="dash-modal-actions" style={{ padding: '12px 20px', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button type="button" className="secondary-button" onClick={() => setTicketToReject(null)} disabled={isRejecting}>
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="primary-button"
+                style={{ backgroundColor: '#dc2626', borderColor: '#dc2626', color: '#fff' }}
+                onClick={handleConfirmRejectTicket}
+                disabled={isRejecting}
+              >
+                {isRejecting ? 'Recusando...' : 'Confirmar Recusa'}
               </button>
             </div>
           </div>

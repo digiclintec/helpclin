@@ -109,7 +109,24 @@ function ServiceOrders() {
     }
   }
 
+  function isOrderAccepted(order) {
+    if (!order) return false;
+    const effective = getEffectiveOrderStatus(order);
+    return Boolean(order.technician_id) && effective !== 'open' && effective !== 'cancelled';
+  }
+
   function startEditing(order) {
+    if (!isOrderAccepted(order)) {
+      const effective = getEffectiveOrderStatus(order);
+      if (effective === 'cancelled' || order.status === 'cancelled') {
+        setErrorMessage(`A ordem OS-${String(order.order_number).padStart(5, '0')} está cancelada e não pode ser editada.`);
+      } else {
+        setErrorMessage(`A ordem OS-${String(order.order_number).padStart(5, '0')} precisa ser aceita pelo técnico na tela de Chamados antes de poder ser editada.`);
+      }
+      setSuccessMessage('');
+      return;
+    }
+
     let normalizedPriority = 'Normal';
     const p = (order.priority || '').toLowerCase();
     if (['low', 'pouco urgente', 'baixa'].includes(p)) normalizedPriority = 'Pouco urgente';
@@ -872,16 +889,46 @@ function ServiceOrders() {
                           )}
 
                           {isTechnician && (
-                            <button
-                              type="button"
-                              className="inventory-action-btn"
-                              onClick={() => startEditing(order)}
-                              title={`Editar OS-${String(order.order_number).padStart(5, '0')}`}
-                              aria-label={`Editar OS ${order.order_number}`}
-                              style={{ width: '26px', height: '26px', flexShrink: 0, padding: 0 }}
-                            >
-                              <Edit3 size={13} />
-                            </button>
+                            isOrderAccepted(order) ? (
+                              <button
+                                type="button"
+                                className="inventory-action-btn"
+                                onClick={() => startEditing(order)}
+                                title={`Editar OS-${String(order.order_number).padStart(5, '0')}`}
+                                aria-label={`Editar OS ${order.order_number}`}
+                                style={{ width: '26px', height: '26px', flexShrink: 0, padding: 0 }}
+                              >
+                                <Edit3 size={13} />
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                className="inventory-action-btn"
+                                onClick={() => {
+                                  const effective = getEffectiveOrderStatus(order);
+                                  if (effective === 'cancelled' || order.status === 'cancelled') {
+                                    setErrorMessage(`A ordem OS-${String(order.order_number).padStart(5, '0')} está cancelada e não pode ser editada.`);
+                                  } else {
+                                    setErrorMessage(`A ordem OS-${String(order.order_number).padStart(5, '0')} precisa ser aceita na tela de Chamados pelo técnico antes de poder ser editada.`);
+                                  }
+                                  setSuccessMessage('');
+                                }}
+                                title={order.status === 'cancelled' ? 'Ordem cancelada' : 'Aguardando aceite do técnico na tela de Chamados para liberar a edição'}
+                                aria-label="Edição bloqueada"
+                                style={{
+                                  width: '26px',
+                                  height: '26px',
+                                  flexShrink: 0,
+                                  padding: 0,
+                                  backgroundColor: '#f1f5f9',
+                                  color: '#94a3b8',
+                                  borderColor: '#cbd5e1',
+                                  cursor: 'not-allowed'
+                                }}
+                              >
+                                <Lock size={12} />
+                              </button>
+                            )
                           )}
 
                           {isTechnician && (
@@ -958,9 +1005,16 @@ function ServiceOrders() {
                               </>
                             )
                           ) : (
-                            <span className={`os-status-badge ${statusClass}`} style={{ fontSize: '10px', padding: '2px 6px' }}>
-                              {statusText}
-                            </span>
+                            <>
+                              <span className={`os-status-badge ${statusClass}`} style={{ fontSize: '10px', padding: '2px 6px' }}>
+                                {statusText}
+                              </span>
+                              {!isOrderAccepted(order) && order.status !== 'cancelled' && (
+                                <span style={{ fontSize: '9px', color: '#64748b', fontWeight: 600 }}>
+                                  Aguardando aceite
+                                </span>
+                              )}
+                            </>
                           )}
                           {order.payment_rejection_reason && !isOrderBilled && !isOrderPaymentInformed && (
                             <span style={{ fontSize: '9px', color: '#dc2626', background: '#fef2f2', padding: '1px 4px', borderRadius: '3px', border: '1px solid #fecaca' }}>
