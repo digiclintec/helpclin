@@ -24,7 +24,7 @@ router.get('/', async (_request, response) => {
                 ELSE NULL
               END AS service_order_number,
               so.order_number,
-              st.title, st.requester, st.ticket_type, st.company_sector, st.location, st.related_problem, st.observations, st.attachment_name, st.priority, st.status, st.created_at, st.assigned_to, assigned.name AS assigned_to_name, st.equipment_id, eq.name AS equipment_name,
+              st.title, st.requester, st.ticket_type, st.company_sector, st.location, st.related_problem, st.observations, st.attachment_name, st.priority, st.status, st.created_by, st.created_at, st.assigned_to, assigned.name AS assigned_to_name, st.equipment_id, eq.name AS equipment_name,
               so.id AS service_order_id, so.service_performed_description, so.service_requested_description, so.status AS service_order_status, so.completed_at AS service_order_completed_at, so.billed_at AS service_order_billed_at, so.payment_informed_at AS service_order_payment_informed_at, so.payment_rejection_reason AS service_order_payment_rejection_reason, so.updated_at AS service_order_updated_at
        FROM support_tickets st
        LEFT JOIN users assigned ON assigned.id = st.assigned_to

@@ -332,6 +332,16 @@ function Tickets() {
     }
   }
 
+  // Client visibility isolation
+  const clientVisibleTickets = useMemo(() => {
+    if (!isClient) return tickets;
+    return tickets.filter((t) => {
+      if (t.created_by && user?.id && t.created_by === user.id) return true;
+      if (t.requester && user?.name && t.requester.toLowerCase().trim() === user.name.toLowerCase().trim()) return true;
+      return false;
+    });
+  }, [tickets, isClient, user]);
+
   // Calculate KPIs
   const now = new Date();
   const kpis = useMemo(() => {
@@ -341,7 +351,7 @@ function Tickets() {
     let overdue = 0;
     let resolved = 0;
 
-    tickets.forEach((t) => {
+    clientVisibleTickets.forEach((t) => {
       if (t.status === 'open') openCount++;
       const isUnassigned = !t.assigned_to_name && t.status !== 'resolved';
       if (isUnassigned) unassigned++;
@@ -357,18 +367,18 @@ function Tickets() {
     });
 
     return {
-      total: tickets.length,
+      total: clientVisibleTickets.length,
       open: openCount,
       unassigned,
       inProgress,
       overdue,
       resolved
     };
-  }, [tickets]);
+  }, [clientVisibleTickets]);
 
   // Filtered tickets
   const filteredTickets = useMemo(() => {
-    return tickets.filter((ticket) => {
+    return clientVisibleTickets.filter((ticket) => {
       // 1. KPI Tab Filter
       if (activeKpiFilter === 'open') {
         if (ticket.status !== 'open') return false;
@@ -399,11 +409,10 @@ function Tickets() {
         if (priorityFilter === 'urgent' && !['urgent', 'urgente'].includes(p)) return false;
       }
 
-      // 4. Connected User Filter
-      if (onlyMyTickets && user) {
+      // 4. Connected User Filter (for technicians to filter tickets assigned to them)
+      if (onlyMyTickets && user && isTechnician) {
         const isAssignedToMe = ticket.assigned_to === user.id || ticket.assigned_to_name === user.name;
-        const isCreatedByMe = ticket.created_by === user.id || ticket.requester === user.name;
-        if (!isAssignedToMe && !isCreatedByMe) return false;
+        if (!isAssignedToMe) return false;
       }
 
       // 5. Search Text
@@ -415,7 +424,7 @@ function Tickets() {
 
       return true;
     });
-  }, [tickets, activeKpiFilter, statusFilter, priorityFilter, onlyMyTickets, search, user]);
+  }, [clientVisibleTickets, activeKpiFilter, statusFilter, priorityFilter, onlyMyTickets, search, user, isTechnician]);
 
   const isFiltered =
     activeKpiFilter !== 'all' ||
@@ -1064,12 +1073,12 @@ function Tickets() {
             <table className="helpclin-table" style={{ width: '100%' }}>
               <thead>
                 <tr>
-                  <th style={{ width: '95px', textAlign: 'left' }}>Ações</th>
+                  <th style={{ width: '185px', textAlign: 'left' }}>Ações</th>
                   <th style={{ width: '105px' }}>OS &amp; Prioridade</th>
                   <th style={{ width: '115px' }}>Estado</th>
-                  <th style={{ width: '20%' }}>Solicitante &amp; Setor</th>
-                  <th style={{ width: '20%' }}>Ativo &amp; Responsável</th>
-                  <th style={{ width: '85px' }}>Abertura</th>
+                  <th style={{ width: '18%' }}>Solicitante &amp; Setor</th>
+                  <th style={{ width: '18%' }}>Ativo &amp; Responsável</th>
+                  <th style={{ width: '80px' }}>Abertura</th>
                   <th>Problema &amp; Observações</th>
                 </tr>
               </thead>
@@ -1083,22 +1092,74 @@ function Tickets() {
                     <tr key={ticket.id}>
                       {/* 1. Ações */}
                       <td style={{ textAlign: 'left', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
                           {isUnassigned ? (
-                            <button
-                              type="button"
-                              className="ticket-attend-btn"
-                              onClick={() => handleAssign(ticket.id)}
-                              disabled={assigningId === ticket.id}
-                              title="Assumir chamado para atendimento"
-                              style={{ padding: '4px 8px', fontSize: '11px', height: '28px' }}
-                            >
-                              {assigningId === ticket.id ? 'Atendendo...' : 'Atender'}
-                              <ArrowRight size={12} />
-                            </button>
+                            <>
+                              <button
+                                type="button"
+                                className="ticket-attend-btn"
+                                onClick={() => handleAssign(ticket.id)}
+                                disabled={assigningId === ticket.id}
+                                title="Aceitar chamado e iniciar atendimento"
+                                style={{
+                                  padding: '4px 8px',
+                                  fontSize: '11px',
+                                  height: '28px',
+                                  backgroundColor: '#059669',
+                                  borderColor: '#059669',
+                                  color: '#fff',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  borderRadius: '6px',
+                                  cursor: 'pointer',
+                                  fontWeight: 600
+                                }}
+                              >
+                                <Check size={12} />
+                                {assigningId === ticket.id ? 'Aceitando...' : 'Aceitar'}
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setTicketToReject(ticket);
+                                  setRejectReason('');
+                                }}
+                                title="Recusar atendimento do chamado"
+                                style={{
+                                  padding: '4px 7px',
+                                  fontSize: '11px',
+                                  height: '28px',
+                                  backgroundColor: '#fef2f2',
+                                  borderColor: '#fecaca',
+                                  border: '1px solid #fecaca',
+                                  color: '#dc2626',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '3px',
+                                  borderRadius: '6px',
+                                  cursor: 'pointer',
+                                  fontWeight: 600
+                                }}
+                              >
+                                <X size={12} />
+                                <span>Recusar</span>
+                              </button>
+                            </>
                           ) : (
-                            <span className="assigned-label" style={{ fontSize: '10px', padding: '3px 6px' }}>
-                              {ticket.status === 'resolved' ? 'Resolvido' : ticket.status === 'cancelled' ? 'Cancelado' : 'Atendido'}
+                            <span
+                              className="assigned-label"
+                              style={{
+                                fontSize: '10px',
+                                padding: '3px 7px',
+                                borderRadius: '4px',
+                                fontWeight: 600,
+                                backgroundColor: ticket.status === 'resolved' ? '#dcfce7' : ticket.status === 'cancelled' ? '#fee2e2' : '#e0e7ff',
+                                color: ticket.status === 'resolved' ? '#15803d' : ticket.status === 'cancelled' ? '#b91c1c' : '#4338ca'
+                              }}
+                            >
+                              {ticket.status === 'resolved' ? 'Resolvido' : ticket.status === 'cancelled' ? 'Cancelado' : 'Aceito'}
                             </span>
                           )}
 
@@ -1110,14 +1171,14 @@ function Tickets() {
                               padding: '4px 7px',
                               height: '28px',
                               borderRadius: '6px',
-                              color: '#dc2626',
-                              borderColor: '#fecaca',
+                              color: '#64748b',
+                              borderColor: '#e2e8f0',
                               backgroundColor: '#fff',
                               display: 'inline-flex',
                               alignItems: 'center',
                               cursor: 'pointer'
                             }}
-                            title="Excluir este chamado de teste"
+                            title="Excluir este chamado"
                           >
                             <Trash2 size={12} />
                           </button>

@@ -63,7 +63,29 @@ function AppShell({ children }) {
         <header className="topbar">
           <button className="icon-button menu-toggle" onClick={() => setIsMenuOpen(true)} aria-label="Abrir menu"><Menu size={22} /></button>
           <div className="breadcrumb"><span>HelpClin</span><span>/</span><strong>{navigationItems.find(({ href }) => href === currentPath)?.label ?? 'Chamados'}</strong></div>
-          <NotificationCenter />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto' }}>
+            <NotificationCenter />
+            <button
+              className="icon-button topbar-logout-btn"
+              onClick={handleLogout}
+              aria-label="Sair da conta"
+              title="Sair da conta"
+              style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '8px',
+                color: '#64748b',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer'
+              }}
+            >
+              <LogOut size={18} />
+            </button>
+          </div>
         </header>
         {children}
       </main>

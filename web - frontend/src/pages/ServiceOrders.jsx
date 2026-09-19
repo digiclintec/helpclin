@@ -29,6 +29,7 @@ import {
   deleteServiceOrder,
   getServiceOrders,
   getStoredUser,
+  getSupportTickets,
   informServiceOrderPayment,
   rejectPaymentReceipt,
   updateServiceOrder
@@ -66,6 +67,7 @@ function ServiceOrders() {
   const isTechnician = user?.role === 'technician' || isAdmin;
   const isClient = !isTechnician;
   const [orders, setOrders] = useState([]);
+  const [userTickets, setUserTickets] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
@@ -87,11 +89,6 @@ function ServiceOrders() {
   const [deletingOrder, setDeletingOrder] = useState(null);
   const [deleteLinkedTicket, setDeleteLinkedTicket] = useState(true);
 
-  const techniciansList = useMemo(() => {
-    const list = orders.map((o) => o.technician_name).filter(Boolean);
-    return Array.from(new Set(list)).sort();
-  }, [orders]);
-
   useEffect(() => {
     loadOrders();
   }, []);
@@ -99,8 +96,17 @@ function ServiceOrders() {
   async function loadOrders() {
     setIsLoading(true);
     try {
-      const data = await getServiceOrders();
-      setOrders(data);
+      if (isClient) {
+        const [ordersData, ticketsData] = await Promise.all([
+          getServiceOrders(),
+          getSupportTickets().catch(() => [])
+        ]);
+        setOrders(ordersData);
+        setUserTickets(ticketsData);
+      } else {
+        const data = await getServiceOrders();
+        setOrders(data);
+      }
       setErrorMessage('');
     } catch (error) {
       setErrorMessage(error.message);
@@ -108,6 +114,36 @@ function ServiceOrders() {
       setIsLoading(false);
     }
   }
+
+  // Client visibility isolation
+  const clientVisibleOrders = useMemo(() => {
+    if (!isClient) return orders;
+
+    const userOsNumbers = new Set(
+      userTickets
+        .filter((t) => {
+          const isMyTicket =
+            (t.created_by && user?.id && t.created_by === user.id) ||
+            (t.requester && user?.name && t.requester.toLowerCase().trim() === user.name.toLowerCase().trim());
+          return isMyTicket;
+        })
+        .map((t) => t.service_order_number || t.order_number)
+        .filter(Boolean)
+        .map(Number)
+    );
+
+    return orders.filter((o) => {
+      if (o.created_by && user?.id && o.created_by === user.id) return true;
+      if (o.patient_name && user?.name && o.patient_name.toLowerCase().trim() === user.name.toLowerCase().trim()) return true;
+      if (o.order_number && userOsNumbers.has(Number(o.order_number))) return true;
+      return false;
+    });
+  }, [orders, isClient, user, userTickets]);
+
+  const techniciansList = useMemo(() => {
+    const list = clientVisibleOrders.map((o) => o.technician_name).filter(Boolean);
+    return Array.from(new Set(list)).sort();
+  }, [clientVisibleOrders]);
 
   function isOrderAccepted(order) {
     if (!order) return false;
@@ -323,7 +359,7 @@ function ServiceOrders() {
     let billedCount = 0;
     let urgentCount = 0;
 
-    orders.forEach((o) => {
+    clientVisibleOrders.forEach((o) => {
       const effective = getEffectiveOrderStatus(o);
       if (effective === 'open') openCount++;
       if (effective === 'in_progress') inProgressCount++;
@@ -346,7 +382,7 @@ function ServiceOrders() {
     });
 
     return {
-      total: orders.length,
+      total: clientVisibleOrders.length,
       open: openCount,
       inProgress: inProgressCount,
       completed: completedCount,
@@ -356,11 +392,11 @@ function ServiceOrders() {
       billed: billedCount,
       urgent: urgentCount
     };
-  }, [orders]);
+  }, [clientVisibleOrders]);
 
   // Filtered orders
   const filteredOrders = useMemo(() => {
-    return orders.filter((order) => {
+    return clientVisibleOrders.filter((order) => {
       const effective = getEffectiveOrderStatus(order);
 
       // 1. KPI Tab Filter
@@ -410,11 +446,10 @@ function ServiceOrders() {
         }
       }
 
-      // 5. Connected User Filter
-      if (onlyMyOrders && user) {
+      // 5. Connected User Filter (for technicians to filter their assigned orders)
+      if (onlyMyOrders && user && isTechnician) {
         const isMyTechnician = order.technician_id === user.id || order.technician_name === user.name;
-        const isMyRequest = order.created_by === user.id || order.patient_name === user.name;
-        if (!isMyTechnician && !isMyRequest) return false;
+        if (!isMyTechnician) return false;
       }
 
       // 6. Search Text
@@ -426,7 +461,7 @@ function ServiceOrders() {
 
       return true;
     });
-  }, [orders, activeKpiFilter, statusFilter, priorityFilter, technicianFilter, onlyMyOrders, search, user]);
+  }, [clientVisibleOrders, activeKpiFilter, statusFilter, priorityFilter, technicianFilter, onlyMyOrders, search, user, isTechnician]);
 
   const isFiltered =
     activeKpiFilter !== 'all' ||
@@ -740,14 +775,16 @@ function ServiceOrders() {
             </button>
           )}
 
-          <label className="ticket-filter-checkbox" style={{ marginLeft: '4px' }}>
-            <input
-              type="checkbox"
-              checked={onlyMyOrders}
-              onChange={(e) => setOnlyMyOrders(e.target.checked)}
-            />
-            Filtrar por usuário conectado
-          </label>
+          {isTechnician && (
+            <label className="ticket-filter-checkbox" style={{ marginLeft: '4px' }}>
+              <input
+                type="checkbox"
+                checked={onlyMyOrders}
+                onChange={(e) => setOnlyMyOrders(e.target.checked)}
+              />
+              Filtrar por usuário conectado
+            </label>
+          )}
         </div>
       </div>
 
@@ -774,9 +811,9 @@ function ServiceOrders() {
             <table className="helpclin-table">
               <thead>
                 <tr>
-                  <th style={{ width: isTechnician ? '185px' : '85px', minWidth: isTechnician ? '185px' : '85px', textAlign: 'left' }}>Ações</th>
-                  <th style={{ width: '95px', minWidth: '95px' }}>OS &amp; Prioridade</th>
-                  <th style={{ width: '125px', minWidth: '125px' }}>Estado</th>
+                  <th style={{ width: isTechnician ? '185px' : '70px', minWidth: isTechnician ? '185px' : '70px', textAlign: 'left' }}>Ações</th>
+                  <th style={{ width: '110px', minWidth: '110px' }}>OS &amp; Prioridade</th>
+                  <th style={{ width: '135px', minWidth: '135px' }}>Estado</th>
                   <th style={{ width: '19%' }}>Solicitante &amp; Ativo</th>
                   <th style={{ width: '19%' }}>Serviço &amp; Técnico</th>
                   <th style={{ width: '80px', minWidth: '80px' }}>Data</th>
@@ -799,8 +836,8 @@ function ServiceOrders() {
                   return (
                     <tr key={order.id}>
                       {/* 1. Action Buttons */}
-                      <td style={{ textAlign: 'left', whiteSpace: 'nowrap', verticalAlign: 'middle', width: isTechnician ? '185px' : '85px', minWidth: isTechnician ? '185px' : '85px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: '3px', flexWrap: 'nowrap' }}>
+                      <td style={{ textAlign: 'left', whiteSpace: 'nowrap', verticalAlign: 'middle', width: isTechnician ? '185px' : '70px', minWidth: isTechnician ? '185px' : '70px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: '4px', flexWrap: 'nowrap' }}>
                           {/* Print Button */}
                           <button
                             type="button"
@@ -827,65 +864,59 @@ function ServiceOrders() {
                             </button>
                           )}
 
-                          {isOrderPaymentInformed && (
-                            isTechnician ? (
-                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', flexShrink: 0 }}>
-                                <button
-                                  type="button"
-                                  onClick={() => handleConfirmReceipt(order)}
-                                  disabled={isSaving}
-                                  style={{
-                                    padding: '0 5px',
-                                    height: '26px',
-                                    backgroundColor: '#059669',
-                                    color: '#ffffff',
-                                    border: '1px solid #059669',
-                                    borderRadius: '5px',
-                                    fontSize: '10px',
-                                    fontWeight: 700,
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '2px',
-                                    cursor: 'pointer',
-                                    whiteSpace: 'nowrap',
-                                    flexShrink: 0
-                                  }}
-                                  title="Confirmar que recebeu o pagamento do cliente (SIM)"
-                                  aria-label="Confirmar recebimento (SIM)"
-                                >
-                                  <Check size={11} /> SIM
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleRejectReceipt(order)}
-                                  disabled={isSaving}
-                                  style={{
-                                    padding: '0 5px',
-                                    height: '26px',
-                                    backgroundColor: '#fef2f2',
-                                    color: '#dc2626',
-                                    border: '1px solid #fecaca',
-                                    borderRadius: '5px',
-                                    fontSize: '10px',
-                                    fontWeight: 700,
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '2px',
-                                    cursor: 'pointer',
-                                    whiteSpace: 'nowrap',
-                                    flexShrink: 0
-                                  }}
-                                  title="Informar que NÃO recebeu do cliente (Volta para pendente de pagamento)"
-                                  aria-label="Não recebido (NÃO)"
-                                >
-                                  <X size={11} /> NÃO
-                                </button>
-                              </div>
-                            ) : (
-                              <span style={{ fontSize: '10px', color: '#b45309', background: '#fef3c7', padding: '2px 5px', borderRadius: '5px', border: '1px solid #fde68a', fontWeight: 600, flexShrink: 0 }}>
-                                <Clock size={10} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '2px' }} /> Confirmação
-                              </span>
-                            )
+                          {isOrderPaymentInformed && isTechnician && (
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', flexShrink: 0 }}>
+                              <button
+                                type="button"
+                                onClick={() => handleConfirmReceipt(order)}
+                                disabled={isSaving}
+                                style={{
+                                  padding: '0 6px',
+                                  height: '26px',
+                                  backgroundColor: '#059669',
+                                  color: '#ffffff',
+                                  border: '1px solid #059669',
+                                  borderRadius: '5px',
+                                  fontSize: '10px',
+                                  fontWeight: 700,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '2px',
+                                  cursor: 'pointer',
+                                  whiteSpace: 'nowrap',
+                                  flexShrink: 0
+                                }}
+                                title="Confirmar que recebeu o pagamento do cliente (SIM)"
+                                aria-label="Confirmar recebimento (SIM)"
+                              >
+                                <Check size={11} /> SIM
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleRejectReceipt(order)}
+                                disabled={isSaving}
+                                style={{
+                                  padding: '0 6px',
+                                  height: '26px',
+                                  backgroundColor: '#fef2f2',
+                                  color: '#dc2626',
+                                  border: '1px solid #fecaca',
+                                  borderRadius: '5px',
+                                  fontSize: '10px',
+                                  fontWeight: 700,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '2px',
+                                  cursor: 'pointer',
+                                  whiteSpace: 'nowrap',
+                                  flexShrink: 0
+                                }}
+                                title="Informar que NÃO recebeu do cliente (Volta para pendente de pagamento)"
+                                aria-label="Não recebido (NÃO)"
+                              >
+                                <X size={11} /> NÃO
+                              </button>
+                            </div>
                           )}
 
                           {isTechnician && (
@@ -950,7 +981,7 @@ function ServiceOrders() {
                       </td>
 
                       {/* 2. OS & Prioridade */}
-                      <td style={{ width: '95px', minWidth: '95px' }}>
+                      <td style={{ width: '110px', minWidth: '110px', paddingLeft: '8px' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                           <strong style={{ color: 'var(--teal)', fontSize: '12px', whiteSpace: 'nowrap' }}>
                             OS-{String(order.order_number).padStart(5, '0')}
@@ -962,7 +993,7 @@ function ServiceOrders() {
                       </td>
 
                       {/* 3. Estado & Faturamento */}
-                      <td>
+                      <td style={{ width: '135px', minWidth: '135px' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                           {isOrderBilled ? (
                             <>

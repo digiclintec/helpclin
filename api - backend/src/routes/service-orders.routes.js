@@ -8,7 +8,7 @@ const priorityMap = { 'Pouco urgente': 'low', Baixa: 'low', low: 'low', Normal: 
 router.get('/', async (_request, response) => {
   try {
     const result = await pool.query(
-      `SELECT orders.id, orders.order_number, orders.patient_name, orders.service_type, orders.priority, orders.due_date, orders.description, orders.service_requested_description, orders.service_performed_description, orders.status, orders.completed_at, orders.billed_at, orders.payment_informed_at, orders.payment_rejection_reason, orders.created_at, orders.updated_at, orders.technician_id, technician.name AS technician_name, orders.equipment_id, eq.name AS equipment_name
+      `SELECT orders.id, orders.order_number, orders.patient_name, orders.service_type, orders.priority, orders.due_date, orders.description, orders.service_requested_description, orders.service_performed_description, orders.status, orders.completed_at, orders.billed_at, orders.payment_informed_at, orders.payment_rejection_reason, orders.created_by, orders.created_at, orders.updated_at, orders.technician_id, technician.name AS technician_name, orders.equipment_id, eq.name AS equipment_name
        FROM service_orders orders LEFT JOIN users technician ON technician.id = orders.technician_id LEFT JOIN inventory_equipments eq ON eq.id = orders.equipment_id ORDER BY orders.created_at DESC`
     );
     return response.json({ orders: result.rows });
@@ -68,7 +68,7 @@ router.patch('/:id', async (request, response) => {
              END,
              updated_at = NOW()
          WHERE id = $10
-         RETURNING id, order_number, patient_name, service_type, priority, due_date, description, service_requested_description, service_performed_description, status, completed_at, billed_at, payment_informed_at, payment_rejection_reason, technician_id, support_ticket_id, equipment_id`,
+         RETURNING id, order_number, patient_name, service_type, priority, due_date, description, service_requested_description, service_performed_description, status, completed_at, billed_at, payment_informed_at, payment_rejection_reason, technician_id, support_ticket_id, equipment_id, created_by`,
         [
           serviceType?.trim() || null,
           normalizedPriority || null,
