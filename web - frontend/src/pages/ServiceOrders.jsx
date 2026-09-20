@@ -47,6 +47,7 @@ import {
   isWaitingTechnicianConfirmation
 } from '../utils/billingUtils.js';
 import { exportToPdf, exportToXls, printServiceOrder } from '../utils/exportReport.js';
+import { matchOrderSearch } from '../utils/searchUtils.js';
 
 function formatDate(value) {
   if (!value) return '—';
@@ -417,11 +418,9 @@ function ServiceOrders() {
         if (!isMyTechnician && !isMyRequest) return false;
       }
 
-      // 6. Search Text
-      if (search.trim()) {
-        const term = search.toLowerCase();
-        const str = `${order.order_number || ''} ${order.patient_name || ''} ${order.service_type || ''} ${order.equipment_name || ''} ${order.technician_name || ''} ${order.description || ''} ${order.service_requested_description || ''} ${order.service_performed_description || ''}`.toLowerCase();
-        if (!str.includes(term)) return false;
+      // 6. Search Text (busca inteligente e tolerante a números e acentos)
+      if (search.trim() && !matchOrderSearch(order, search)) {
+        return false;
       }
 
       return true;

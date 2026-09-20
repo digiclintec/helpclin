@@ -59,6 +59,7 @@ import {
   isBillingPending,
   isBilled
 } from '../utils/billingUtils.js';
+import { matchOrderSearch, matchTicketSearch } from '../utils/searchUtils.js';
 
 function formatDate(value) {
   if (!value) return '—';
@@ -369,10 +370,8 @@ function Dashboard() {
         if (!isMyTechnician && !isMyRequest) return false;
       }
 
-      if (search.trim()) {
-        const term = search.toLowerCase();
-        const str = `${order.order_number || ''} ${order.patient_name || ''} ${order.service_type || ''} ${order.equipment_name || ''} ${order.technician_name || ''} ${order.description || ''} ${order.service_requested_description || ''} ${order.service_performed_description || ''}`.toLowerCase();
-        if (!str.includes(term)) return false;
+      if (search.trim() && !matchOrderSearch(order, search)) {
+        return false;
       }
 
       return true;
@@ -435,22 +434,14 @@ function Dashboard() {
 
   const filteredBilledOrders = useMemo(() => {
     if (!billedSearch.trim()) return billedOrders;
-    const term = billedSearch.toLowerCase();
-    return billedOrders.filter((o) => {
-      const str = `${o.order_number || ''} ${o.patient_name || ''} ${o.service_type || ''} ${o.technician_name || ''} ${o.equipment_name || ''} ${o.description || ''}`.toLowerCase();
-      return str.includes(term);
-    });
+    return billedOrders.filter((o) => matchOrderSearch(o, billedSearch));
   }, [billedOrders, billedSearch]);
 
   // Filtered Tickets for Dashboard Chamados tab
   const filteredDashboardTickets = useMemo(() => {
     return tickets.filter((t) => {
       if (ticketStatusFilter !== 'all' && t.status !== ticketStatusFilter) return false;
-      if (ticketSearch.trim()) {
-        const term = ticketSearch.toLowerCase();
-        const str = `${t.ticket_number || ''} ${t.service_order_number || ''} ${t.requester || ''} ${t.company_sector || ''} ${t.related_problem || ''} ${t.equipment_name || ''} ${t.observations || ''} ${t.assigned_to_name || ''}`.toLowerCase();
-        if (!str.includes(term)) return false;
-      }
+      if (ticketSearch.trim() && !matchTicketSearch(t, ticketSearch)) return false;
       return true;
     });
   }, [tickets, ticketStatusFilter, ticketSearch]);

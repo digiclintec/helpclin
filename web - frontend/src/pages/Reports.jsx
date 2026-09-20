@@ -51,6 +51,7 @@ import {
   isPaymentInformed
 } from '../utils/billingUtils.js';
 import { exportToPdf, exportToXls } from '../utils/exportReport.js';
+import { matchOrderSearch } from '../utils/searchUtils.js';
 
 function formatDate(value) {
   if (!value) return '—';
@@ -446,11 +447,9 @@ function Reports() {
         if (order.service_type !== serviceTypeFilter) return false;
       }
 
-      // Text search
-      if (searchQuery.trim()) {
-        const term = searchQuery.toLowerCase();
-        const str = `${order.order_number || ''} ${order.patient_name || ''} ${order.service_type || ''} ${order.equipment_name || ''} ${order.technician_name || ''} ${order.description || ''} ${order.service_requested_description || ''} ${order.service_performed_description || ''}`.toLowerCase();
-        if (!str.includes(term)) return false;
+      // Text search (busca inteligente e tolerante a números e acentos)
+      if (searchQuery.trim() && !matchOrderSearch(order, searchQuery)) {
+        return false;
       }
 
       return true;

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import ExportDropdown from '../components/ExportDropdown.jsx';
 import { createEquipment, deleteEquipment, getInventory, updateEquipment } from '../services/api.js';
 import { exportToPdf, exportToXls } from '../utils/exportReport.js';
+import { normalizeText } from '../utils/searchUtils.js';
 
 function Inventory() {
   const [equipments, setEquipments] = useState([]);
@@ -92,11 +93,13 @@ function Inventory() {
     }
   }
 
-  const filteredEquipments = equipments.filter((eq) =>
-    `${eq.name} ${eq.equipment_type} ${eq.serial_number || ''} ${eq.location || ''} ${eq.status}`
-      .toLowerCase()
-      .includes(search.toLowerCase())
-  );
+  const filteredEquipments = equipments.filter((eq) => {
+    if (!search.trim()) return true;
+    const str = normalizeText(`${eq.name} ${eq.equipment_type} ${eq.serial_number || ''} ${eq.location || ''} ${eq.status}`);
+    const normSearch = normalizeText(search);
+    const tokens = normSearch.split(/\s+/).filter(Boolean);
+    return tokens.every((token) => str.includes(token));
+  });
 
   const statusStyles = {
     'Ativo': { color: '#059669', bg: '#e8f5e9' },

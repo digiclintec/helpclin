@@ -30,6 +30,7 @@ import {
   rejectSupportTicket
 } from '../services/api.js';
 import { exportToPdf, exportToXls } from '../utils/exportReport.js';
+import { matchTicketSearch } from '../utils/searchUtils.js';
 
 const SERVICE_PROBLEMS = [
   'Dificuldades com sistema Clinux',
@@ -405,11 +406,9 @@ function Tickets() {
         if (!isAssignedToMe) return false;
       }
 
-      // 5. Search Text
-      if (search.trim()) {
-        const term = search.toLowerCase();
-        const str = `${ticket.ticket_number || ''} ${ticket.service_order_number || ''} ${ticket.related_problem || ''} ${ticket.company_sector || ''} ${ticket.location || ''} ${ticket.equipment_name || ''} ${ticket.assigned_to_name || ''} ${ticket.requester || ''} ${ticket.observations || ''}`.toLowerCase();
-        if (!str.includes(term)) return false;
+      // 5. Search Text (busca inteligente e tolerante a números de chamado, OS e acentos)
+      if (search.trim() && !matchTicketSearch(ticket, search)) {
+        return false;
       }
 
       return true;

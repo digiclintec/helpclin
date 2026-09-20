@@ -30,6 +30,7 @@ import {
   getStoredUser,
   updateUser
 } from '../services/api.js';
+import { normalizeText } from '../utils/searchUtils.js';
 
 function AdminUsers() {
   const admin = getStoredUser();
@@ -163,9 +164,10 @@ function AdminUsers() {
       if (filterTab === 'client' && u.role !== 'client' && u.role !== 'user') return false;
 
       if (search.trim()) {
-        const term = search.toLowerCase();
-        const str = `${u.name || ''} ${u.email || ''} ${u.role || ''}`.toLowerCase();
-        if (!str.includes(term)) return false;
+        const normSearch = normalizeText(search);
+        const str = normalizeText(`${u.name || ''} ${u.email || ''} ${u.role || ''}`);
+        const tokens = normSearch.split(/\s+/).filter(Boolean);
+        if (!tokens.every((token) => str.includes(token))) return false;
       }
 
       return true;
