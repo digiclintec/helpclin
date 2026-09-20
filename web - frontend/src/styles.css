@@ -2556,6 +2556,172 @@ button { font: inherit; cursor: pointer; }
 }
 
 /* ==========================================================================
+   THEME SYNC PROMPT (OPÇÃO DE ATIVAÇÃO COM O SISTEMA DO CLIENTE)
+   ========================================================================== */
+.theme-sync-prompt {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 1000;
+  width: 400px;
+  max-width: calc(100vw - 32px);
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 16px 42px rgba(18, 59, 61, 0.16), 0 4px 14px rgba(18, 59, 61, 0.06);
+  padding: 18px 20px;
+  animation: themePromptSlideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes themePromptSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.theme-prompt-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.theme-prompt-icon-wrap {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: #e2eff1;
+  color: #316c79;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.theme-prompt-title-group {
+  flex: 1;
+  min-width: 0;
+}
+
+.theme-prompt-title-group strong {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--teal);
+  line-height: 1.2;
+}
+
+.theme-prompt-title-group span {
+  display: block;
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.theme-prompt-close-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  transition: all 0.15s ease;
+}
+
+.theme-prompt-close-btn:hover {
+  background: #f1f5f9;
+  color: #334155;
+}
+
+.theme-prompt-body p {
+  margin: 12px 0 16px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #475569;
+}
+
+.theme-prompt-body p b {
+  color: var(--teal);
+}
+
+.theme-prompt-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.theme-prompt-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--coral);
+  color: #ffffff;
+  border: none;
+  border-radius: 9px;
+  padding: 10px 16px;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 12px rgba(231, 131, 104, 0.3);
+  font-family: inherit;
+}
+
+.theme-prompt-btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(231, 131, 104, 0.4);
+}
+
+.theme-prompt-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  border-radius: 9px;
+  padding: 10px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.theme-prompt-btn-secondary:hover {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+@media (max-width: 600px) {
+  .theme-sync-prompt {
+    bottom: 14px;
+    left: 14px;
+    right: 14px;
+    width: auto;
+    max-width: none;
+    padding: 16px;
+  }
+
+  .theme-prompt-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .theme-prompt-btn-primary,
+  .theme-prompt-btn-secondary {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* ==========================================================================
    HELPCLIN SOPHISTICATED SOFT DARK MODE
    Palette: Deep Navy / Executive Slate (#0b1319, #14222d, #1e3243)
    ========================================================================== */
