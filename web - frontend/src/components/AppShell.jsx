@@ -2,6 +2,7 @@ import { BarChart3, FilePlus2, Headset, LayoutDashboard, LogOut, Menu, UserCheck
 import { useState } from 'react';
 import NotificationCenter from './NotificationCenter.jsx';
 import ThemeToggle from './ThemeToggle.jsx';
+import ThemeSyncPrompt from './ThemeSyncPrompt.jsx';
 import { ThemeProvider, useTheme } from '../utils/themeContext.jsx';
 import { getStoredUser } from '../services/api.js';
 
@@ -92,6 +93,7 @@ function AppShellInner({ children }) {
           </div>
         </header>
         {children}
+        <ThemeSyncPrompt />
       </main>
     </div>
   );
