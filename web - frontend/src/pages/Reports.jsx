@@ -22,6 +22,7 @@ import {
   Search,
   SlidersHorizontal,
   Sparkles,
+  Timer,
   TrendingUp,
   User,
   UserCheck,
@@ -43,8 +44,11 @@ import {
   getEffectiveOrderStatus,
   getOrderStatusBadgeClass,
   getOrderStatusLabel,
+  getOrderBilledDate,
+  getOrderCreationToPaymentRelation,
   isBillingPending,
-  isBilled
+  isBilled,
+  isPaymentInformed
 } from '../utils/billingUtils.js';
 import { exportToPdf, exportToXls } from '../utils/exportReport.js';
 
@@ -318,14 +322,25 @@ function Reports() {
     let billingPendingCount = 0;
     let billedCount = 0;
     let urgentCount = 0;
+    let totalBilledHours = 0;
+    let billedCountWithDates = 0;
 
     dateFilteredOrders.forEach((order) => {
       const effective = getEffectiveOrderStatus(order);
+      const rel = getOrderCreationToPaymentRelation(order);
+
       if (effective === 'open') openCount++;
       if (effective === 'in_progress') inProgressCount++;
       if (effective === 'completed') completedCount++;
       if (effective === 'billing_pending') billingPendingCount++;
-      if (effective === 'billed') billedCount++;
+
+      if (rel.isBilled) {
+        billedCount++;
+        if (rel.cycleHours !== null) {
+          totalBilledHours += rel.cycleHours;
+          billedCountWithDates++;
+        }
+      }
 
       const p = (order.priority || '').toLowerCase();
       const createdAt = new Date(order.created_at);
@@ -335,6 +350,25 @@ function Reports() {
       }
     });
 
+    const notBilledCount = Math.max(0, dateFilteredOrders.length - billedCount);
+    let avgBillingCycle = '—';
+    if (billedCountWithDates > 0) {
+      const avgHours = totalBilledHours / billedCountWithDates;
+      const avgDays = Math.floor(avgHours / 24);
+      if (avgDays <= 0) {
+        const roundedHours = Math.max(1, Math.round(avgHours));
+        avgBillingCycle = roundedHours === 1 ? '1 hora' : `${roundedHours}h`;
+      } else if (avgDays === 1) {
+        avgBillingCycle = '1 dia';
+      } else {
+        avgBillingCycle = `${avgDays} dias`;
+      }
+    }
+
+    const billedPercentage = dateFilteredOrders.length > 0
+      ? Math.round((billedCount / dateFilteredOrders.length) * 100)
+      : 0;
+
     return {
       total: dateFilteredOrders.length,
       open: openCount,
@@ -342,7 +376,10 @@ function Reports() {
       completed: completedCount,
       billingPending: billingPendingCount,
       billed: billedCount,
-      urgent: urgentCount
+      notBilled: notBilledCount,
+      urgent: urgentCount,
+      avgBillingCycle,
+      billedPercentage
     };
   }, [dateFilteredOrders, now]);
 
@@ -350,9 +387,11 @@ function Reports() {
   const finalFilteredOrders = useMemo(() => {
     return dateFilteredOrders.filter((order) => {
       const effective = getEffectiveOrderStatus(order);
+      const rel = getOrderCreationToPaymentRelation(order);
 
       // Report Type Filter
-      if (reportType === 'billed' && effective !== 'billed') return false;
+      if (reportType === 'billed' && !rel.isBilled) return false;
+      if (reportType === 'not_billed' && rel.isBilled) return false;
       if (reportType === 'pending_billing' && effective !== 'billing_pending') return false;
 
       // KPI Card Click Filter
@@ -360,7 +399,8 @@ function Reports() {
       if (activeKpiFilter === 'in_progress' && effective !== 'in_progress') return false;
       if (activeKpiFilter === 'completed' && effective !== 'completed') return false;
       if (activeKpiFilter === 'billing_pending' && effective !== 'billing_pending') return false;
-      if (activeKpiFilter === 'billed' && effective !== 'billed') return false;
+      if (activeKpiFilter === 'billed' && !rel.isBilled) return false;
+      if (activeKpiFilter === 'not_billed' && rel.isBilled) return false;
       if (activeKpiFilter === 'urgent') {
         const p = (order.priority || '').toLowerCase();
         const createdAt = new Date(order.created_at);
@@ -439,26 +479,66 @@ function Reports() {
     return `Até ${formatDateOnly(endDate)}`;
   }, [startDate, endDate]);
 
-  // Export Columns (Exact match to the HelpClin authenticated report layout)
+  // Colunas otimizadas para PDF para enquadrar 100% perfeitamente dentro do box sem corte do técnico
+  const pdfColumns = useMemo(() => [
+    { header: 'Prioridade', accessor: (o) => getPriorityLabel(o.priority) },
+    { header: 'Nº OS', accessor: (o) => `OS-${String(o.order_number || o.id).padStart(5, '0')}` },
+    { header: 'Estado', accessor: (o) => getOrderStatusLabel(getEffectiveOrderStatus(o)) },
+    {
+      header: 'Faturamento & Data',
+      accessor: (o) => {
+        const rel = getOrderCreationToPaymentRelation(o);
+        if (rel.isBilled) return `Faturada (${formatDate(rel.billedDate)})`;
+        if (rel.isPaymentInformed) return `Pgto Informado (${formatDate(rel.billedDate)})`;
+        if (isBillingPending(o)) return `Não Faturada (${getDaysSinceCompletion(o)}/30d)`;
+        return 'Não Faturada';
+      }
+    },
+    {
+      header: 'Criação ➔ Pagamento',
+      accessor: (o) => {
+        const rel = getOrderCreationToPaymentRelation(o);
+        return rel.elapsedText;
+      }
+    },
+    { header: 'Solicitante / Setor', accessor: (o) => o.patient_name || 'Recepção' },
+    { header: 'Equipamento / Ativo', accessor: (o) => o.equipment_name || 'Serviço Geral' },
+    { header: 'Responsável Técnico', accessor: (o) => o.technician_name || 'Rodrigo Santos' },
+    { header: 'Criada em', accessor: (o) => formatDate(o.created_at) }
+  ], []);
+
+  // Export Columns (Para planilha Excel detalhada)
   const exportColumns = useMemo(() => [
     { header: 'Prioridade', accessor: (o) => getPriorityLabel(o.priority) },
     { header: 'Número OS', accessor: (o) => `OS-${String(o.order_number || o.id).padStart(5, '0')}` },
     { header: 'Estado', accessor: (o) => getOrderStatusLabel(getEffectiveOrderStatus(o)) },
+    {
+      header: 'Situação Faturamento',
+      accessor: (o) => {
+        const rel = getOrderCreationToPaymentRelation(o);
+        return rel.statusText;
+      }
+    },
+    {
+      header: 'Data de Faturamento / Pagamento',
+      accessor: (o) => {
+        const rel = getOrderCreationToPaymentRelation(o);
+        return rel.billedDate ? formatDate(rel.billedDate) : 'Não Faturada';
+      }
+    },
+    {
+      header: 'Relação Criação ➔ Pagamento',
+      accessor: (o) => {
+        const rel = getOrderCreationToPaymentRelation(o);
+        return rel.elapsedText;
+      }
+    },
     { header: 'Solicitante / Setor', accessor: (o) => o.patient_name || 'Recepção' },
     { header: 'Equipamento / Ativo', accessor: (o) => o.equipment_name || 'Serviço Geral' },
-    { header: 'Responsável Técnico', accessor: (o) => o.technician_name || 'Não atribuído' },
+    { header: 'Responsável Técnico', accessor: (o) => o.technician_name || 'Rodrigo Santos' },
     { header: 'Tipo de Serviço', accessor: (o) => o.service_type || 'Manutenção' },
     { header: 'Criada em', accessor: (o) => formatDate(o.created_at) },
-    { header: 'Concluída em', accessor: (o) => formatDate(o.completed_at) },
-    {
-      header: 'Faturamento',
-      accessor: (o) => {
-        if (o.billed_at) return `Faturada (${formatDate(o.billed_at)})`;
-        if (o.status === 'billed') return 'Faturada';
-        if (isBillingPending(o)) return `Aguardando faturamento (${getDaysSinceCompletion(o)}/30 dias)`;
-        return 'Pendente';
-      }
-    }
+    { header: 'Concluída em', accessor: (o) => formatDate(o.completed_at) }
   ], []);
 
   // EXPORT HANDLERS
@@ -466,15 +546,16 @@ function Reports() {
     exportToPdf({
       title: 'Relatório de Ordens de Serviço',
       subtitle: `Listagem de ${finalFilteredOrders.length} ordens de serviço filtradas • ${periodDescription}`,
-      columns: exportColumns,
+      columns: pdfColumns,
       data: finalFilteredOrders,
       summary: [
         { label: 'Total Filtrado', value: finalFilteredOrders.length },
+        { label: 'Faturadas (Confirmadas)', value: `${kpiMetrics.billed} (${kpiMetrics.billedPercentage}%)` },
+        { label: 'Não Faturadas (Pendentes)', value: `${kpiMetrics.notBilled}` },
+        { label: 'Ciclo Médio (Criação ➔ Pgto)', value: kpiMetrics.avgBillingCycle },
         { label: 'Abertas', value: kpiMetrics.open },
         { label: 'Em Andamento', value: kpiMetrics.inProgress },
         { label: 'Concluídas', value: kpiMetrics.completed },
-        { label: 'Aguardando Faturamento (Prazo 30 dias)', value: kpiMetrics.billingPending },
-        { label: 'Faturadas', value: kpiMetrics.billed },
         { label: 'Urgentes / Atrasadas', value: kpiMetrics.urgent }
       ]
     });
@@ -683,7 +764,8 @@ function Reports() {
               aria-label="Categoria do relatório"
             >
               <option value="all_orders">Todas as Ordens de Serviço</option>
-              <option value="billed">Apenas Ordens Faturadas</option>
+              <option value="billed">Apenas Ordens Faturadas (com data)</option>
+              <option value="not_billed">Apenas Ordens NÃO Faturadas (Pendentes)</option>
               <option value="pending_billing">Pendências de Faturamento (&gt; 48h)</option>
             </select>
           </div>
@@ -822,23 +904,32 @@ function Reports() {
         </article>
 
         <article
-          className={`report-summary-card report-summary-card--pending ${activeKpiFilter === 'billing_pending' ? 'report-summary-card--active' : ''}`}
-          onClick={() => setActiveKpiFilter(activeKpiFilter === 'billing_pending' ? 'all' : 'billing_pending')}
-          title="Clique para filtrar pendentes de faturamento"
-        >
-          <span className="report-summary-label">Aguardando Faturamento</span>
-          <strong className="report-summary-value">{kpiMetrics.billingPending}</strong>
-          <small className="report-summary-hint">Prazo 30 dias</small>
-        </article>
-
-        <article
           className={`report-summary-card report-summary-card--billed ${activeKpiFilter === 'billed' ? 'report-summary-card--active' : ''}`}
           onClick={() => setActiveKpiFilter(activeKpiFilter === 'billed' ? 'all' : 'billed')}
           title="Clique para filtrar apenas faturadas"
         >
-          <span className="report-summary-label">Faturadas</span>
-          <strong className="report-summary-value">{kpiMetrics.billed}</strong>
-          <small className="report-summary-hint">pagamento confirmado</small>
+          <span className="report-summary-label" style={{ color: '#059669' }}>Faturadas</span>
+          <strong className="report-summary-value" style={{ color: '#059669' }}>{kpiMetrics.billed}</strong>
+          <small className="report-summary-hint">confirmadas ({kpiMetrics.billedPercentage}%)</small>
+        </article>
+
+        <article
+          className={`report-summary-card report-summary-card--not_billed ${activeKpiFilter === 'not_billed' ? 'report-summary-card--active' : ''}`}
+          onClick={() => setActiveKpiFilter(activeKpiFilter === 'not_billed' ? 'all' : 'not_billed')}
+          title="Clique para filtrar ordens não faturadas"
+        >
+          <span className="report-summary-label" style={{ color: '#b45309' }}>Não Faturadas</span>
+          <strong className="report-summary-value" style={{ color: '#b45309' }}>{kpiMetrics.notBilled}</strong>
+          <small className="report-summary-hint">pendente de pagamento</small>
+        </article>
+
+        <article
+          className="report-summary-card report-summary-card--cycle"
+          title="Tempo médio decorrido entre a criação da ordem e o pagamento"
+        >
+          <span className="report-summary-label" style={{ color: '#2563eb' }}>Ciclo Médio</span>
+          <strong className="report-summary-value" style={{ color: '#2563eb' }}>{kpiMetrics.avgBillingCycle}</strong>
+          <small className="report-summary-hint">Criação ➔ Pagamento</small>
         </article>
 
         <article
@@ -909,21 +1000,22 @@ function Reports() {
             <table className="helpclin-table">
               <thead>
                 <tr>
-                  <th style={{ width: '120px' }}>PRIORIDADE</th>
-                  <th style={{ width: '110px' }}>NÚMERO OS</th>
-                  <th style={{ width: '130px' }}>ESTADO</th>
+                  <th style={{ width: '105px' }}>PRIORIDADE</th>
+                  <th style={{ width: '95px' }}>NÚMERO OS</th>
+                  <th style={{ width: '110px' }}>ESTADO</th>
+                  <th style={{ width: '180px' }}>STATUS FATURAMENTO & DATA</th>
+                  <th style={{ width: '210px' }}>RELAÇÃO CRIAÇÃO ➔ PAGAMENTO</th>
                   <th>SOLICITANTE / SETOR</th>
                   <th>EQUIPAMENTO / ATIVO</th>
                   <th>RESPONSÁVEL TÉCNICO</th>
-                  <th>TIPO DE SERVIÇO</th>
-                  <th style={{ width: '140px' }}>CRIADA EM</th>
-                  <th style={{ width: '140px' }}>CONCLUÍDA EM</th>
-                  <th style={{ width: '160px' }}>FATURAMENTO</th>
+                  <th style={{ width: '135px' }}>CRIADA EM</th>
+                  <th style={{ width: '135px' }}>CONCLUÍDA EM</th>
                 </tr>
               </thead>
               <tbody>
                 {finalFilteredOrders.map((order) => {
                   const effective = getEffectiveOrderStatus(order);
+                  const rel = getOrderCreationToPaymentRelation(order);
                   return (
                     <tr key={order.id}>
                       <td>
@@ -941,6 +1033,65 @@ function Reports() {
                           {getOrderStatusLabel(effective)}
                         </span>
                       </td>
+                      <td>
+                        {rel.isBilled ? (
+                          <div>
+                            <span className="os-status-badge os-status-badge--billed" style={{ fontSize: '10px', padding: '2px 8px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                              <CheckCircle2 size={11} /> Faturada
+                            </span>
+                            <div style={{ fontSize: '11px', color: '#065f46', fontWeight: 700, marginTop: '3px' }}>
+                              {formatDate(rel.billedDate)}
+                            </div>
+                          </div>
+                        ) : rel.isPaymentInformed ? (
+                          <div>
+                            <span className="os-status-badge os-status-badge--payment_informed" style={{ fontSize: '10px', padding: '2px 8px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                              <Clock size={11} /> Pgto Informado
+                            </span>
+                            <div style={{ fontSize: '11px', color: '#92400e', fontWeight: 600, marginTop: '3px' }}>
+                              {formatDate(rel.billedDate)}
+                            </div>
+                          </div>
+                        ) : (
+                          <div>
+                            <span className="os-status-badge os-status-badge--not_billed" style={{ fontSize: '10px', padding: '2px 8px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                              <AlertCircle size={11} /> Não Faturada
+                            </span>
+                            <div style={{ fontSize: '11px', color: '#9a3412', marginTop: '3px' }}>
+                              {isBillingPending(order) ? `Aguardando (${getDaysSinceCompletion(order)}/30d)` : 'Em atendimento'}
+                            </div>
+                          </div>
+                        )}
+                      </td>
+                      <td>
+                        <div className="report-relation-cell">
+                          {rel.isBilled ? (
+                            <>
+                              <div className="report-relation-pill report-relation-pill--billed">
+                                <Clock3 size={12} />
+                                <span>{rel.elapsedText}</span>
+                              </div>
+                              <div style={{ fontSize: '11px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <span>{formatDateOnly(order.created_at ? new Date(order.created_at).toISOString().slice(0, 10) : '')}</span>
+                                <ArrowRight size={10} style={{ color: '#059669' }} />
+                                <span style={{ color: '#059669', fontWeight: 600 }}>
+                                  {formatDateOnly(rel.billedDate ? new Date(rel.billedDate).toISOString().slice(0, 10) : '')}
+                                </span>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <div className="report-relation-pill report-relation-pill--pending">
+                                <Timer size={12} />
+                                <span>{rel.elapsedText}</span>
+                              </div>
+                              <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+                                Criada em {formatDate(order.created_at)}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </td>
                       <td style={{ fontWeight: 600, color: 'var(--teal)' }}>
                         {order.patient_name || 'Recepção'}
                       </td>
@@ -955,33 +1106,11 @@ function Reports() {
                           <span>{order.technician_name || 'Rodrigo Santos'}</span>
                         </div>
                       </td>
-                      <td style={{ fontSize: '13px' }}>
-                        {order.service_type || 'Manutenção'}
-                      </td>
                       <td style={{ fontSize: '13px', color: '#64748b' }}>
                         {formatDate(order.created_at)}
                       </td>
                       <td style={{ fontSize: '13px', color: '#64748b' }}>
                         {formatDate(order.completed_at)}
-                      </td>
-                      <td>
-                        {order.billed_at ? (
-                          <span style={{ fontSize: '12px', color: '#059669', fontWeight: 600 }}>
-                            Faturada ({formatDate(order.billed_at)})
-                          </span>
-                        ) : order.status === 'billed' ? (
-                          <span style={{ fontSize: '12px', color: '#059669', fontWeight: 600 }}>
-                            Faturada
-                          </span>
-                        ) : isBillingPending(order) ? (
-                          <span style={{ fontSize: '12px', color: '#b45309', fontWeight: 600 }}>
-                            Aguardando ({getDaysSinceCompletion(order)}/30 dias)
-                          </span>
-                        ) : (
-                          <span style={{ fontSize: '12px', color: '#64748b' }}>
-                            Em atendimento
-                          </span>
-                        )}
                       </td>
                     </tr>
                   );

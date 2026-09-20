@@ -159,3 +159,138 @@ export function getOrderStatusBadgeClass(status) {
       return 'os-status-badge--open';
   }
 }
+
+/**
+ * Retorna a data efetiva em que a ordem foi faturada ou teve pagamento informado.
+ * @param {Object} order
+ * @returns {string|null}
+ */
+export function getOrderBilledDate(order) {
+  if (!order) return null;
+  if (order.billed_at) return order.billed_at;
+  if (order.status === 'billed' || order.service_order_status === 'billed') {
+    return order.payment_informed_at || order.updated_at || order.completed_at || null;
+  }
+  if (order.payment_informed_at) return order.payment_informed_at;
+  return null;
+}
+
+/**
+ * Calcula a relação detalhada entre a criação e o pagamento/faturamento da ordem de serviço.
+ * @param {Object} order
+ * @returns {{
+ *   isBilled: boolean,
+ *   isPaymentInformed: boolean,
+ *   billedDate: string|null,
+ *   createdDate: string|null,
+ *   cycleDays: number|null,
+ *   cycleHours: number|null,
+ *   elapsedText: string,
+ *   summaryText: string,
+ *   statusText: string,
+ *   badgeClass: string
+ * }}
+ */
+export function getOrderCreationToPaymentRelation(order) {
+  if (!order) {
+    return {
+      isBilled: false,
+      isPaymentInformed: false,
+      billedDate: null,
+      createdDate: null,
+      cycleDays: null,
+      cycleHours: null,
+      elapsedText: '—',
+      summaryText: '—',
+      statusText: 'Não Faturada',
+      badgeClass: 'os-status-badge--not_billed'
+    };
+  }
+
+  const isOrderBilled = isBilled(order) || Boolean(order.billed_at);
+  const isOrderPaymentInformed = isPaymentInformed(order) || Boolean(order.payment_informed_at);
+  const billedDate = getOrderBilledDate(order);
+  const createdDate = order.created_at;
+
+  const createdTime = createdDate ? new Date(createdDate).getTime() : null;
+  const paymentTime = billedDate ? new Date(billedDate).getTime() : null;
+
+  // 1. Ordem FATURADA (ou com pagamento informado)
+  if ((isOrderBilled || isOrderPaymentInformed) && paymentTime && createdTime && !isNaN(paymentTime) && !isNaN(createdTime)) {
+    const diffMs = Math.max(0, paymentTime - createdTime);
+    const diffHours = diffMs / (1000 * 60 * 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    let elapsedText = '';
+    let summaryText = '';
+
+    if (diffDays <= 0) {
+      const roundedHours = Math.max(1, Math.round(diffHours));
+      elapsedText = roundedHours === 1 ? 'Mesmo dia (1h decorrida)' : `Mesmo dia (${roundedHours}h decorridas)`;
+      summaryText = '< 24h';
+    } else if (diffDays === 1) {
+      elapsedText = '1 dia decorrido';
+      summaryText = '1 dia';
+    } else {
+      elapsedText = `${diffDays} dias decorridos`;
+      summaryText = `${diffDays} dias`;
+    }
+
+    return {
+      isBilled: isOrderBilled,
+      isPaymentInformed: isOrderPaymentInformed && !isOrderBilled,
+      billedDate,
+      createdDate,
+      cycleDays: diffDays,
+      cycleHours: Math.round(diffHours),
+      elapsedText,
+      summaryText,
+      statusText: isOrderBilled ? 'Faturada' : 'Pagamento Informado',
+      badgeClass: isOrderBilled ? 'os-status-badge--billed' : 'os-status-badge--payment_informed'
+    };
+  }
+
+  // 2. Ordem NÃO FATURADA: tempo decorrido desde a criação
+  let elapsedDays = 0;
+  let elapsedText = 'Pendente';
+  let summaryText = 'Pendente';
+
+  if (createdTime && !isNaN(createdTime)) {
+    const diffHours = (Date.now() - createdTime) / (1000 * 60 * 60);
+    elapsedDays = Math.max(0, Math.floor(diffHours / 24));
+    if (elapsedDays <= 0) {
+      elapsedText = 'Aberta hoje (sem pagamento)';
+      summaryText = 'Hoje';
+    } else if (elapsedDays === 1) {
+      elapsedText = 'Aberta há 1 dia (sem pagamento)';
+      summaryText = '1 dia';
+    } else {
+      elapsedText = `Aberta há ${elapsedDays} dias (sem pagamento)`;
+      summaryText = `${elapsedDays} dias`;
+    }
+  }
+
+  const effective = getEffectiveOrderStatus(order);
+  let statusText = 'Não Faturada';
+  if (effective === 'completed' || isAwaitingBilling(order)) {
+    statusText = 'Não Faturada (Aguardando)';
+  } else if (effective === 'cancelled') {
+    statusText = 'Cancelada';
+  } else {
+    statusText = 'Não Faturada (Em Aberto)';
+  }
+
+  return {
+    isBilled: false,
+    isPaymentInformed: false,
+    billedDate: null,
+    createdDate,
+    cycleDays: null,
+    cycleHours: null,
+    elapsedDays,
+    elapsedText,
+    summaryText,
+    statusText,
+    badgeClass: 'os-status-badge--not_billed'
+  };
+}

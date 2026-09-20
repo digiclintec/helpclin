@@ -82,13 +82,14 @@ export function exportToPdf({ title, subtitle = '', columns, data, summary = [] 
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>Relatório - ${title} | HelpClinTec</title>
-      <style>
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Manrope:wght@600;700;800&display=swap');
-
+      <style id="page-orient-style">
         @page {
           size: A4 portrait;
-          margin: 0;
+          margin: 6mm 6mm;
         }
+      </style>
+      <style>
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Manrope:wght@600;700;800&display=swap');
 
         * {
           box-sizing: border-box;
@@ -106,7 +107,7 @@ export function exportToPdf({ title, subtitle = '', columns, data, summary = [] 
         }
 
         .action-bar {
-          max-width: 900px;
+          max-width: 1040px;
           margin: 0 auto 16px auto;
           display: flex;
           align-items: center;
@@ -118,6 +119,7 @@ export function exportToPdf({ title, subtitle = '', columns, data, summary = [] 
           box-shadow: 0 4px 16px rgba(18, 59, 61, 0.06);
           gap: 12px;
           flex-wrap: wrap;
+          transition: max-width 0.2s ease;
         }
 
         .action-bar-info {
@@ -145,6 +147,26 @@ export function exportToPdf({ title, subtitle = '', columns, data, summary = [] 
           align-items: center;
           gap: 10px;
           margin-left: auto;
+        }
+
+        .btn-toggle {
+          display: inline-flex;
+          align-items: center;
+          height: 38px;
+          padding: 0 14px;
+          border: 1px solid #123b3d;
+          border-radius: 8px;
+          background: #f0f7f4;
+          color: #123b3d;
+          font-size: 12px;
+          font-weight: 700;
+          white-space: nowrap;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .btn-toggle:hover {
+          background: #d8eee4;
         }
 
         .btn-print {
@@ -192,13 +214,16 @@ export function exportToPdf({ title, subtitle = '', columns, data, summary = [] 
 
         /* Document Container */
         .document-wrapper {
-          max-width: 900px;
+          max-width: 1040px;
           margin: 0 auto;
           background: #ffffff;
-          padding: 36px 40px;
+          padding: 30px 32px;
           border: 1px solid #dce7df;
           border-radius: 12px;
           box-shadow: 0 6px 28px rgba(18, 59, 61, 0.06);
+          box-sizing: border-box;
+          overflow: hidden;
+          transition: max-width 0.2s ease;
         }
 
         /* Header */
@@ -301,8 +326,8 @@ export function exportToPdf({ title, subtitle = '', columns, data, summary = [] 
         .summary-grid {
           display: grid;
           grid-template-columns: repeat(4, 1fr);
-          gap: 12px;
-          margin-bottom: 24px;
+          gap: 10px;
+          margin-bottom: 22px;
         }
 
         .summary-card {
@@ -310,35 +335,34 @@ export function exportToPdf({ title, subtitle = '', columns, data, summary = [] 
           border: 1px solid #dce7df;
           border-top: 3px solid #123b3d;
           border-radius: 8px;
-          padding: 12px 14px;
+          padding: 10px 12px;
           text-align: center;
           box-shadow: 0 2px 6px rgba(18, 59, 61, 0.02);
         }
 
-        .summary-card:nth-child(2) {
-          border-top-color: #e78368;
-        }
-
-        .summary-card:nth-child(3) {
-          border-top-color: #38a169;
-        }
-
-        .summary-card:nth-child(4) {
-          border-top-color: #3182ce;
-        }
+        .summary-card:nth-child(1) { border-top-color: #123b3d; }
+        .summary-card:nth-child(2) { border-top-color: #059669; }
+        .summary-card:nth-child(3) { border-top-color: #d97706; }
+        .summary-card:nth-child(4) { border-top-color: #2563eb; }
+        .summary-card:nth-child(5) { border-top-color: #316c79; }
+        .summary-card:nth-child(6) { border-top-color: #e78368; }
+        .summary-card:nth-child(7) { border-top-color: #397c65; }
+        .summary-card:nth-child(8) { border-top-color: #dc2626; }
 
         .summary-card span {
           display: block;
-          font-size: 11px;
+          font-size: 10px;
           color: #6f7f7c;
-          font-weight: 600;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.2px;
           margin-bottom: 4px;
         }
 
         .summary-card strong {
           display: block;
           font-family: 'Manrope', sans-serif;
-          font-size: 20px;
+          font-size: 18px;
           font-weight: 800;
           color: #123b3d;
         }
@@ -350,12 +374,13 @@ export function exportToPdf({ title, subtitle = '', columns, data, summary = [] 
           border: 1px solid #dce7df;
           border-radius: 8px;
           margin-bottom: 24px;
+          box-sizing: border-box;
         }
 
         table {
           width: 100%;
           border-collapse: collapse;
-          font-size: 11px;
+          font-size: 10.5px;
           text-align: left;
         }
 
@@ -365,19 +390,21 @@ export function exportToPdf({ title, subtitle = '', columns, data, summary = [] 
         }
 
         th {
-          padding: 10px 12px;
+          padding: 9px 7px;
           font-weight: 700;
-          font-size: 10px;
+          font-size: 9px;
           text-transform: uppercase;
-          letter-spacing: 0.6px;
+          letter-spacing: 0.3px;
           border-bottom: 2px solid #0d2a2b;
+          white-space: nowrap;
         }
 
         td {
-          padding: 9px 12px;
+          padding: 8px 7px;
           border-bottom: 1px solid #e5ede8;
           color: #263835;
           vertical-align: middle;
+          font-size: 10px;
         }
 
         tbody tr:last-child td {
@@ -390,6 +417,11 @@ export function exportToPdf({ title, subtitle = '', columns, data, summary = [] 
 
         tbody tr:hover {
           background-color: #f4f9f6;
+        }
+
+        th:last-child, td:last-child {
+          padding-right: 12px;
+          white-space: nowrap;
         }
 
         .empty-row {
@@ -461,8 +493,9 @@ export function exportToPdf({ title, subtitle = '', columns, data, summary = [] 
 
           .document-wrapper {
             max-width: 100% !important;
-            margin: 0 auto !important;
-            padding: 12mm 12mm !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 4mm 4mm !important;
             border: 0 !important;
             border-radius: 0 !important;
             box-shadow: none !important;
@@ -470,15 +503,41 @@ export function exportToPdf({ title, subtitle = '', columns, data, summary = [] 
 
           .summary-grid {
             grid-template-columns: repeat(4, 1fr) !important;
+            gap: 6px !important;
+          }
+
+          .summary-card {
+            padding: 6px 8px !important;
+          }
+
+          .summary-card span {
+            font-size: 8.5px !important;
+          }
+
+          .summary-card strong {
+            font-size: 15px !important;
           }
 
           .table-container {
-            border: 1px solid #b8ccc1;
+            border: 1px solid #b8ccc1 !important;
           }
 
           th {
             background: #123b3d !important;
             color: #ffffff !important;
+            font-size: 8.5px !important;
+            padding: 6px 5px !important;
+            white-space: nowrap !important;
+          }
+
+          td {
+            font-size: 8.5px !important;
+            padding: 5px 5px !important;
+          }
+
+          th:last-child, td:last-child {
+            padding-right: 8px !important;
+            white-space: nowrap !important;
           }
         }
       </style>
@@ -490,6 +549,9 @@ export function exportToPdf({ title, subtitle = '', columns, data, summary = [] 
           <span>Pronto para salvar ou imprimir em PDF</span>
         </div>
         <div class="action-buttons">
+          <button class="btn-toggle" onclick="toggleOrientation()">
+            <span id="orient-label">Alternar para Paisagem</span>
+          </button>
           <button class="btn-close" onclick="window.close()">Fechar</button>
           <button class="btn-print" onclick="window.print()">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
@@ -575,6 +637,27 @@ export function exportToPdf({ title, subtitle = '', columns, data, summary = [] 
       </div>
 
       <script>
+        let isLandscape = false;
+        function toggleOrientation() {
+          isLandscape = !isLandscape;
+          const doc = document.querySelector('.document-wrapper');
+          const bar = document.querySelector('.action-bar');
+          const label = document.getElementById('orient-label');
+          const style = document.getElementById('page-orient-style');
+          
+          if (isLandscape) {
+            doc.style.maxWidth = '1200px';
+            bar.style.maxWidth = '1200px';
+            if (label) label.innerText = 'Alternar para Retrato';
+            if (style) style.innerHTML = '@page { size: A4 landscape; margin: 6mm 6mm; }';
+          } else {
+            doc.style.maxWidth = '1040px';
+            bar.style.maxWidth = '1040px';
+            if (label) label.innerText = 'Alternar para Paisagem';
+            if (style) style.innerHTML = '@page { size: A4 portrait; margin: 6mm 6mm; }';
+          }
+        }
+
         // Automatic focus for print-ready dialog
         window.onload = function() {
           window.focus();

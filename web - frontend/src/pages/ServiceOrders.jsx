@@ -29,7 +29,6 @@ import {
   deleteServiceOrder,
   getServiceOrders,
   getStoredUser,
-  getSupportTickets,
   informServiceOrderPayment,
   rejectPaymentReceipt,
   updateServiceOrder
@@ -67,7 +66,6 @@ function ServiceOrders() {
   const isTechnician = user?.role === 'technician' || isAdmin;
   const isClient = !isTechnician;
   const [orders, setOrders] = useState([]);
-  const [userTickets, setUserTickets] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
@@ -96,17 +94,8 @@ function ServiceOrders() {
   async function loadOrders() {
     setIsLoading(true);
     try {
-      if (isClient) {
-        const [ordersData, ticketsData] = await Promise.all([
-          getServiceOrders(),
-          getSupportTickets().catch(() => [])
-        ]);
-        setOrders(ordersData);
-        setUserTickets(ticketsData);
-      } else {
-        const data = await getServiceOrders();
-        setOrders(data);
-      }
+      const data = await getServiceOrders();
+      setOrders(data);
       setErrorMessage('');
     } catch (error) {
       setErrorMessage(error.message);
@@ -115,35 +104,10 @@ function ServiceOrders() {
     }
   }
 
-  // Client visibility isolation
-  const clientVisibleOrders = useMemo(() => {
-    if (!isClient) return orders;
-
-    const userOsNumbers = new Set(
-      userTickets
-        .filter((t) => {
-          const isMyTicket =
-            (t.created_by && user?.id && t.created_by === user.id) ||
-            (t.requester && user?.name && t.requester.toLowerCase().trim() === user.name.toLowerCase().trim());
-          return isMyTicket;
-        })
-        .map((t) => t.service_order_number || t.order_number)
-        .filter(Boolean)
-        .map(Number)
-    );
-
-    return orders.filter((o) => {
-      if (o.created_by && user?.id && o.created_by === user.id) return true;
-      if (o.patient_name && user?.name && o.patient_name.toLowerCase().trim() === user.name.toLowerCase().trim()) return true;
-      if (o.order_number && userOsNumbers.has(Number(o.order_number))) return true;
-      return false;
-    });
-  }, [orders, isClient, user, userTickets]);
-
   const techniciansList = useMemo(() => {
-    const list = clientVisibleOrders.map((o) => o.technician_name).filter(Boolean);
+    const list = orders.map((o) => o.technician_name).filter(Boolean);
     return Array.from(new Set(list)).sort();
-  }, [clientVisibleOrders]);
+  }, [orders]);
 
   function isOrderAccepted(order) {
     if (!order) return false;
@@ -359,7 +323,7 @@ function ServiceOrders() {
     let billedCount = 0;
     let urgentCount = 0;
 
-    clientVisibleOrders.forEach((o) => {
+    orders.forEach((o) => {
       const effective = getEffectiveOrderStatus(o);
       if (effective === 'open') openCount++;
       if (effective === 'in_progress') inProgressCount++;
@@ -382,7 +346,7 @@ function ServiceOrders() {
     });
 
     return {
-      total: clientVisibleOrders.length,
+      total: orders.length,
       open: openCount,
       inProgress: inProgressCount,
       completed: completedCount,
@@ -392,11 +356,11 @@ function ServiceOrders() {
       billed: billedCount,
       urgent: urgentCount
     };
-  }, [clientVisibleOrders]);
+  }, [orders]);
 
   // Filtered orders
   const filteredOrders = useMemo(() => {
-    return clientVisibleOrders.filter((order) => {
+    return orders.filter((order) => {
       const effective = getEffectiveOrderStatus(order);
 
       // 1. KPI Tab Filter
@@ -446,10 +410,11 @@ function ServiceOrders() {
         }
       }
 
-      // 5. Connected User Filter (for technicians to filter their assigned orders)
-      if (onlyMyOrders && user && isTechnician) {
+      // 5. Connected User Filter
+      if (onlyMyOrders && user) {
         const isMyTechnician = order.technician_id === user.id || order.technician_name === user.name;
-        if (!isMyTechnician) return false;
+        const isMyRequest = order.created_by === user.id || order.patient_name === user.name;
+        if (!isMyTechnician && !isMyRequest) return false;
       }
 
       // 6. Search Text
@@ -461,7 +426,7 @@ function ServiceOrders() {
 
       return true;
     });
-  }, [clientVisibleOrders, activeKpiFilter, statusFilter, priorityFilter, technicianFilter, onlyMyOrders, search, user, isTechnician]);
+  }, [orders, activeKpiFilter, statusFilter, priorityFilter, technicianFilter, onlyMyOrders, search, user]);
 
   const isFiltered =
     activeKpiFilter !== 'all' ||
@@ -775,16 +740,14 @@ function ServiceOrders() {
             </button>
           )}
 
-          {isTechnician && (
-            <label className="ticket-filter-checkbox" style={{ marginLeft: '4px' }}>
-              <input
-                type="checkbox"
-                checked={onlyMyOrders}
-                onChange={(e) => setOnlyMyOrders(e.target.checked)}
-              />
-              Filtrar por usuário conectado
-            </label>
-          )}
+          <label className="ticket-filter-checkbox" style={{ marginLeft: '4px' }}>
+            <input
+              type="checkbox"
+              checked={onlyMyOrders}
+              onChange={(e) => setOnlyMyOrders(e.target.checked)}
+            />
+            Filtrar por usuário conectado
+          </label>
         </div>
       </div>
 
@@ -934,7 +897,7 @@ function ServiceOrders() {
                             ) : (
                               <button
                                 type="button"
-                                className="inventory-action-btn"
+                                className="inventory-action-btn inventory-action-btn--locked"
                                 onClick={() => {
                                   const effective = getEffectiveOrderStatus(order);
                                   if (effective === 'cancelled' || order.status === 'cancelled') {
@@ -951,9 +914,6 @@ function ServiceOrders() {
                                   height: '26px',
                                   flexShrink: 0,
                                   padding: 0,
-                                  backgroundColor: '#f1f5f9',
-                                  color: '#94a3b8',
-                                  borderColor: '#cbd5e1',
                                   cursor: 'not-allowed'
                                 }}
                               >
@@ -1116,18 +1076,7 @@ function ServiceOrders() {
                           </span>
                           {order.service_performed_description && (
                             <span
-                              style={{
-                                fontSize: '10px',
-                                color: '#1f6e52',
-                                background: '#ecfdf5',
-                                padding: '2px 5px',
-                                borderRadius: '4px',
-                                border: '1px solid #d1fae5',
-                                lineHeight: 1.2,
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap'
-                              }}
+                              className="service-performed-tag"
                               title={`Técnico: ${order.service_performed_description}`}
                             >
                               <strong>Téc:</strong> {order.service_performed_description}

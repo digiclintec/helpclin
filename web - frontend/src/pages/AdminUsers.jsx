@@ -314,17 +314,14 @@ function AdminUsers() {
                     .toUpperCase();
                   const isCurrentAdmin = userItem.id === admin?.id;
 
+                  const roleClass = userItem.role === 'admin' ? 'admin' : userItem.role === 'technician' ? 'tech' : 'client';
+
                   return (
                     <tr key={userItem.id}>
                       <td>
                         <div
-                          className="pending-user-avatar"
-                          style={{
-                            width: '36px',
-                            height: '36px',
-                            backgroundColor: userItem.role === 'admin' ? '#fae3dc' : userItem.role === 'technician' ? '#ecfdf5' : '#f0f9ff',
-                            color: userItem.role === 'admin' ? 'var(--coral)' : userItem.role === 'technician' ? '#047857' : '#0369a1'
-                          }}
+                          className={`pending-user-avatar pending-user-avatar--${roleClass}`}
+                          style={{ width: '36px', height: '36px' }}
                         >
                           {initials}
                         </div>
@@ -341,46 +338,19 @@ function AdminUsers() {
                         )}
                       </td>
 
-                      <td style={{ color: '#4a5b57', fontSize: '12px' }}>{userItem.email}</td>
+                      <td style={{ color: 'var(--muted)', fontSize: '12px' }}>{userItem.email}</td>
 
                       <td>
                         {userItem.role === 'admin' ? (
-                          <span
-                            className="pending-role"
-                            style={{
-                              background: '#fae3dc',
-                              color: 'var(--coral)',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '5px'
-                            }}
-                          >
+                          <span className="pending-role pending-role--admin" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
                             <ShieldCheck size={12} /> Administrador
                           </span>
                         ) : userItem.role === 'technician' ? (
-                          <span
-                            className="pending-role"
-                            style={{
-                              background: '#ecfdf5',
-                              color: '#047857',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '5px'
-                            }}
-                          >
+                          <span className="pending-role pending-role--tech" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
                             <Wrench size={12} /> Técnico
                           </span>
                         ) : (
-                          <span
-                            className="pending-role"
-                            style={{
-                              background: '#f0f9ff',
-                              color: '#0369a1',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '5px'
-                            }}
-                          >
+                          <span className="pending-role pending-role--client" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
                             <User size={12} /> Cliente
                           </span>
                         )}
@@ -570,7 +540,7 @@ function AdminUsers() {
               </button>
             </div>
 
-            <p style={{ fontSize: '13px', color: '#4b5e59', lineHeight: 1.5, margin: '16px 0 20px' }}>
+            <p style={{ fontSize: '13px', color: 'var(--muted)', lineHeight: 1.5, margin: '16px 0 20px' }}>
               Tem certeza de que deseja excluir permanentemente o usuário{' '}
               <strong style={{ color: 'var(--teal)' }}>{deletingUser.name}</strong> ({deletingUser.email})?
               Esta ação não pode ser desfeita.

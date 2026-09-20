@@ -332,16 +332,6 @@ function Tickets() {
     }
   }
 
-  // Client visibility isolation
-  const clientVisibleTickets = useMemo(() => {
-    if (!isClient) return tickets;
-    return tickets.filter((t) => {
-      if (t.created_by && user?.id && t.created_by === user.id) return true;
-      if (t.requester && user?.name && t.requester.toLowerCase().trim() === user.name.toLowerCase().trim()) return true;
-      return false;
-    });
-  }, [tickets, isClient, user]);
-
   // Calculate KPIs
   const now = new Date();
   const kpis = useMemo(() => {
@@ -351,7 +341,7 @@ function Tickets() {
     let overdue = 0;
     let resolved = 0;
 
-    clientVisibleTickets.forEach((t) => {
+    tickets.forEach((t) => {
       if (t.status === 'open') openCount++;
       const isUnassigned = !t.assigned_to_name && t.status !== 'resolved';
       if (isUnassigned) unassigned++;
@@ -367,18 +357,18 @@ function Tickets() {
     });
 
     return {
-      total: clientVisibleTickets.length,
+      total: tickets.length,
       open: openCount,
       unassigned,
       inProgress,
       overdue,
       resolved
     };
-  }, [clientVisibleTickets]);
+  }, [tickets]);
 
   // Filtered tickets
   const filteredTickets = useMemo(() => {
-    return clientVisibleTickets.filter((ticket) => {
+    return tickets.filter((ticket) => {
       // 1. KPI Tab Filter
       if (activeKpiFilter === 'open') {
         if (ticket.status !== 'open') return false;
@@ -424,7 +414,7 @@ function Tickets() {
 
       return true;
     });
-  }, [clientVisibleTickets, activeKpiFilter, statusFilter, priorityFilter, onlyMyTickets, search, user, isTechnician]);
+  }, [tickets, activeKpiFilter, statusFilter, priorityFilter, onlyMyTickets, search, user, isTechnician]);
 
   const isFiltered =
     activeKpiFilter !== 'all' ||
@@ -807,37 +797,18 @@ function Tickets() {
 
       {/* Table Section */}
       <section className="ticket-list-card" style={{ padding: '0', overflow: 'hidden' }}>
-        <div
-          style={{
-            padding: '14px 20px',
-            borderBottom: '1px solid #f1f5f9',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            backgroundColor: '#fafbfc'
-          }}
-        >
+        <div className="ticket-list-banner">
           <div>
-            <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: 'var(--ink)' }}>
+            <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: 'var(--teal)' }}>
               {isClient ? 'Últimos Chamados Abertos' : 'Fila de Chamados Registrados'}
             </h3>
-            <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748b' }}>
+            <p style={{ margin: '2px 0 0', fontSize: '12px', color: 'var(--muted)' }}>
               {isClient
                 ? 'Histórico das suas solicitações abertas. Qualquer dúvida, consulte a tela de Ordens de Serviço.'
                 : 'Gerenciamento operacional e atribuição técnica de chamados.'}
             </p>
           </div>
-          <span
-            style={{
-              fontSize: '12px',
-              fontWeight: 600,
-              color: '#475569',
-              background: '#ffffff',
-              padding: '4px 10px',
-              borderRadius: '20px',
-              border: '1px solid #e2e8f0'
-            }}
-          >
+          <span className="ticket-list-count-badge">
             {filteredTickets.length} chamado{filteredTickets.length !== 1 ? 's' : ''}
           </span>
         </div>
@@ -1166,18 +1137,7 @@ function Tickets() {
                           <button
                             type="button"
                             onClick={() => setTicketToDelete(ticket)}
-                            className="secondary-button"
-                            style={{
-                              padding: '4px 7px',
-                              height: '28px',
-                              borderRadius: '6px',
-                              color: '#64748b',
-                              borderColor: '#e2e8f0',
-                              backgroundColor: '#fff',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              cursor: 'pointer'
-                            }}
+                            className="ticket-delete-btn"
                             title="Excluir este chamado"
                           >
                             <Trash2 size={12} />
@@ -1302,18 +1262,7 @@ function Tickets() {
                           )}
                           {ticket.service_performed_description && (
                             <span
-                              style={{
-                                fontSize: '10px',
-                                color: '#1f6e52',
-                                background: '#ecfdf5',
-                                padding: '2px 5px',
-                                borderRadius: '4px',
-                                border: '1px solid #d1fae5',
-                                lineHeight: 1.2,
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap'
-                              }}
+                              className="service-performed-tag"
                               title={`Técnico: ${ticket.service_performed_description}`}
                             >
                               <strong>Téc:</strong> {ticket.service_performed_description}

@@ -529,6 +529,13 @@ button { font: inherit; cursor: pointer; }
   color: #b91c1c;
 }
 
+.os-status-badge--not_billed {
+  background: #fff7ed;
+  color: #c2410c;
+  border: 1px solid #fed7aa;
+  box-shadow: 0 1px 2px rgba(194, 65, 12, 0.08);
+}
+
 /* Billing Notice & Lock Elements */
 .billing-client-alert {
   display: flex;
@@ -1021,6 +1028,38 @@ button { font: inherit; cursor: pointer; }
 
 .dash-kpi-trend--neutral {
   color: #637772;
+}
+
+/* Billed & Pending KPI Card Variants */
+.dash-kpi-card--billed .dash-kpi-label {
+  color: #065f46;
+}
+.dash-kpi-card--billed .dash-kpi-icon-pill {
+  background: #d1fae5;
+  color: #059669;
+}
+.dash-kpi-card--billed .dash-kpi-value {
+  color: #065f46;
+}
+.dash-kpi-card--billed .dash-kpi-trend {
+  color: #059669;
+}
+
+.dash-kpi-card--pending {
+  border-left: 3px solid #d97706 !important;
+}
+.dash-kpi-card--pending .dash-kpi-label {
+  color: #b45309;
+}
+.dash-kpi-card--pending .dash-kpi-icon-pill {
+  background: #fef3c7;
+  color: #b45309;
+}
+.dash-kpi-card--pending .dash-kpi-value {
+  color: #b45309;
+}
+.dash-kpi-card--pending .dash-kpi-trend {
+  color: #92400e;
 }
 
 /* 3. Quick Action Bar */
@@ -2238,8 +2277,46 @@ button { font: inherit; cursor: pointer; }
   border-top-color: #059669;
 }
 
+.report-summary-card--not_billed {
+  border-top-color: #f59e0b;
+}
+
+.report-summary-card--cycle {
+  border-top-color: #2563eb;
+}
+
 .report-summary-card--urgent {
   border-top-color: #dc2626;
+}
+
+.report-relation-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.report-relation-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  width: fit-content;
+  white-space: nowrap;
+}
+
+.report-relation-pill--billed {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.report-relation-pill--pending {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
 }
 
 .report-summary-label {
@@ -2280,3 +2357,1427 @@ button { font: inherit; cursor: pointer; }
     grid-template-columns: 1fr;
   }
 }
+
+/* ==========================================================================
+   THEME TOGGLE COMPONENT STYLES
+   ========================================================================== */
+.theme-toggle-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.theme-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 38px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: #ffffff;
+  color: var(--teal);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 1px 3px rgba(18, 59, 61, 0.04);
+}
+
+.theme-toggle-btn:hover,
+.theme-toggle-btn--active {
+  border-color: var(--coral);
+  color: var(--coral);
+  background: #fdf6f4;
+  box-shadow: 0 3px 10px rgba(231, 131, 104, 0.15);
+}
+
+.theme-toggle-icon-wrap {
+  display: grid;
+  place-items: center;
+  color: var(--coral);
+}
+
+.theme-toggle-label {
+  font-size: 12px;
+  letter-spacing: -0.01em;
+}
+
+.theme-toggle-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: #eef5f1;
+  color: #286756;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.theme-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 290px;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 14px 40px rgba(18, 59, 61, 0.16), 0 2px 8px rgba(18, 59, 61, 0.04);
+  z-index: 1000;
+  padding: 8px;
+  animation: notifDropdownFade 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.theme-dropdown-header {
+  padding: 8px 10px 10px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.theme-dropdown-header strong {
+  font-size: 13px;
+  color: var(--teal);
+}
+
+.theme-dropdown-header span {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.theme-dropdown-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.theme-dropdown-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--teal);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.theme-dropdown-item:hover {
+  background: #f4f9f6;
+  border-color: #dce7df;
+}
+
+.theme-dropdown-item--selected {
+  background: #eef5f1;
+  border-color: #c7ded2;
+}
+
+.theme-dropdown-item-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #f4f7f5;
+  color: var(--teal);
+  flex-shrink: 0;
+}
+
+.theme-dropdown-item--selected .theme-dropdown-item-icon {
+  background: var(--teal);
+  color: #ffffff;
+}
+
+.theme-dropdown-item-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.theme-dropdown-item-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.theme-dropdown-item-title strong {
+  font-size: 12px;
+  color: var(--teal);
+}
+
+.theme-item-auto-tag {
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: #dce7df;
+  color: #38504a;
+  font-weight: 700;
+}
+
+.theme-dropdown-item-content small {
+  font-size: 10px;
+  color: var(--muted);
+  line-height: 1.3;
+}
+
+.theme-dropdown-item-check {
+  display: grid;
+  place-items: center;
+  color: #35785d;
+  flex-shrink: 0;
+}
+
+@media (max-width: 600px) {
+  .theme-toggle-label {
+    display: none;
+  }
+  .theme-toggle-btn {
+    padding: 0 8px;
+    height: 36px;
+  }
+  .theme-toggle-badge {
+    display: none;
+  }
+  .theme-dropdown-menu {
+    width: 260px;
+    right: -10px;
+  }
+}
+
+/* ==========================================================================
+   HELPCLIN SOPHISTICATED SOFT DARK MODE
+   Palette: Deep Navy / Executive Slate (#0b1319, #14222d, #1e3243)
+   ========================================================================== */
+.app-shell[data-theme="dark"] {
+  --ink: #f1f5f9;
+  --teal: #f8fafc;
+  --mint: #134e48;
+  --cream: #0b1319;
+  --line: #1e3243;
+  --muted: #94a3b8;
+  background-color: #0b1319 !important;
+  color: #f1f5f9 !important;
+}
+
+/* Sidebar */
+.app-shell[data-theme="dark"] .sidebar {
+  background-color: #0e1721 !important;
+  border-right: 1px solid #1e3243 !important;
+}
+
+.app-shell[data-theme="dark"] .brand {
+  color: #f8fafc !important;
+}
+
+.app-shell[data-theme="dark"] .sidebar-label {
+  color: #64748b !important;
+}
+
+.app-shell[data-theme="dark"] .nav-item {
+  color: #94a3b8 !important;
+}
+
+.app-shell[data-theme="dark"] .nav-item:hover {
+  background: #182837 !important;
+  color: #f8fafc !important;
+}
+
+.app-shell[data-theme="dark"] .nav-item--active {
+  background: #193140 !important;
+  color: #38bdf8 !important;
+  box-shadow: inset 3px 0 0 var(--coral);
+}
+
+.app-shell[data-theme="dark"] .sidebar-bottom {
+  background-color: #0e1721 !important;
+  border-top: 1px solid #1e3243 !important;
+}
+
+.app-shell[data-theme="dark"] .profile-mini {
+  border-top-color: #1e3243 !important;
+}
+
+.app-shell[data-theme="dark"] .profile-mini strong {
+  color: #f8fafc !important;
+}
+
+.app-shell[data-theme="dark"] .profile-mini span {
+  color: #94a3b8 !important;
+}
+
+.app-shell[data-theme="dark"] .profile-mini .avatar {
+  background: #1b3547 !important;
+  color: #38bdf8 !important;
+}
+
+.app-shell[data-theme="dark"] .logout-button {
+  color: #94a3b8 !important;
+}
+
+.app-shell[data-theme="dark"] .logout-button:hover {
+  background: #3a1c1a !important;
+  color: #f87171 !important;
+}
+
+/* Topbar */
+.app-shell[data-theme="dark"] .topbar {
+  background: rgba(14, 23, 33, 0.94) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid #1e3243 !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25) !important;
+}
+
+.app-shell[data-theme="dark"] .breadcrumb {
+  color: #64748b !important;
+}
+
+.app-shell[data-theme="dark"] .breadcrumb strong {
+  color: #f8fafc !important;
+}
+
+.app-shell[data-theme="dark"] .icon-button {
+  color: #94a3b8 !important;
+}
+
+.app-shell[data-theme="dark"] .icon-button:hover {
+  color: #f8fafc !important;
+  background: #182837 !important;
+}
+
+.app-shell[data-theme="dark"] .topbar-logout-btn:hover {
+  color: #f87171 !important;
+  background: #3a1c1a !important;
+}
+
+/* Theme Toggle in Dark Mode */
+.app-shell[data-theme="dark"] .theme-toggle-btn {
+  background: #14222d;
+  border-color: #1e3243;
+  color: #f8fafc;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+.app-shell[data-theme="dark"] .theme-toggle-btn:hover,
+.app-shell[data-theme="dark"] .theme-toggle-btn--active {
+  background: #1c3040;
+  border-color: var(--coral);
+}
+
+.app-shell[data-theme="dark"] .theme-toggle-badge {
+  background: #1b3547;
+  color: #38bdf8;
+}
+
+.app-shell[data-theme="dark"] .theme-dropdown-menu {
+  background: #14222d;
+  border-color: #1e3243;
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.45);
+}
+
+.app-shell[data-theme="dark"] .theme-dropdown-header {
+  border-bottom-color: #1e3243;
+}
+
+.app-shell[data-theme="dark"] .theme-dropdown-header strong {
+  color: #f8fafc;
+}
+
+.app-shell[data-theme="dark"] .theme-dropdown-header span {
+  color: #94a3b8;
+}
+
+.app-shell[data-theme="dark"] .theme-dropdown-item {
+  color: #f1f5f9;
+}
+
+.app-shell[data-theme="dark"] .theme-dropdown-item:hover {
+  background: #1a2d3c;
+  border-color: #243c50;
+}
+
+.app-shell[data-theme="dark"] .theme-dropdown-item--selected {
+  background: #193142;
+  border-color: #244660;
+}
+
+.app-shell[data-theme="dark"] .theme-dropdown-item-icon {
+  background: #1b2d3d;
+  color: #94a3b8;
+}
+
+.app-shell[data-theme="dark"] .theme-dropdown-item--selected .theme-dropdown-item-icon {
+  background: var(--coral);
+  color: #ffffff;
+}
+
+.app-shell[data-theme="dark"] .theme-dropdown-item-title strong {
+  color: #f8fafc;
+}
+
+.app-shell[data-theme="dark"] .theme-item-auto-tag {
+  background: #1e3243;
+  color: #38bdf8;
+}
+
+.app-shell[data-theme="dark"] .theme-dropdown-item-check {
+  color: #34d399;
+}
+
+/* Notifications in Dark Mode */
+.app-shell[data-theme="dark"] .notification-button {
+  background: #14222d;
+  border-color: #1e3243;
+  color: #f8fafc;
+}
+
+.app-shell[data-theme="dark"] .notification-button:hover {
+  background: #1c3040;
+  border-color: var(--coral);
+}
+
+.app-shell[data-theme="dark"] .notification-dropdown {
+  background: #14222d;
+  border-color: #1e3243;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+}
+
+.app-shell[data-theme="dark"] .notification-header,
+.app-shell[data-theme="dark"] .notification-footer {
+  background: #101c26;
+  border-color: #1e3243;
+}
+
+.app-shell[data-theme="dark"] .notification-header h3 {
+  color: #f8fafc;
+}
+
+.app-shell[data-theme="dark"] .notification-clear-btn {
+  color: #94a3b8;
+}
+
+.app-shell[data-theme="dark"] .notification-clear-btn:hover {
+  color: var(--coral);
+}
+
+.app-shell[data-theme="dark"] .notification-item {
+  border-bottom-color: #192a38;
+}
+
+.app-shell[data-theme="dark"] .notification-item:hover {
+  background: #182837;
+}
+
+.app-shell[data-theme="dark"] .notification-item--unread {
+  background: #162432;
+}
+
+.app-shell[data-theme="dark"] .notification-title {
+  color: #f8fafc;
+}
+
+.app-shell[data-theme="dark"] .notification-desc {
+  color: #94a3b8;
+}
+
+.app-shell[data-theme="dark"] .notification-time {
+  color: #64748b;
+}
+
+/* Dashboard Cards & Containers */
+.app-shell[data-theme="dark"] .dash-card,
+.app-shell[data-theme="dark"] .panel,
+.app-shell[data-theme="dark"] .stat-card,
+.app-shell[data-theme="dark"] .ticket-form-card,
+.app-shell[data-theme="dark"] .ticket-list-card,
+.app-shell[data-theme="dark"] .report-panel,
+.app-shell[data-theme="dark"] .report-indicator,
+.app-shell[data-theme="dark"] .report-filter-card,
+.app-shell[data-theme="dark"] .pending-users-card,
+.app-shell[data-theme="dark"] .work-order-form-card,
+.app-shell[data-theme="dark"] .recent-orders-card,
+.app-shell[data-theme="dark"] .ticket-kpi-card,
+.app-shell[data-theme="dark"] .tickets-filter-bar {
+  background: #14222d !important;
+  border-color: #1e3243 !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25) !important;
+}
+
+.app-shell[data-theme="dark"] .dash-card-header h2,
+.app-shell[data-theme="dark"] .panel h2,
+.app-shell[data-theme="dark"] .ticket-form-title h2,
+.app-shell[data-theme="dark"] .list-toolbar h2,
+.app-shell[data-theme="dark"] .report-panel h2,
+.app-shell[data-theme="dark"] .work-order-card-heading h2,
+.app-shell[data-theme="dark"] .recent-orders-heading h2,
+.app-shell[data-theme="dark"] .pending-users-header h2,
+.app-shell[data-theme="dark"] .page-heading h1,
+.app-shell[data-theme="dark"] .simple-page-heading h1,
+.app-shell[data-theme="dark"] .work-order-heading h1 {
+  color: #f8fafc !important;
+}
+
+.app-shell[data-theme="dark"] .dash-reload-btn {
+  background: #182837 !important;
+  border-color: #243c50 !important;
+  color: #f8fafc !important;
+}
+
+.app-shell[data-theme="dark"] .dash-reload-btn:hover {
+  background: #203548 !important;
+  border-color: var(--coral) !important;
+}
+
+/* Charts in Dark Mode */
+.app-shell[data-theme="dark"] .dash-donut-center {
+  background: #14222d !important;
+}
+
+.app-shell[data-theme="dark"] .dash-donut-center strong {
+  color: #f8fafc !important;
+}
+
+.app-shell[data-theme="dark"] .dash-donut-center span {
+  color: #94a3b8 !important;
+}
+
+.app-shell[data-theme="dark"] .dash-legend-item {
+  color: #94a3b8 !important;
+}
+
+.app-shell[data-theme="dark"] .dash-legend-item b {
+  color: #f8fafc !important;
+}
+
+.app-shell[data-theme="dark"] .dash-donut-ring {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+}
+
+.app-shell[data-theme="dark"] .dash-bar-track {
+  background: #182b3a !important;
+}
+
+.app-shell[data-theme="dark"] .dash-bars-columns {
+  border-bottom-color: #1e3243 !important;
+}
+
+.app-shell[data-theme="dark"] .dash-y-labels,
+.app-shell[data-theme="dark"] .dash-bar-label,
+.app-shell[data-theme="dark"] .dash-chart-legend-top {
+  color: #8ea4b4 !important;
+}
+
+/* Activity Feed in Dark Mode */
+.app-shell[data-theme="dark"] .dash-activity-item {
+  border-bottom-color: #1a2d3d !important;
+}
+
+.app-shell[data-theme="dark"] .dash-activity-item:hover {
+  background: #172735 !important;
+  border-radius: 8px;
+}
+
+.app-shell[data-theme="dark"] .dash-activity-details strong {
+  color: #f8fafc !important;
+}
+
+.app-shell[data-theme="dark"] .dash-activity-details span {
+  color: #94a3b8 !important;
+}
+
+.app-shell[data-theme="dark"] .dash-activity-item time {
+  color: #64748b !important;
+}
+
+/* Table in Dark Mode */
+.app-shell[data-theme="dark"] .helpclin-table th {
+  background: #101c26 !important;
+  color: #94a3b8 !important;
+  border-bottom-color: #1e3243 !important;
+}
+
+.app-shell[data-theme="dark"] .helpclin-table td {
+  border-bottom-color: #1a2c3a !important;
+  color: #e2e8f0 !important;
+}
+
+.app-shell[data-theme="dark"] .helpclin-table tbody tr:hover {
+  background: #172736 !important;
+}
+
+.app-shell[data-theme="dark"] .order-edit-button {
+  background: #182837 !important;
+  border-color: #243c50 !important;
+  color: #e2e8f0 !important;
+}
+
+.app-shell[data-theme="dark"] .order-edit-button:hover {
+  background: #233b4e !important;
+  border-color: var(--coral) !important;
+  color: var(--coral) !important;
+}
+
+/* Form Inputs, Selects & Textareas */
+.app-shell[data-theme="dark"] input,
+.app-shell[data-theme="dark"] select,
+.app-shell[data-theme="dark"] textarea,
+.app-shell[data-theme="dark"] .ticket-filter-select,
+.app-shell[data-theme="dark"] .search-control,
+.app-shell[data-theme="dark"] .form-field input,
+.app-shell[data-theme="dark"] .form-field select,
+.app-shell[data-theme="dark"] .form-field textarea,
+.app-shell[data-theme="dark"] .ticket-form input,
+.app-shell[data-theme="dark"] .ticket-form select,
+.app-shell[data-theme="dark"] .ticket-form textarea,
+.app-shell[data-theme="dark"] .dash-form-field input,
+.app-shell[data-theme="dark"] .dash-form-field select,
+.app-shell[data-theme="dark"] .dash-form-field textarea,
+.app-shell[data-theme="dark"] .report-filter-field input,
+.app-shell[data-theme="dark"] .report-filter-field select,
+.app-shell[data-theme="dark"] .inventory-field input,
+.app-shell[data-theme="dark"] .inventory-field select,
+.app-shell[data-theme="dark"] .order-editor input,
+.app-shell[data-theme="dark"] .order-editor select,
+.app-shell[data-theme="dark"] .order-editor textarea {
+  background-color: #0f1a24 !important;
+  border-color: #233a4c !important;
+  color: #f8fafc !important;
+}
+
+.app-shell[data-theme="dark"] input::placeholder,
+.app-shell[data-theme="dark"] textarea::placeholder {
+  color: #64748b !important;
+}
+
+.app-shell[data-theme="dark"] input:focus,
+.app-shell[data-theme="dark"] select:focus,
+.app-shell[data-theme="dark"] textarea:focus,
+.app-shell[data-theme="dark"] .ticket-filter-select:focus {
+  background-color: #12202c !important;
+  border-color: var(--coral) !important;
+  box-shadow: 0 0 0 3px rgba(231, 131, 104, 0.22) !important;
+}
+
+.app-shell[data-theme="dark"] .form-field label,
+.app-shell[data-theme="dark"] .ticket-form label,
+.app-shell[data-theme="dark"] .dash-form-field label,
+.app-shell[data-theme="dark"] .report-filter-field label,
+.app-shell[data-theme="dark"] .report-filter-label,
+.app-shell[data-theme="dark"] .ticket-type-field legend,
+.app-shell[data-theme="dark"] .inventory-field label,
+.app-shell[data-theme="dark"] .order-editor > label {
+  color: #e2e8f0 !important;
+}
+
+/* Secondary Button */
+.app-shell[data-theme="dark"] .secondary-button {
+  background: #182837 !important;
+  border-color: #243c50 !important;
+  color: #f8fafc !important;
+}
+
+.app-shell[data-theme="dark"] .secondary-button:hover {
+  background: #203548 !important;
+  border-color: var(--coral) !important;
+  color: var(--coral) !important;
+}
+
+/* Ticket Rows & Orders */
+.app-shell[data-theme="dark"] .ticket-row,
+.app-shell[data-theme="dark"] .order-item,
+.app-shell[data-theme="dark"] .pending-user-row {
+  border-top-color: #1e3243 !important;
+}
+
+.app-shell[data-theme="dark"] .ticket-main strong,
+.app-shell[data-theme="dark"] .order-item-info strong {
+  color: #f8fafc !important;
+}
+
+.app-shell[data-theme="dark"] .ticket-main span,
+.app-shell[data-theme="dark"] .order-item-info span {
+  color: #94a3b8 !important;
+}
+
+.app-shell[data-theme="dark"] .ticket-row-icon,
+.app-shell[data-theme="dark"] .order-item-icon {
+  background: #172d3c !important;
+  color: #38bdf8 !important;
+}
+
+/* Chips & Pills */
+.app-shell[data-theme="dark"] .ticket-problem-chip,
+.app-shell[data-theme="dark"] .report-preset-pill {
+  background: #121e29 !important;
+  border-color: #233a4c !important;
+  color: #cbd5e1 !important;
+}
+
+.app-shell[data-theme="dark"] .ticket-problem-chip:hover,
+.app-shell[data-theme="dark"] .report-preset-pill:hover {
+  background: #192d3c !important;
+  border-color: var(--coral) !important;
+  color: var(--coral) !important;
+}
+
+.app-shell[data-theme="dark"] .ticket-problem-chip--active,
+.app-shell[data-theme="dark"] .report-preset-pill--active {
+  background: #0284c7 !important;
+  border-color: #38bdf8 !important;
+  color: #ffffff !important;
+}
+
+/* KPI Cards on Tickets & Dashboard */
+.app-shell[data-theme="dark"] .ticket-kpi-title {
+  color: #e2e8f0 !important;
+}
+
+.app-shell[data-theme="dark"] .ticket-kpi-count {
+  color: #f8fafc !important;
+}
+
+.app-shell[data-theme="dark"] .ticket-kpi-sub {
+  color: #94a3b8 !important;
+}
+
+.app-shell[data-theme="dark"] .ticket-kpi-card:hover {
+  border-color: #2e4c64 !important;
+  background: #172735 !important;
+}
+
+.app-shell[data-theme="dark"] .ticket-kpi-card--active {
+  background: #0c4a6e !important;
+  border-color: #0284c7 !important;
+}
+
+.app-shell[data-theme="dark"] .ticket-kpi-card--active .ticket-kpi-title,
+.app-shell[data-theme="dark"] .ticket-kpi-card--active .ticket-kpi-count {
+  color: #ffffff !important;
+}
+
+.app-shell[data-theme="dark"] .ticket-kpi-card--active .ticket-kpi-sub {
+  color: #bae6fd !important;
+}
+
+/* Export Dropdown */
+.app-shell[data-theme="dark"] .export-dropdown-trigger {
+  background: #14222d !important;
+  border-color: #1e3243 !important;
+  color: #f8fafc !important;
+}
+
+.app-shell[data-theme="dark"] .export-dropdown-trigger:hover {
+  background: #1c3040 !important;
+  border-color: var(--coral) !important;
+}
+
+.app-shell[data-theme="dark"] .export-dropdown-panel {
+  background-color: #14222d !important;
+  border-color: #1e3243 !important;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45) !important;
+}
+
+.app-shell[data-theme="dark"] .export-dropdown-item {
+  color: #f1f5f9 !important;
+}
+
+.app-shell[data-theme="dark"] .export-dropdown-item:hover {
+  background: #192d3d !important;
+}
+
+.app-shell[data-theme="dark"] .export-dropdown-item-content strong {
+  color: #f8fafc !important;
+}
+
+.app-shell[data-theme="dark"] .export-dropdown-item-content small {
+  color: #94a3b8 !important;
+}
+
+/* Modals in Dark Mode */
+.app-shell[data-theme="dark"] .dash-modal,
+.app-shell[data-theme="dark"] .order-editor,
+.app-shell[data-theme="dark"] .inventory-modal {
+  background: #14222d !important;
+  border: 1px solid #1e3243 !important;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6) !important;
+}
+
+.app-shell[data-theme="dark"] .dash-modal-header,
+.app-shell[data-theme="dark"] .order-editor-heading,
+.app-shell[data-theme="dark"] .inventory-modal-header {
+  border-bottom-color: #1e3243 !important;
+}
+
+.app-shell[data-theme="dark"] .dash-modal-header h2,
+.app-shell[data-theme="dark"] .order-editor-heading h2,
+.app-shell[data-theme="dark"] .inventory-modal-header h2 {
+  color: #f8fafc !important;
+}
+
+.app-shell[data-theme="dark"] .dash-modal-actions,
+.app-shell[data-theme="dark"] .order-editor-actions,
+.app-shell[data-theme="dark"] .inventory-modal-actions {
+  border-top-color: #1e3243 !important;
+}
+
+.app-shell[data-theme="dark"] .dash-modal-backdrop,
+.app-shell[data-theme="dark"] .order-editor-backdrop,
+.app-shell[data-theme="dark"] .inventory-modal-backdrop {
+  background: rgba(3, 7, 12, 0.75) !important;
+}
+
+.app-shell[data-theme="dark"] .inventory-modal-close {
+  background: #182837 !important;
+  color: #94a3b8 !important;
+}
+
+.app-shell[data-theme="dark"] .inventory-modal-close:hover {
+  background: #233b4e !important;
+  color: var(--coral) !important;
+}
+
+/* Badges Enhanced for Dark Mode */
+.app-shell[data-theme="dark"] .ticket-priority--normal,
+.app-shell[data-theme="dark"] .ticket-status--resolvido,
+.app-shell[data-theme="dark"] .pending-role {
+  background: #1c2c38 !important;
+  color: #94a3b8 !important;
+}
+
+.app-shell[data-theme="dark"] .ticket-priority--high {
+  background: rgba(248, 113, 113, 0.16) !important;
+  color: #f87171 !important;
+}
+
+.app-shell[data-theme="dark"] .ticket-status,
+.app-shell[data-theme="dark"] .order-status--open,
+.app-shell[data-theme="dark"] .assigned-label {
+  background: rgba(52, 211, 153, 0.16) !important;
+  color: #34d399 !important;
+}
+
+.app-shell[data-theme="dark"] .ticket-status--em-andamento,
+.app-shell[data-theme="dark"] .order-status--progress {
+  background: rgba(251, 191, 36, 0.16) !important;
+  color: #fbbf24 !important;
+}
+
+/* Reports Summary Cards */
+.app-shell[data-theme="dark"] .report-summary-card {
+  background: #14222d !important;
+  border-color: #1e3243 !important;
+}
+
+.app-shell[data-theme="dark"] .report-summary-card:hover {
+  background: #182837 !important;
+  border-color: #243c50 !important;
+}
+
+.app-shell[data-theme="dark"] .report-summary-value {
+  color: #f8fafc !important;
+}
+
+.app-shell[data-theme="dark"] .report-summary-label {
+  color: #94a3b8 !important;
+}
+
+/* Mobile Sidebar Overlay */
+.app-shell[data-theme="dark"] .sidebar-overlay {
+  background: rgba(3, 7, 12, 0.65) !important;
+}
+
+/* ==========================================================================
+   ENHANCED DARK MODE CONTRAST & REFINED COMPONENTS
+   ========================================================================== */
+
+/* 1. Reload Button */
+.ticket-reload-btn {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #ffffff;
+  color: var(--teal);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.ticket-reload-btn:hover {
+  color: var(--coral);
+  border-color: var(--coral);
+  background: #fdf6f4;
+}
+
+.app-shell[data-theme="dark"] .ticket-reload-btn {
+  background: #182837 !important;
+  border-color: #243c50 !important;
+  color: #f8fafc !important;
+}
+
+.app-shell[data-theme="dark"] .ticket-reload-btn:hover {
+  background: #203548 !important;
+  border-color: var(--coral) !important;
+  color: var(--coral) !important;
+}
+
+/* 2. Work Order User (Top Right Connected User Box) */
+.app-shell[data-theme="dark"] .work-order-user {
+  background: #14222d !important;
+  border-color: #1e3243 !important;
+  color: #94a3b8 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+}
+
+.app-shell[data-theme="dark"] .work-order-user span {
+  color: #8ea4b4 !important;
+}
+
+.app-shell[data-theme="dark"] .work-order-user strong {
+  color: #f8fafc !important;
+}
+
+/* 3. Inventory / Table Action Buttons */
+.inventory-action-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--teal);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.inventory-action-btn:hover {
+  border-color: var(--coral);
+  color: var(--coral);
+  background: #fbe4dd;
+}
+
+.app-shell[data-theme="dark"] .inventory-action-btn {
+  background: #182837 !important;
+  border-color: #243c50 !important;
+  color: #e2e8f0 !important;
+}
+
+.app-shell[data-theme="dark"] .inventory-action-btn:hover {
+  background: #203548 !important;
+  border-color: var(--coral) !important;
+  color: var(--coral) !important;
+}
+
+.app-shell[data-theme="dark"] .inventory-action-btn--delete:hover {
+  background: #3f1a1a !important;
+  border-color: #f87171 !important;
+  color: #f87171 !important;
+}
+
+.inventory-action-btn--locked {
+  background-color: #f1f5f9;
+  color: #94a3b8;
+  border-color: #cbd5e1;
+}
+
+.app-shell[data-theme="dark"] .inventory-action-btn--locked {
+  background-color: #121e29 !important;
+  color: #64748b !important;
+  border-color: #1e3243 !important;
+}
+
+/* 4. Ticket List Banner & Count Badge */
+.ticket-list-banner {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #fafbfc;
+}
+
+.app-shell[data-theme="dark"] .ticket-list-banner {
+  background-color: #101c26 !important;
+  border-bottom-color: #1e3243 !important;
+}
+
+.ticket-list-count-badge {
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+  background: #ffffff;
+  padding: 4px 10px;
+  border-radius: 20px;
+  border: 1px solid #e2e8f0;
+}
+
+.app-shell[data-theme="dark"] .ticket-list-count-badge {
+  background: #14222d !important;
+  color: #94a3b8 !important;
+  border-color: #1e3243 !important;
+}
+
+/* 5. Ticket Delete Button */
+.ticket-delete-btn {
+  padding: 4px 7px;
+  height: 28px;
+  border-radius: 6px;
+  color: #64748b;
+  border: 1px solid var(--line);
+  background: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ticket-delete-btn:hover {
+  background: #fbe4dd;
+  color: var(--coral);
+  border-color: var(--coral);
+}
+
+.app-shell[data-theme="dark"] .ticket-delete-btn {
+  background: #182837 !important;
+  border-color: #243c50 !important;
+  color: #94a3b8 !important;
+}
+
+.app-shell[data-theme="dark"] .ticket-delete-btn:hover {
+  background: #3a1c1a !important;
+  border-color: #f87171 !important;
+  color: #f87171 !important;
+}
+
+/* 6. Service Performed Tag */
+.service-performed-tag {
+  display: inline-block;
+  font-size: 10px;
+  color: #1f6e52;
+  background: #ecfdf5;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid #d1fae5;
+  line-height: 1.2;
+}
+
+.app-shell[data-theme="dark"] .service-performed-tag {
+  background: rgba(52, 211, 153, 0.14) !important;
+  color: #34d399 !important;
+  border-color: rgba(52, 211, 153, 0.25) !important;
+}
+
+/* 7. User Avatars and Role Badges in AdminUsers */
+.pending-user-avatar--admin {
+  background: #fae3dc;
+  color: var(--coral);
+}
+
+.pending-user-avatar--tech {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.pending-user-avatar--client {
+  background: #f0f9ff;
+  color: #0369a1;
+}
+
+.app-shell[data-theme="dark"] .pending-user-avatar--admin {
+  background: rgba(231, 131, 104, 0.2) !important;
+  color: #f08b72 !important;
+  border: 1px solid rgba(231, 131, 104, 0.3) !important;
+}
+
+.app-shell[data-theme="dark"] .pending-user-avatar--tech {
+  background: rgba(52, 211, 153, 0.2) !important;
+  color: #34d399 !important;
+  border: 1px solid rgba(52, 211, 153, 0.3) !important;
+}
+
+.app-shell[data-theme="dark"] .pending-user-avatar--client {
+  background: rgba(56, 189, 248, 0.2) !important;
+  color: #38bdf8 !important;
+  border: 1px solid rgba(56, 189, 248, 0.3) !important;
+}
+
+.pending-role--admin {
+  background: #fae3dc;
+  color: var(--coral);
+}
+
+.pending-role--tech {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.pending-role--client {
+  background: #f0f9ff;
+  color: #0369a1;
+}
+
+.app-shell[data-theme="dark"] .pending-role--admin {
+  background: rgba(231, 131, 104, 0.16) !important;
+  color: #f08b72 !important;
+  border: 1px solid rgba(231, 131, 104, 0.25) !important;
+}
+
+.app-shell[data-theme="dark"] .pending-role--tech {
+  background: rgba(52, 211, 153, 0.16) !important;
+  color: #34d399 !important;
+  border: 1px solid rgba(52, 211, 153, 0.25) !important;
+}
+
+.app-shell[data-theme="dark"] .pending-role--client {
+  background: rgba(56, 189, 248, 0.16) !important;
+  color: #38bdf8 !important;
+  border: 1px solid rgba(56, 189, 248, 0.25) !important;
+}
+
+/* 8. Priority Badges in Dark Mode */
+.app-shell[data-theme="dark"] .ticket-priority-badge--normal {
+  background: rgba(56, 189, 248, 0.16) !important;
+  color: #38bdf8 !important;
+  border: 1px solid rgba(56, 189, 248, 0.25) !important;
+}
+
+.app-shell[data-theme="dark"] .ticket-priority-badge--low {
+  background: rgba(52, 211, 153, 0.16) !important;
+  color: #34d399 !important;
+  border: 1px solid rgba(52, 211, 153, 0.25) !important;
+}
+
+.app-shell[data-theme="dark"] .ticket-priority-badge--high {
+  background: rgba(251, 191, 36, 0.16) !important;
+  color: #fbbf24 !important;
+  border: 1px solid rgba(251, 191, 36, 0.25) !important;
+}
+
+.app-shell[data-theme="dark"] .ticket-priority-badge--urgent {
+  background: rgba(248, 113, 113, 0.16) !important;
+  color: #f87171 !important;
+  border: 1px solid rgba(248, 113, 113, 0.25) !important;
+}
+
+/* 9. OS Status Badges in Dark Mode */
+.app-shell[data-theme="dark"] .os-status-badge--open {
+  background: rgba(56, 189, 248, 0.16) !important;
+  color: #38bdf8 !important;
+  border: 1px solid rgba(56, 189, 248, 0.25) !important;
+}
+
+.app-shell[data-theme="dark"] .os-status-badge--in_progress {
+  background: rgba(251, 191, 36, 0.16) !important;
+  color: #fbbf24 !important;
+  border: 1px solid rgba(251, 191, 36, 0.25) !important;
+}
+
+.app-shell[data-theme="dark"] .os-status-badge--completed {
+  background: rgba(52, 211, 153, 0.16) !important;
+  color: #34d399 !important;
+  border: 1px solid rgba(52, 211, 153, 0.25) !important;
+}
+
+.app-shell[data-theme="dark"] .os-status-badge--billing_pending {
+  background: rgba(245, 158, 11, 0.16) !important;
+  color: #fbbf24 !important;
+  border: 1px solid rgba(245, 158, 11, 0.3) !important;
+  box-shadow: none !important;
+}
+
+.app-shell[data-theme="dark"] .os-status-badge--payment_informed {
+  background: rgba(251, 146, 60, 0.16) !important;
+  color: #fb923c !important;
+  border: 1px solid rgba(251, 146, 60, 0.3) !important;
+}
+
+.app-shell[data-theme="dark"] .os-status-badge--billed {
+  background: rgba(16, 185, 129, 0.16) !important;
+  color: #10b981 !important;
+  border: 1px solid rgba(16, 185, 129, 0.3) !important;
+}
+
+/* 10. Tab Buttons & Checkboxes in Dark Mode */
+.app-shell[data-theme="dark"] .dash-tab-btn {
+  color: #94a3b8 !important;
+}
+
+.app-shell[data-theme="dark"] .dash-tab-btn:hover {
+  color: #f8fafc !important;
+}
+
+.app-shell[data-theme="dark"] .dash-tab-btn--active {
+  color: #f8fafc !important;
+  border-bottom-color: var(--coral) !important;
+}
+
+.app-shell[data-theme="dark"] .ticket-filter-checkbox {
+  color: #cbd5e1 !important;
+}
+
+/* ==========================================================================
+   DASHBOARD DARK THEME COMPLETION
+   ========================================================================== */
+
+/* 1. Header Strip */
+.app-shell[data-theme="dark"] .dash-header-strip {
+  background: #14222d !important;
+  border-color: #1e3243 !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25) !important;
+}
+
+.app-shell[data-theme="dark"] .dash-header-main {
+  border-bottom-color: #1e3243 !important;
+}
+
+.app-shell[data-theme="dark"] .dash-heading-row h1 {
+  color: #f8fafc !important;
+}
+
+.app-shell[data-theme="dark"] .dash-subtitle {
+  color: #94a3b8 !important;
+}
+
+.app-shell[data-theme="dark"] .dash-clinic-badge {
+  background: rgba(52, 211, 153, 0.16) !important;
+  color: #34d399 !important;
+  border: 1px solid rgba(52, 211, 153, 0.25) !important;
+}
+
+.app-shell[data-theme="dark"] .dash-meta-item {
+  background: #101c26 !important;
+  border-color: #1e3243 !important;
+  color: #94a3b8 !important;
+}
+
+.app-shell[data-theme="dark"] .dash-meta-item svg {
+  color: #38bdf8 !important;
+}
+
+.app-shell[data-theme="dark"] .dash-meta-item strong {
+  color: #f8fafc !important;
+}
+
+/* 2. Top KPI Cards */
+.app-shell[data-theme="dark"] .dash-kpi-card {
+  background: #14222d !important;
+  border-color: #1e3243 !important;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25) !important;
+}
+
+.app-shell[data-theme="dark"] .dash-kpi-card:hover {
+  background: #182837 !important;
+  border-color: #243c50 !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35) !important;
+}
+
+.app-shell[data-theme="dark"] .dash-kpi-label {
+  color: #94a3b8 !important;
+}
+
+.app-shell[data-theme="dark"] .dash-kpi-value {
+  color: #f8fafc !important;
+}
+
+.app-shell[data-theme="dark"] .dash-kpi-icon-pill {
+  background: rgba(231, 131, 104, 0.16) !important;
+  color: #f08b72 !important;
+}
+
+.app-shell[data-theme="dark"] .dash-kpi-icon-pill--mint {
+  background: rgba(52, 211, 153, 0.16) !important;
+  color: #34d399 !important;
+}
+
+.app-shell[data-theme="dark"] .dash-kpi-icon-pill--teal {
+  background: rgba(56, 189, 248, 0.16) !important;
+  color: #38bdf8 !important;
+}
+
+.app-shell[data-theme="dark"] .dash-kpi-icon-pill--coral {
+  background: rgba(231, 131, 104, 0.16) !important;
+  color: #f08b72 !important;
+}
+
+.app-shell[data-theme="dark"] .dash-kpi-trend--positive {
+  color: #34d399 !important;
+}
+
+.app-shell[data-theme="dark"] .dash-kpi-trend--neutral {
+  color: #94a3b8 !important;
+}
+
+.app-shell[data-theme="dark"] .dash-kpi-card--billed .dash-kpi-label {
+  color: #34d399 !important;
+}
+
+.app-shell[data-theme="dark"] .dash-kpi-card--billed .dash-kpi-icon-pill {
+  background: rgba(52, 211, 153, 0.16) !important;
+  color: #34d399 !important;
+}
+
+.app-shell[data-theme="dark"] .dash-kpi-card--billed .dash-kpi-value {
+  color: #34d399 !important;
+}
+
+.app-shell[data-theme="dark"] .dash-kpi-card--billed .dash-kpi-trend {
+  color: #34d399 !important;
+}
+
+.app-shell[data-theme="dark"] .dash-kpi-card--pending {
+  border-left: 3px solid #fbbf24 !important;
+}
+
+.app-shell[data-theme="dark"] .dash-kpi-card--pending .dash-kpi-label {
+  color: #fbbf24 !important;
+}
+
+.app-shell[data-theme="dark"] .dash-kpi-card--pending .dash-kpi-icon-pill {
+  background: rgba(245, 158, 11, 0.16) !important;
+  color: #fbbf24 !important;
+}
+
+.app-shell[data-theme="dark"] .dash-kpi-card--pending .dash-kpi-value {
+  color: #fbbf24 !important;
+}
+
+.app-shell[data-theme="dark"] .dash-kpi-card--pending .dash-kpi-trend {
+  color: #fde68a !important;
+}
+
+/* 3. Quick Action Bar Buttons */
+.app-shell[data-theme="dark"] .dash-quick-btn {
+  background: #14222d !important;
+  border-color: #1e3243 !important;
+  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.2) !important;
+}
+
+.app-shell[data-theme="dark"] .dash-quick-btn:hover {
+  background: #182837 !important;
+  border-color: var(--coral) !important;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35) !important;
+}
+
+.app-shell[data-theme="dark"] .dash-quick-info small {
+  color: #8ea4b4 !important;
+}
+
+.app-shell[data-theme="dark"] .dash-quick-info strong {
+  color: #f8fafc !important;
+}
+
+.app-shell[data-theme="dark"] .dash-quick-icon--teal {
+  background: rgba(56, 189, 248, 0.16) !important;
+  color: #38bdf8 !important;
+}
+
+.app-shell[data-theme="dark"] .dash-quick-icon--blue {
+  background: rgba(99, 102, 241, 0.16) !important;
+  color: #818cf8 !important;
+}
+
+.app-shell[data-theme="dark"] .dash-quick-icon--mint {
+  background: rgba(52, 211, 153, 0.16) !important;
+  color: #34d399 !important;
+}
+
+.app-shell[data-theme="dark"] .dash-quick-icon--coral {
+  background: rgba(231, 131, 104, 0.16) !important;
+  color: #f08b72 !important;
+}
+
+/* 4. Timeline in Dashboard */
+.app-shell[data-theme="dark"] .dash-timeline-node {
+  background: #101c26 !important;
+  border-color: #1e3243 !important;
+}
+
+.app-shell[data-theme="dark"] .dash-timeline-head strong {
+  color: #f8fafc !important;
+}
+
+.app-shell[data-theme="dark"] .dash-timeline-head time {
+  color: #64748b !important;
+}
+
+.app-shell[data-theme="dark"] .dash-timeline-content p {
+  color: #94a3b8 !important;
+}
+
+.app-shell[data-theme="dark"] .dash-timeline-content p b {
+  color: #f8fafc !important;
+}
+
+/* 5. Mini KPI Grid in Faturadas / Chamados tabs in Dashboard */
+.app-shell[data-theme="dark"] .dash-faturadas-section div[style*="background: #f0fdf4"],
+.app-shell[data-theme="dark"] .dash-chamados-section div[style*="background: #f0fdf4"] {
+  background: rgba(52, 211, 153, 0.14) !important;
+  border-color: rgba(52, 211, 153, 0.25) !important;
+}
+
+.app-shell[data-theme="dark"] .dash-faturadas-section div[style*="background: #fffbeb"],
+.app-shell[data-theme="dark"] .dash-chamados-section div[style*="background: #fff7ed"] {
+  background: rgba(245, 158, 11, 0.14) !important;
+  border-color: rgba(245, 158, 11, 0.25) !important;
+}
+
+.app-shell[data-theme="dark"] .dash-faturadas-section div[style*="background: #f8fafc"],
+.app-shell[data-theme="dark"] .dash-chamados-section div[style*="background: #f8fafc"] {
+  background: #101c26 !important;
+  border-color: #1e3243 !important;
+}
+
+.app-shell[data-theme="dark"] .dash-chamados-section div[style*="background: #eff6ff"] {
+  background: rgba(56, 189, 248, 0.14) !important;
+  border-color: rgba(56, 189, 248, 0.25) !important;
+}
+
+.app-shell[data-theme="dark"] .dash-chamados-section div[style*="background: #fef2f2"] {
+  background: rgba(248, 113, 113, 0.14) !important;
+  border-color: rgba(248, 113, 113, 0.25) !important;
+}
+
+/* 6. Alert Banners in Dashboard */
+.app-shell[data-theme="dark"] .billing-client-alert {
+  background: rgba(245, 158, 11, 0.12) !important;
+  border-color: rgba(245, 158, 11, 0.3) !important;
+  color: #fde68a !important;
+}
+
+.app-shell[data-theme="dark"] .billing-client-alert strong {
+  color: #fbbf24 !important;
+}
+
+.app-shell[data-theme="dark"] .billing-client-alert p {
+  color: #fde68a !important;
+}
+
+/* 7. Alerts in Dark Mode */
+.app-shell[data-theme="dark"] .dash-alert--success {
+  background: rgba(52, 211, 153, 0.16) !important;
+  color: #34d399 !important;
+  border-color: rgba(52, 211, 153, 0.3) !important;
+}
+
+.app-shell[data-theme="dark"] .dash-alert--error {
+  background: rgba(248, 113, 113, 0.16) !important;
+  color: #f87171 !important;
+  border-color: rgba(248, 113, 113, 0.3) !important;
+}
+
+
+

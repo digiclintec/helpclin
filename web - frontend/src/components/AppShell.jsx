@@ -1,6 +1,8 @@
 import { BarChart3, FilePlus2, Headset, LayoutDashboard, LogOut, Menu, UserCheck, X, Monitor } from 'lucide-react';
 import { useState } from 'react';
 import NotificationCenter from './NotificationCenter.jsx';
+import ThemeToggle from './ThemeToggle.jsx';
+import { ThemeProvider, useTheme } from '../utils/themeContext.jsx';
 import { getStoredUser } from '../services/api.js';
 
 const navigation = [
@@ -11,8 +13,9 @@ const navigation = [
   { label: 'Relatórios', icon: BarChart3, href: '/relatorios' }
 ];
 
-function AppShell({ children }) {
+function AppShellInner({ children }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { resolvedTheme } = useTheme();
   const currentPath = window.location.pathname;
   const user = getStoredUser();
 
@@ -32,7 +35,7 @@ function AppShell({ children }) {
   }
 
   return (
-    <div className="app-shell">
+    <div className="app-shell" data-theme={resolvedTheme}>
       <aside className={`sidebar ${isMenuOpen ? 'sidebar--open' : ''}`}>
         <div className="brand">
           <span className="brand-mark">H</span>
@@ -64,6 +67,7 @@ function AppShell({ children }) {
           <button className="icon-button menu-toggle" onClick={() => setIsMenuOpen(true)} aria-label="Abrir menu"><Menu size={22} /></button>
           <div className="breadcrumb"><span>HelpClin</span><span>/</span><strong>{navigationItems.find(({ href }) => href === currentPath)?.label ?? 'Chamados'}</strong></div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto' }}>
+            <ThemeToggle />
             <NotificationCenter />
             <button
               className="icon-button topbar-logout-btn"
@@ -74,7 +78,7 @@ function AppShell({ children }) {
                 width: '36px',
                 height: '36px',
                 borderRadius: '8px',
-                color: '#64748b',
+                color: 'var(--muted)',
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -90,6 +94,14 @@ function AppShell({ children }) {
         {children}
       </main>
     </div>
+  );
+}
+
+function AppShell({ children }) {
+  return (
+    <ThemeProvider>
+      <AppShellInner>{children}</AppShellInner>
+    </ThemeProvider>
   );
 }
 

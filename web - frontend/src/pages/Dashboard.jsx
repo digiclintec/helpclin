@@ -729,7 +729,7 @@ function Dashboard() {
         </article>
 
         <article
-          className="dash-kpi-card"
+          className="dash-kpi-card dash-kpi-card--billed"
           onClick={() => setActiveTab('faturadas')}
           role="button"
           tabIndex={0}
@@ -737,42 +737,42 @@ function Dashboard() {
           title="Clique para ver a tela de ordens faturadas"
         >
           <div className="dash-kpi-header">
-            <span className="dash-kpi-label" style={{ color: '#065f46' }}>
+            <span className="dash-kpi-label">
               Ordens Faturadas
             </span>
-            <div className="dash-kpi-icon-pill" style={{ background: '#d1fae5', color: '#059669' }}>
+            <div className="dash-kpi-icon-pill">
               <CheckCircle2 size={16} />
             </div>
           </div>
-          <strong className="dash-kpi-value" style={{ color: '#065f46' }}>
+          <strong className="dash-kpi-value">
             {kpis.billed}
           </strong>
-          <div className="dash-kpi-trend" style={{ color: '#059669' }}>
+          <div className="dash-kpi-trend">
             <ArrowRight size={12} />
             <span>{kpis.billingRate}% das finalizadas faturadas</span>
           </div>
         </article>
 
         <article
-          className="dash-kpi-card"
-          style={kpis.billingPending > 0 ? { borderLeft: '3px solid #d97706', cursor: 'pointer' } : { cursor: 'pointer' }}
+          className={`dash-kpi-card ${kpis.billingPending > 0 ? 'dash-kpi-card--pending' : ''}`}
+          style={{ cursor: 'pointer' }}
           onClick={() => setActiveTab('faturadas')}
           role="button"
           tabIndex={0}
           title="Clique para ver o painel financeiro"
         >
           <div className="dash-kpi-header">
-            <span className="dash-kpi-label" style={kpis.billingPending > 0 ? { color: '#b45309' } : {}}>
+            <span className="dash-kpi-label">
               Faturamento Pendente
             </span>
-            <div className="dash-kpi-icon-pill" style={kpis.billingPending > 0 ? { background: '#fef3c7', color: '#b45309' } : {}}>
+            <div className="dash-kpi-icon-pill">
               <Clock size={16} />
             </div>
           </div>
-          <strong className="dash-kpi-value" style={kpis.billingPending > 0 ? { color: '#b45309' } : {}}>
+          <strong className="dash-kpi-value">
             {kpis.billingPending}
           </strong>
-          <div className="dash-kpi-trend" style={{ color: '#92400e' }}>
+          <div className="dash-kpi-trend">
             <span>Concluídas há &gt; 2 dias ({kpis.billed} faturadas)</span>
           </div>
         </article>
