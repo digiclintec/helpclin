@@ -2901,6 +2901,54 @@ button { font: inherit; cursor: pointer; }
   color: #34d399;
 }
 
+/* Theme Sync Prompt in Dark Mode */
+.app-shell[data-theme="dark"] .theme-sync-prompt {
+  background: #14222d !important;
+  border-color: #1e3243 !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55) !important;
+}
+
+.app-shell[data-theme="dark"] .theme-prompt-icon-wrap {
+  background: rgba(56, 189, 248, 0.16) !important;
+  color: #38bdf8 !important;
+}
+
+.app-shell[data-theme="dark"] .theme-prompt-title-group strong {
+  color: #f8fafc !important;
+}
+
+.app-shell[data-theme="dark"] .theme-prompt-title-group span {
+  color: #94a3b8 !important;
+}
+
+.app-shell[data-theme="dark"] .theme-prompt-close-btn {
+  color: #94a3b8 !important;
+}
+
+.app-shell[data-theme="dark"] .theme-prompt-close-btn:hover {
+  background: #182837 !important;
+  color: #f8fafc !important;
+}
+
+.app-shell[data-theme="dark"] .theme-prompt-body p {
+  color: #cbd5e1 !important;
+}
+
+.app-shell[data-theme="dark"] .theme-prompt-body p b {
+  color: #f8fafc !important;
+}
+
+.app-shell[data-theme="dark"] .theme-prompt-btn-secondary {
+  background: #182837 !important;
+  color: #cbd5e1 !important;
+  border-color: #243c50 !important;
+}
+
+.app-shell[data-theme="dark"] .theme-prompt-btn-secondary:hover {
+  background: #203548 !important;
+  color: #f8fafc !important;
+}
+
 /* Notifications in Dark Mode */
 .app-shell[data-theme="dark"] .notification-button {
   background: #14222d;
