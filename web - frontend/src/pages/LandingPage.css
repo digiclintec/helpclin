@@ -33,6 +33,9 @@
 
 .text-coral {
   color: var(--clean-coral-500);
+  background: linear-gradient(135deg, #e78368 0%, #db684c 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 /* ── Header ── */
@@ -249,9 +252,14 @@
   font-family: 'Manrope', sans-serif;
   font-size: clamp(32px, 4vw, 48px);
   font-weight: 800;
-  line-height: 1.15;
+  line-height: 1.18;
   letter-spacing: -0.04em;
   color: var(--clean-teal-900);
+  text-wrap: balance;
+}
+
+.hero-br {
+  display: block;
 }
 
 .clean-hero__desc {
@@ -1065,6 +1073,10 @@
 }
 
 @media (max-width: 768px) {
+  .hero-br {
+    display: inline;
+  }
+
   .clean-menu-toggle {
     display: block;
   }

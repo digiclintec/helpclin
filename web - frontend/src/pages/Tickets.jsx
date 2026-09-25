@@ -36,6 +36,14 @@ import {
   isClinicalModuleEnabled,
   isPredialModuleEnabled
 } from '../utils/billingUtils.js';
+import {
+  VERTICALS,
+  canUserAccessVertical,
+  filterEquipmentsForUser,
+  formatUserVerticalsSummary,
+  getAssetVertical,
+  getUserAllowedVerticals
+} from '../utils/verticalUtils.js';
 
 const TI_PROBLEMS = [
   'Dificuldades com sistema Clinux / PEP / Prontuário',
@@ -64,17 +72,59 @@ const PREDIAL_PROBLEMS = [
   'Problema em porta corta-fogo ou trava de leito'
 ];
 
-function getEquipmentProblemSuggestions(selectedEquipment) {
+// Problemas eventuais pré-definidos exclusivamente para equipamentos
+export const CLINICAL_EQUIPMENT_PROBLEMS = [
+  'Alarme sonoro constante / Falso alarme de sinal vital (Monitor / UTI)',
+  'Descalibração ou erro de leitura em sensores (SpO2, PNI, ECG)',
+  'Equipamento não liga / Bateria interna sem autonomia ou viciada',
+  'Erro de oclusão / Falha na vazão de infusão (Bomba de Infusão / Seringa)',
+  'Desfibrilador com falha no autoteste / Descarga sem potência nominal',
+  'Ventilador com vazamento / Baixa pressão inspiratória / Falha de válvula',
+  'Autoclave não atinge patamar de temperatura/pressão de esterilização',
+  'Bisturi elétrico / Eletrocautério com falha na caneta ou placa neutra',
+  'Cabo de paciente, transdutor ou conector quebrado / Mau contato',
+  'Display / Tela do equipamento apagada, com linhas ou touch inoperante',
+  'Solicitação de calibração metrológica periódica / Certificado RBC',
+  'Dano físico / Suporte, trava de leito ou rodízio quebrado'
+];
+
+export const PREDIAL_EQUIPMENT_PROBLEMS = [
+  'Grupo Gerador com falha na partida automática pós-queda de rede',
+  'Alarme de baixa pressão na rede de oxigênio / gases medicinais',
+  'No-break hospitalar (UPS) desarmando / Operando em alarme de sobrecarga',
+  'Ar-condicionado cirúrgico sem refrigerar / Sala fora da temperatura (PMOC)',
+  'Gotejamento de água / Dreno de ar-condicionado entupido no setor',
+  'Bomba de recalque de água desarmada / Sem pressão nas torneiras',
+  'Central de vácuo clínico desarmando / Baixa sucção nos leitos',
+  'Painel de alarme de incêndio acusando falha de laço / detector',
+  'Quadro elétrico com disjuntor desarmando / Superaquecimento anormal',
+  'Porta corta-fogo com mola ou trava eletromagnética inoperante'
+];
+
+export const TI_HARDWARE_EQUIPMENT_PROBLEMS = [
+  'Computador / Estação de atendimento médica não liga / Sem vídeo',
+  'Lentidão extrema / Travamento com tela azul (BSOD) durante uso do PEP',
+  'Impressora térmica de pulseiras travando etiquetas / Não traciona',
+  'Leitor óptico de código de barras não reconhece pulseiras/medicamentos',
+  'Monitor da estação médica piscando, sem sinal ou resolução incorreta',
+  'Cabo de rede rompido / Ponto RJ45 do leito danificado fisicamente',
+  'Fonte de alimentação queimada / Equipamento desarmando disjuntor',
+  'Teclado ou mouse quebrado / Porta USB com defeito',
+  'Superaquecimento do processador / Cooler da CPU com ruído excessivo'
+];
+
+function getEquipmentProblemSuggestions(selectedEquipment, user = null) {
   if (!selectedEquipment) {
-    return [
-      'Equipamento não liga / Sem energia',
-      'Superaquecimento / Ruído excessivo',
-      'Mau contato em cabos ou conectores',
-      'Falha de funcionamento intermitente',
-      'Necessidade de manutenção preventiva / Calibração',
-      'Dano físico / Peça quebrada',
-      'Outro problema (detalhado nas observações)'
-    ];
+    const list = [];
+    if (canUserAccessVertical(user, 'clinical') && isClinicalModuleEnabled()) list.push(...CLINICAL_EQUIPMENT_PROBLEMS.slice(0, 6));
+    if (canUserAccessVertical(user, 'predial') && isPredialModuleEnabled()) list.push(...PREDIAL_EQUIPMENT_PROBLEMS.slice(0, 4));
+    if (canUserAccessVertical(user, 'ti') && isTIModuleEnabled()) list.push(...TI_HARDWARE_EQUIPMENT_PROBLEMS.slice(0, 4));
+    list.push('Equipamento não liga / Sem alimentação elétrica');
+    list.push('Mau contato elétrico ou conector danificado');
+    list.push('Superaquecimento anormal / Ruído excessivo');
+    list.push('Dano físico / Peça quebrada / Rodízio travado');
+    list.push('Outro problema (detalhado nas observações)');
+    return Array.from(new Set(list));
   }
 
   const type = (selectedEquipment.equipment_type || '').toLowerCase();
@@ -232,12 +282,14 @@ function getEquipmentProblemSuggestions(selectedEquipment) {
   }
 
   return [
-    'Equipamento não liga / Sem energia',
-    'Superaquecimento / Ruído excessivo',
+    'Equipamento não liga / Sem alimentação elétrica',
+    'Superaquecimento anormal / Ruído excessivo',
     'Mau contato elétrico ou conector danificado',
-    'Falha de funcionamento intermitente',
-    'Necessidade de calibração / Manutenção preventiva',
-    'Dano físico / Peça quebrada',
+    'Falha de funcionamento intermitente / Desarmando',
+    'Necessidade de calibração metrológica / Certificado RBC',
+    'Dano físico / Peça quebrada / Rodízio travado',
+    'Display / Tela do equipamento apagada ou touch inoperante',
+    'Alarme sonoro constante ou intermitente no leito',
     'Outro problema (detalhado nas observações)'
   ];
 }
@@ -326,23 +378,32 @@ function Tickets() {
     }
   }
 
+  // REQUISITO CRÍTICO: Cada cliente só visualiza o que está setado na sua vertente
+  const accessibleInventory = useMemo(() => {
+    return filterEquipmentsForUser(inventory, user);
+  }, [inventory, user]);
+
+  const allowedVerticals = useMemo(() => {
+    return getUserAllowedVerticals(user);
+  }, [user]);
+
   // Selected equipment object and suggestions
   const selectedEquipment = useMemo(() => {
     if (!form.equipmentId) return null;
-    return inventory.find((eq) => String(eq.id) === String(form.equipmentId)) || null;
-  }, [form.equipmentId, inventory]);
+    return accessibleInventory.find((eq) => String(eq.id) === String(form.equipmentId)) || null;
+  }, [form.equipmentId, accessibleInventory]);
 
   const currentProblemSuggestions = useMemo(() => {
     if (form.ticketType === 'service') {
       const activeProblems = [];
-      if (isTIModuleEnabled()) activeProblems.push(...TI_PROBLEMS);
-      if (isClinicalModuleEnabled()) activeProblems.push(...CLINICAL_PROBLEMS);
-      if (isPredialModuleEnabled()) activeProblems.push(...PREDIAL_PROBLEMS);
+      if (canUserAccessVertical(user, 'ti') && isTIModuleEnabled()) activeProblems.push(...TI_PROBLEMS);
+      if (canUserAccessVertical(user, 'clinical') && isClinicalModuleEnabled()) activeProblems.push(...CLINICAL_PROBLEMS);
+      if (canUserAccessVertical(user, 'predial') && isPredialModuleEnabled()) activeProblems.push(...PREDIAL_PROBLEMS);
       activeProblems.push('Outro problema (detalhado nas observações)');
       return activeProblems;
     }
-    return getEquipmentProblemSuggestions(selectedEquipment);
-  }, [form.ticketType, selectedEquipment, settingsVersion]);
+    return getEquipmentProblemSuggestions(selectedEquipment, user);
+  }, [form.ticketType, selectedEquipment, user, settingsVersion]);
 
   function updateField(event) {
     const { name, value, type, files } = event.target;
@@ -1494,11 +1555,49 @@ function Tickets() {
                     required
                   >
                     <option value="">Selecione o equipamento cadastrado</option>
-                    {inventory.map((eq) => (
-                      <option key={eq.id} value={eq.id}>
-                        {eq.name} — {eq.location || 'Sem local'} (S/N: {eq.serial_number || 'N/A'})
-                      </option>
-                    ))}
+                    {allowedVerticals.length > 1 ? (
+                      <>
+                        {allowedVerticals.includes('clinical') && (
+                          <optgroup label="🩺 Engenharia Clínica (Equipamentos Médicos)">
+                            {accessibleInventory
+                              .filter((eq) => getAssetVertical(eq.equipment_type, eq.vertical).code === 'clinical')
+                              .map((eq) => (
+                                <option key={eq.id} value={eq.id}>
+                                  {eq.name} — {eq.location || 'Sem local'} (S/N: {eq.serial_number || 'N/A'})
+                                </option>
+                              ))}
+                          </optgroup>
+                        )}
+                        {allowedVerticals.includes('ti') && (
+                          <optgroup label="💻 T.I. em Saúde (Hardware & Redes)">
+                            {accessibleInventory
+                              .filter((eq) => getAssetVertical(eq.equipment_type, eq.vertical).code === 'ti')
+                              .map((eq) => (
+                                <option key={eq.id} value={eq.id}>
+                                  {eq.name} — {eq.location || 'Sem local'} (S/N: {eq.serial_number || 'N/A'})
+                                </option>
+                              ))}
+                          </optgroup>
+                        )}
+                        {allowedVerticals.includes('predial') && (
+                          <optgroup label="🏢 Engenharia Predial (Infraestrutura)">
+                            {accessibleInventory
+                              .filter((eq) => getAssetVertical(eq.equipment_type, eq.vertical).code === 'predial')
+                              .map((eq) => (
+                                <option key={eq.id} value={eq.id}>
+                                  {eq.name} — {eq.location || 'Sem local'} (S/N: {eq.serial_number || 'N/A'})
+                                </option>
+                              ))}
+                          </optgroup>
+                        )}
+                      </>
+                    ) : (
+                      accessibleInventory.map((eq) => (
+                        <option key={eq.id} value={eq.id}>
+                          {eq.name} — {eq.location || 'Sem local'} (S/N: {eq.serial_number || 'N/A'})
+                        </option>
+                      ))
+                    )}
                   </select>
                 </div>
               )}
@@ -1542,17 +1641,22 @@ function Tickets() {
                 </select>
 
                 {/* Quick Selection Chips */}
-                <div className="ticket-problem-chips">
-                  {currentProblemSuggestions.slice(0, 5).map((prob) => (
-                    <button
-                      key={prob}
-                      type="button"
-                      className={`ticket-problem-chip ${form.relatedProblem === prob ? 'ticket-problem-chip--active' : ''}`}
-                      onClick={() => setForm({ ...form, relatedProblem: prob })}
-                    >
-                      {prob}
-                    </button>
-                  ))}
+                <div style={{ marginTop: '8px' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 600 }}>
+                    {form.ticketType === 'equipment' ? 'Problemas eventuais de equipamentos (clique para preencher):' : 'Problemas frequentes:'}
+                  </span>
+                  <div className="ticket-problem-chips" style={{ marginTop: '5px' }}>
+                    {currentProblemSuggestions.slice(0, 6).map((prob) => (
+                      <button
+                        key={prob}
+                        type="button"
+                        className={`ticket-problem-chip ${form.relatedProblem === prob ? 'ticket-problem-chip--active' : ''}`}
+                        onClick={() => setForm((prev) => ({ ...prev, relatedProblem: prob }))}
+                      >
+                        {prob}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 

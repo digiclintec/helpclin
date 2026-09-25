@@ -5,7 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:ti": "vite --mode ti",
+    "dev:clinica": "vite --mode clinica",
+    "dev:predial": "vite --mode predial",
     "build": "vite build",
+    "build:ti": "vite build --mode ti --outDir dist-ti",
+    "build:clinica": "vite build --mode clinica --outDir dist-clinica",
+    "build:predial": "vite build --mode predial --outDir dist-predial",
     "build:hml": "vite build --mode hml",
     "build:prd": "vite build --mode prd",
     "start:hml": "vite build --mode hml && vite preview --host 0.0.0.0 --port 4173",

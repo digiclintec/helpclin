@@ -10,11 +10,47 @@
 export const BILLING_MAX_DAYS = 30; // 30 dias de prazo padrão para faturamento
 export const BILLING_PENDING_HOURS = 30 * 24; // 30 dias = 720 horas
 
+export const VERTICAL_PRESETS = {
+  ti: {
+    id: 'ti',
+    name: 'HelpClin T.I. em Saúde',
+    moduleTI: true,
+    moduleClinical: false,
+    modulePredial: false,
+    contractPlan: 'HelpClin T.I. em Saúde & Infraestrutura Hospitalar',
+    primaryVertical: 'ti',
+    themeColor: '#2563eb'
+  },
+  clinical: {
+    id: 'clinical',
+    name: 'HelpClin Engenharia Clínica',
+    moduleTI: false,
+    moduleClinical: true,
+    modulePredial: false,
+    contractPlan: 'HelpClin Engenharia Clínica & Parque Biomédico',
+    primaryVertical: 'clinical',
+    themeColor: '#059669'
+  },
+  predial: {
+    id: 'predial',
+    name: 'HelpClin Predial & Facilities',
+    moduleTI: false,
+    moduleClinical: false,
+    modulePredial: true,
+    contractPlan: 'HelpClin Predial, Geradores & PMOC',
+    primaryVertical: 'facilities',
+    themeColor: '#d97706'
+  }
+};
+
+const activeVerticalEnv = typeof import.meta !== 'undefined' && import.meta.env?.VITE_VERTICAL;
+const activeVerticalPreset = activeVerticalEnv && VERTICAL_PRESETS[activeVerticalEnv] ? VERTICAL_PRESETS[activeVerticalEnv] : null;
+
 export const DEFAULT_BILLING_SETTINGS = {
   // Módulos Contratuais geridos exclusivamente pela Gestão HelpClin
-  moduleTI: true, // Ativa/Desativa chamados e suporte de T.I. em Saúde
-  moduleClinical: true, // Ativa/Desativa Engenharia Clínica & Equipamentos Biomédicos
-  modulePredial: true, // Ativa/Desativa Engenharia Predial & Utilidades Críticas
+  moduleTI: activeVerticalPreset ? activeVerticalPreset.moduleTI : true,
+  moduleClinical: activeVerticalPreset ? activeVerticalPreset.moduleClinical : true,
+  modulePredial: activeVerticalPreset ? activeVerticalPreset.modulePredial : true,
   billingEnabled: true, // true = Modo Freelancer (com cobrança); false = Modo Equipe Própria / Hospitalar (sem cobrança)
 
   billingMaxDays: 30, // Prazo em dias para faturamento
@@ -23,9 +59,9 @@ export const DEFAULT_BILLING_SETTINGS = {
   requireTechnicianConfirmation: true, // Exigir confirmação técnica
   organizationName: 'Unidade Hospitalar / Clínica',
   contactEmail: '',
-  primaryVertical: 'all', // 'all', 'clinical', 'ti', 'facilities'
+  primaryVertical: activeVerticalPreset ? activeVerticalPreset.primaryVertical : 'all',
   contractStatus: 'active', // 'active' | 'trial' | 'paused'
-  contractPlan: 'Plano Tri-Vertical Completo',
+  contractPlan: activeVerticalPreset ? activeVerticalPreset.contractPlan : 'Plano Tri-Vertical Completo',
   contractDate: '2026-01-01',
   clientCnpj: '12.345.678/0001-90',
   adminNotes: 'Módulos liberados conforme contrato de prestação de serviços HelpClin.'

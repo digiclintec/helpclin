@@ -15,7 +15,7 @@ function App() {
   const user = getStoredUser();
 
   // Protected route guard: redirect unauthenticated visitors to /login
-  const protectedRoutes = ['/dashboard', '/ordens', '/chamados', '/relatorios', '/usuarios', '/inventario', '/configuracoes', '/gestao'];
+  const protectedRoutes = ['/dashboard', '/ordens', '/servicos', '/chamados', '/relatorios', '/usuarios', '/inventario', '/configuracoes', '/gestao'];
   if (protectedRoutes.includes(window.location.pathname) && !user) {
     window.location.replace('/login');
     return (
@@ -51,7 +51,7 @@ function App() {
     return <AppShell><Dashboard /></AppShell>;
   }
 
-  if (window.location.pathname === '/ordens') {
+  if (window.location.pathname === '/ordens' || window.location.pathname === '/servicos') {
     return <AppShell><ServiceOrders /></AppShell>;
   }
 

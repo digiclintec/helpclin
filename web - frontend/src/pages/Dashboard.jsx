@@ -1479,18 +1479,9 @@ function Dashboard() {
                 </div>
 
                 <select
+                  className="dash-filter-select ticket-filter-select"
                   value={ticketStatusFilter}
                   onChange={(e) => setTicketStatusFilter(e.target.value)}
-                  style={{
-                    height: '38px',
-                    padding: '0 12px',
-                    border: '1px solid var(--line)',
-                    borderRadius: '9px',
-                    background: '#fbfcfa',
-                    color: 'var(--teal)',
-                    fontSize: '12px',
-                    fontWeight: 600
-                  }}
                   aria-label="Filtro de status de chamado"
                 >
                   <option value="all">Todos os status</option>

@@ -207,8 +207,8 @@ export default function LandingPage() {
               </div>
 
               <h1 className="clean-hero__title">
-                Chamados e Ordens de Serviço para{' '}
-                <span className="text-coral">T.I., Clínica e Predial</span>
+                Chamados e Ordens de Serviço<br className="hero-br" />
+                para <span className="text-coral">TI, Clínica e Predial</span>
               </h1>
 
               <p className="clean-hero__desc">
@@ -309,7 +309,7 @@ export default function LandingPage() {
               <div className="pillar-card__icon ti">
                 <Server size={24} />
               </div>
-              <h3>T.I. em Saúde</h3>
+              <h3>TI em Saúde</h3>
               <p>Suporte especializado em prontuários eletrônicos, redes assistenciais e conectividade hospitalar.</p>
               <ul className="pillar-bullets">
                 <li><CheckCircle2 size={15} /> Suporte a PEP, Tasy, MV, Clinux e PACS</li>
@@ -320,8 +320,7 @@ export default function LandingPage() {
             </div>
 
             {/* Card 2: Engenharia Clínica */}
-            <div className="pillar-card pillar-card--featured">
-              <div className="pillar-badge">Mais Utilizado</div>
+            <div className="pillar-card">
               <div className="pillar-card__icon clinical">
                 <Stethoscope size={24} />
               </div>
@@ -372,7 +371,7 @@ export default function LandingPage() {
                   }}
                 >
                   <Server size={16} />
-                  <span>T.I. em Saúde</span>
+                  <span>TI em Saúde</span>
                 </button>
 
                 <button
