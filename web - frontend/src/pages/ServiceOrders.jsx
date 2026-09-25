@@ -44,7 +44,8 @@ import {
   isBillingPending,
   isBilled,
   isPaymentInformed,
-  isWaitingTechnicianConfirmation
+  isWaitingTechnicianConfirmation,
+  isBillingModuleEnabled
 } from '../utils/billingUtils.js';
 import { exportToPdf, exportToXls, printServiceOrder } from '../utils/exportReport.js';
 import { matchOrderSearch } from '../utils/searchUtils.js';
@@ -87,9 +88,16 @@ function ServiceOrders() {
   // Delete modal state
   const [deletingOrder, setDeletingOrder] = useState(null);
   const [deleteLinkedTicket, setDeleteLinkedTicket] = useState(true);
+  const [billingEnabled, setBillingEnabled] = useState(isBillingModuleEnabled);
 
   useEffect(() => {
     loadOrders();
+
+    function onSettingsChanged() {
+      setBillingEnabled(isBillingModuleEnabled());
+    }
+    window.addEventListener('helpclin_settings_changed', onSettingsChanged);
+    return () => window.removeEventListener('helpclin_settings_changed', onSettingsChanged);
   }, []);
 
   async function loadOrders() {
@@ -589,47 +597,51 @@ function ServiceOrders() {
           <strong className="ticket-kpi-count">{kpis.completed}</strong>
         </div>
 
-        <div
-          className={`ticket-kpi-card ${activeKpiFilter === 'payment_informed' ? 'ticket-kpi-card--active' : ''}`}
-          onClick={() => setActiveKpiFilter('payment_informed')}
-          role="button"
-          tabIndex={0}
-          style={{ borderLeft: '3px solid #d97706' }}
-        >
-          <div className="ticket-kpi-info">
-            <span className="ticket-kpi-title" style={{ color: '#92400e' }}>Aguardando Confirmação</span>
-            <span className="ticket-kpi-sub">Pgto informado pelo cliente</span>
-          </div>
-          <strong className="ticket-kpi-count" style={{ color: '#92400e' }}>{kpis.paymentInformed}</strong>
-        </div>
+        {billingEnabled && (
+          <>
+            <div
+              className={`ticket-kpi-card ${activeKpiFilter === 'payment_informed' ? 'ticket-kpi-card--active' : ''}`}
+              onClick={() => setActiveKpiFilter('payment_informed')}
+              role="button"
+              tabIndex={0}
+              style={{ borderLeft: '3px solid #d97706' }}
+            >
+              <div className="ticket-kpi-info">
+                <span className="ticket-kpi-title" style={{ color: '#92400e' }}>Aguardando Confirmação</span>
+                <span className="ticket-kpi-sub">Pgto informado pelo cliente</span>
+              </div>
+              <strong className="ticket-kpi-count" style={{ color: '#92400e' }}>{kpis.paymentInformed}</strong>
+            </div>
 
-        <div
-          className={`ticket-kpi-card ${activeKpiFilter === 'billing_pending' ? 'ticket-kpi-card--active' : ''}`}
-          onClick={() => setActiveKpiFilter('billing_pending')}
-          role="button"
-          tabIndex={0}
-          style={{ borderLeft: kpis.billingOverdue > 0 ? '3px solid #dc2626' : '3px solid #ea580c' }}
-        >
-          <div className="ticket-kpi-info">
-            <span className="ticket-kpi-title" style={{ color: kpis.billingOverdue > 0 ? '#b91c1c' : '#c2410c' }}>Aguardando Faturamento</span>
-            <span className="ticket-kpi-sub">{kpis.billingOverdue > 0 ? `${kpis.billingOverdue} com atraso (> 30d)` : 'Prazo de até 30 dias'}</span>
-          </div>
-          <strong className="ticket-kpi-count" style={{ color: kpis.billingOverdue > 0 ? '#b91c1c' : '#c2410c' }}>{kpis.billingPending}</strong>
-        </div>
+            <div
+              className={`ticket-kpi-card ${activeKpiFilter === 'billing_pending' ? 'ticket-kpi-card--active' : ''}`}
+              onClick={() => setActiveKpiFilter('billing_pending')}
+              role="button"
+              tabIndex={0}
+              style={{ borderLeft: kpis.billingOverdue > 0 ? '3px solid #dc2626' : '3px solid #ea580c' }}
+            >
+              <div className="ticket-kpi-info">
+                <span className="ticket-kpi-title" style={{ color: kpis.billingOverdue > 0 ? '#b91c1c' : '#c2410c' }}>Aguardando Faturamento</span>
+                <span className="ticket-kpi-sub">{kpis.billingOverdue > 0 ? `${kpis.billingOverdue} com atraso (> 30d)` : 'Prazo de até 30 dias'}</span>
+              </div>
+              <strong className="ticket-kpi-count" style={{ color: kpis.billingOverdue > 0 ? '#b91c1c' : '#c2410c' }}>{kpis.billingPending}</strong>
+            </div>
 
-        <div
-          className={`ticket-kpi-card ${activeKpiFilter === 'billed' ? 'ticket-kpi-card--active' : ''}`}
-          onClick={() => setActiveKpiFilter('billed')}
-          role="button"
-          tabIndex={0}
-          style={{ borderLeft: '3px solid #059669' }}
-        >
-          <div className="ticket-kpi-info">
-            <span className="ticket-kpi-title" style={{ color: '#065f46' }}>Faturadas</span>
-            <span className="ticket-kpi-sub">Pagas &amp; liberadas</span>
-          </div>
-          <strong className="ticket-kpi-count" style={{ color: '#065f46' }}>{kpis.billed}</strong>
-        </div>
+            <div
+              className={`ticket-kpi-card ${activeKpiFilter === 'billed' ? 'ticket-kpi-card--active' : ''}`}
+              onClick={() => setActiveKpiFilter('billed')}
+              role="button"
+              tabIndex={0}
+              style={{ borderLeft: '3px solid #059669' }}
+            >
+              <div className="ticket-kpi-info">
+                <span className="ticket-kpi-title" style={{ color: '#065f46' }}>Faturadas</span>
+                <span className="ticket-kpi-sub">Pagas &amp; liberadas</span>
+              </div>
+              <strong className="ticket-kpi-count" style={{ color: '#065f46' }}>{kpis.billed}</strong>
+            </div>
+          </>
+        )}
 
         <div
           className={`ticket-kpi-card ${activeKpiFilter === 'urgent' ? 'ticket-kpi-card--active' : ''}`}
@@ -678,9 +690,13 @@ function ServiceOrders() {
             <option value="open">Abertas</option>
             <option value="in_progress">Em andamento</option>
             <option value="completed">Concluídas</option>
-            <option value="payment_informed">Aguardando Confirmação do Técnico</option>
-            <option value="billing_pending">Aguardando Faturamento (Prazo 30 dias)</option>
-            <option value="billed">Faturadas (Pagas)</option>
+            {billingEnabled && (
+              <>
+                <option value="payment_informed">Aguardando Confirmação do Técnico</option>
+                <option value="billing_pending">Aguardando Faturamento (Prazo 30 dias)</option>
+                <option value="billed">Faturadas (Pagas)</option>
+              </>
+            )}
             <option value="cancelled">Canceladas</option>
           </select>
 
@@ -1288,9 +1304,13 @@ function ServiceOrders() {
                   >
                     <option value="open">Aberta (Pendente de atendimento)</option>
                     <option value="in_progress">Em andamento (Técnico trabalhando)</option>
-                    <option value="completed">Concluída (Finalizada recentemente)</option>
-                    <option value="billing_pending">Pendência de Faturamento (Aguardando pagamento)</option>
-                    <option value="billed">Faturada (Paga - Acesso concedido ao técnico)</option>
+                    <option value="completed">Concluída (Finalizada)</option>
+                    {billingEnabled && (
+                      <>
+                        <option value="billing_pending">Pendência de Faturamento (Aguardando pagamento)</option>
+                        <option value="billed">Faturada (Paga - Acesso concedido ao técnico)</option>
+                      </>
+                    )}
                     <option value="cancelled">Cancelada</option>
                   </select>
                 </div>

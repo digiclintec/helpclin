@@ -7,8 +7,118 @@
  * - Ordens faturadas recebem status "Faturada".
  */
 
-export const BILLING_MAX_DAYS = 30; // 30 dias de prazo para faturamento
+export const BILLING_MAX_DAYS = 30; // 30 dias de prazo padrão para faturamento
 export const BILLING_PENDING_HOURS = 30 * 24; // 30 dias = 720 horas
+
+export const DEFAULT_BILLING_SETTINGS = {
+  // Módulos Contratuais geridos exclusivamente pela Gestão HelpClin
+  moduleTI: true, // Ativa/Desativa chamados e suporte de T.I. em Saúde
+  moduleClinical: true, // Ativa/Desativa Engenharia Clínica & Equipamentos Biomédicos
+  modulePredial: true, // Ativa/Desativa Engenharia Predial & Utilidades Críticas
+  billingEnabled: true, // true = Modo Freelancer (com cobrança); false = Modo Equipe Própria / Hospitalar (sem cobrança)
+
+  billingMaxDays: 30, // Prazo em dias para faturamento
+  showAlertBanners: true, // Exibir alertas no Dashboard
+  allowClientSelfConfirm: false, // Cliente informa ou valida diretamente
+  requireTechnicianConfirmation: true, // Exigir confirmação técnica
+  organizationName: 'Unidade Hospitalar / Clínica',
+  contactEmail: '',
+  primaryVertical: 'all', // 'all', 'clinical', 'ti', 'facilities'
+  contractStatus: 'active', // 'active' | 'trial' | 'paused'
+  contractPlan: 'Plano Tri-Vertical Completo',
+  contractDate: '2026-01-01',
+  clientCnpj: '12.345.678/0001-90',
+  adminNotes: 'Módulos liberados conforme contrato de prestação de serviços HelpClin.'
+};
+
+/**
+ * Retorna as configurações do cliente para o módulo de cobrança/faturamento e módulos contratuais.
+ * @returns {typeof DEFAULT_BILLING_SETTINGS}
+ */
+export function getClientBillingSettings() {
+  try {
+    const raw = localStorage.getItem('helpclin_client_settings');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return { ...DEFAULT_BILLING_SETTINGS, ...parsed };
+    }
+    // Fallback para chave legado se existir
+    const legacyKey = localStorage.getItem('helpclin_billing_enabled');
+    if (legacyKey !== null) {
+      return { ...DEFAULT_BILLING_SETTINGS, billingEnabled: legacyKey !== 'false' };
+    }
+  } catch (e) {
+    console.warn('Erro ao ler configurações de cobrança:', e);
+  }
+  return { ...DEFAULT_BILLING_SETTINGS };
+}
+
+/**
+ * Salva as configurações de cobrança do cliente e despacha evento reativo.
+ * @param {Partial<typeof DEFAULT_BILLING_SETTINGS>} newSettings
+ * @returns {typeof DEFAULT_BILLING_SETTINGS}
+ */
+export function saveClientBillingSettings(newSettings) {
+  try {
+    const current = getClientBillingSettings();
+    const updated = { ...current, ...newSettings };
+    localStorage.setItem('helpclin_client_settings', JSON.stringify(updated));
+    localStorage.setItem('helpclin_billing_enabled', String(updated.billingEnabled));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('helpclin_settings_changed', { detail: updated }));
+    }
+    return updated;
+  } catch (e) {
+    console.error('Erro ao salvar configurações de cobrança:', e);
+    return null;
+  }
+}
+
+/**
+ * Verifica se o módulo de cobrança (Modo Freelancer) está ativado para o cliente.
+ * @returns {boolean}
+ */
+export function isBillingModuleEnabled() {
+  return getClientBillingSettings().billingEnabled !== false;
+}
+
+/**
+ * Verifica se o módulo de T.I. em Saúde está ativado no contrato do cliente.
+ * @returns {boolean}
+ */
+export function isTIModuleEnabled() {
+  return getClientBillingSettings().moduleTI !== false;
+}
+
+/**
+ * Verifica se o módulo de Engenharia Clínica está ativado no contrato do cliente.
+ * @returns {boolean}
+ */
+export function isClinicalModuleEnabled() {
+  return getClientBillingSettings().moduleClinical !== false;
+}
+
+/**
+ * Verifica se o módulo de Engenharia Predial está ativado no contrato do cliente.
+ * @returns {boolean}
+ */
+export function isPredialModuleEnabled() {
+  return getClientBillingSettings().modulePredial !== false;
+}
+
+/**
+ * Verifica se um módulo específico está liberado para o cliente.
+ * @param {'ti'|'clinical'|'predial'|'billing'} moduleKey
+ * @returns {boolean}
+ */
+export function isModuleActive(moduleKey) {
+  const s = getClientBillingSettings();
+  if (moduleKey === 'ti') return s.moduleTI !== false;
+  if (moduleKey === 'clinical') return s.moduleClinical !== false;
+  if (moduleKey === 'predial') return s.modulePredial !== false;
+  if (moduleKey === 'billing') return s.billingEnabled !== false;
+  return true;
+}
 
 /**
  * Retorna os dias decorridos desde a conclusão da ordem.
@@ -57,10 +167,12 @@ export function isWaitingTechnicianConfirmation(order) {
 
 /**
  * Verifica se a ordem está concluída e aguarda faturamento pelo cliente (dentro do prazo ou atrasada).
+ * Se o módulo de cobrança estiver desativado para o cliente, retorna false.
  * @param {Object} order
  * @returns {boolean}
  */
 export function isAwaitingBilling(order) {
+  if (!isBillingModuleEnabled()) return false;
   if (!order) return false;
   if (isBilled(order)) return false;
   if (isPaymentInformed(order)) return false;
@@ -70,14 +182,17 @@ export function isAwaitingBilling(order) {
 }
 
 /**
- * Verifica se o faturamento ultrapassou os 30 dias regulamentares (atraso crítico).
+ * Verifica se o faturamento ultrapassou os dias regulamentares (atraso crítico).
  * Apenas estes casos devem exibir exclamações (⚠️ ou !).
+ * Se o módulo de cobrança estiver desativado, retorna false.
  * @param {Object} order
  * @returns {boolean}
  */
 export function isBillingOverdue(order) {
+  if (!isBillingModuleEnabled()) return false;
   if (!isAwaitingBilling(order)) return false;
-  return getDaysSinceCompletion(order) > BILLING_MAX_DAYS;
+  const maxDays = getClientBillingSettings().billingMaxDays || BILLING_MAX_DAYS;
+  return getDaysSinceCompletion(order) > maxDays;
 }
 
 /**
@@ -86,16 +201,27 @@ export function isBillingOverdue(order) {
  * @returns {boolean}
  */
 export function isBillingPending(order) {
+  if (!isBillingModuleEnabled()) return false;
   return isAwaitingBilling(order);
 }
 
 /**
- * Calcula o estado efetivo da Ordem de Serviço considerando o prazo de 30 dias após a conclusão.
+ * Calcula o estado efetivo da Ordem de Serviço considerando o prazo de faturamento (quando ativado).
+ * Quando a cobrança está desativada (Modo Equipe Própria), ordens concluídas ficam como 'completed'.
  * @param {Object} order
  * @returns {'open'|'in_progress'|'completed'|'billing_pending'|'payment_informed'|'billed'|'cancelled'}
  */
 export function getEffectiveOrderStatus(order) {
   if (!order) return 'open';
+
+  // Se o módulo de cobrança estiver DESATIVADO (Modo Equipe Própria / Sem Cobrança):
+  if (!isBillingModuleEnabled()) {
+    const rawStatus = order.status || order.service_order_status || 'open';
+    if (rawStatus === 'billing_pending' || rawStatus === 'payment_informed' || rawStatus === 'billed' || order.is_completed === true) {
+      return 'completed';
+    }
+    return rawStatus;
+  }
 
   // Se já foi faturada explicitamente
   if (isBilled(order)) return 'billed';
@@ -103,10 +229,10 @@ export function getEffectiveOrderStatus(order) {
   // Se o cliente já informou o pagamento e aguarda confirmação do técnico
   if (isPaymentInformed(order)) return 'payment_informed';
 
-  // Se ultrapassou os 30 dias, status de faturamento atrasado
+  // Se ultrapassou os dias limite, status de faturamento atrasado
   if (isBillingOverdue(order)) return 'billing_pending';
 
-  // Se está aguardando faturamento dentro do prazo normal (<= 30 dias)
+  // Se está aguardando faturamento dentro do prazo normal (<= maxDays)
   if (isAwaitingBilling(order)) return 'completed';
 
   return order.status || order.service_order_status || 'open';
@@ -204,6 +330,23 @@ export function getOrderCreationToPaymentRelation(order) {
       summaryText: '—',
       statusText: 'Não Faturada',
       badgeClass: 'os-status-badge--not_billed'
+    };
+  }
+
+  // Se o módulo de cobrança estiver desativado pelo cliente
+  if (!isBillingModuleEnabled()) {
+    const isCompleted = order.status === 'completed' || order.service_order_status === 'completed' || order.is_completed;
+    return {
+      isBilled: false,
+      isPaymentInformed: false,
+      billedDate: null,
+      createdDate: order.created_at || null,
+      cycleDays: null,
+      cycleHours: null,
+      elapsedText: isCompleted ? 'Concluída' : 'Em atendimento',
+      summaryText: isCompleted ? 'Concluída' : 'Em aberto',
+      statusText: isCompleted ? 'Concluída (Equipe Interna)' : 'Em atendimento',
+      badgeClass: isCompleted ? 'os-status-badge--completed' : 'os-status-badge--in_progress'
     };
   }
 

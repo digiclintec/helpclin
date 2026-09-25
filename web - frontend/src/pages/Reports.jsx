@@ -48,7 +48,8 @@ import {
   getOrderCreationToPaymentRelation,
   isBillingPending,
   isBilled,
-  isPaymentInformed
+  isPaymentInformed,
+  isBillingModuleEnabled
 } from '../utils/billingUtils.js';
 import { exportToPdf, exportToXls } from '../utils/exportReport.js';
 import { matchOrderSearch } from '../utils/searchUtils.js';
@@ -142,9 +143,16 @@ function Reports() {
 
   // 3. FILTRO DE KPI (clique direto nos cards de resumo)
   const [activeKpiFilter, setActiveKpiFilter] = useState('all');
+  const [billingEnabled, setBillingEnabled] = useState(isBillingModuleEnabled);
 
   useEffect(() => {
     loadAllData();
+
+    function onSettingsChanged() {
+      setBillingEnabled(isBillingModuleEnabled());
+    }
+    window.addEventListener('helpclin_settings_changed', onSettingsChanged);
+    return () => window.removeEventListener('helpclin_settings_changed', onSettingsChanged);
   }, []);
 
   async function loadAllData() {
@@ -763,9 +771,13 @@ function Reports() {
               aria-label="Categoria do relatório"
             >
               <option value="all_orders">Todas as Ordens de Serviço</option>
-              <option value="billed">Apenas Ordens Faturadas (com data)</option>
-              <option value="not_billed">Apenas Ordens NÃO Faturadas (Pendentes)</option>
-              <option value="pending_billing">Pendências de Faturamento (&gt; 48h)</option>
+              {billingEnabled && (
+                <>
+                  <option value="billed">Apenas Ordens Faturadas (com data)</option>
+                  <option value="not_billed">Apenas Ordens NÃO Faturadas (Pendentes)</option>
+                  <option value="pending_billing">Pendências de Faturamento (&gt; 48h)</option>
+                </>
+              )}
             </select>
           </div>
         </div>
@@ -783,8 +795,12 @@ function Reports() {
               <option value="open">Abertas</option>
               <option value="in_progress">Em andamento</option>
               <option value="completed">Concluídas</option>
-              <option value="billing_pending">Aguardando Faturamento</option>
-              <option value="billed">Faturadas</option>
+              {billingEnabled && (
+                <>
+                  <option value="billing_pending">Aguardando Faturamento</option>
+                  <option value="billed">Faturadas</option>
+                </>
+              )}
               <option value="cancelled">Canceladas</option>
             </select>
           </div>
@@ -902,34 +918,38 @@ function Reports() {
           <small className="report-summary-hint">finalizadas</small>
         </article>
 
-        <article
-          className={`report-summary-card report-summary-card--billed ${activeKpiFilter === 'billed' ? 'report-summary-card--active' : ''}`}
-          onClick={() => setActiveKpiFilter(activeKpiFilter === 'billed' ? 'all' : 'billed')}
-          title="Clique para filtrar apenas faturadas"
-        >
-          <span className="report-summary-label" style={{ color: '#059669' }}>Faturadas</span>
-          <strong className="report-summary-value" style={{ color: '#059669' }}>{kpiMetrics.billed}</strong>
-          <small className="report-summary-hint">confirmadas ({kpiMetrics.billedPercentage}%)</small>
-        </article>
+        {billingEnabled && (
+          <>
+            <article
+              className={`report-summary-card report-summary-card--billed ${activeKpiFilter === 'billed' ? 'report-summary-card--active' : ''}`}
+              onClick={() => setActiveKpiFilter(activeKpiFilter === 'billed' ? 'all' : 'billed')}
+              title="Clique para filtrar apenas faturadas"
+            >
+              <span className="report-summary-label" style={{ color: '#059669' }}>Faturadas</span>
+              <strong className="report-summary-value" style={{ color: '#059669' }}>{kpiMetrics.billed}</strong>
+              <small className="report-summary-hint">confirmadas ({kpiMetrics.billedPercentage}%)</small>
+            </article>
 
-        <article
-          className={`report-summary-card report-summary-card--not_billed ${activeKpiFilter === 'not_billed' ? 'report-summary-card--active' : ''}`}
-          onClick={() => setActiveKpiFilter(activeKpiFilter === 'not_billed' ? 'all' : 'not_billed')}
-          title="Clique para filtrar ordens não faturadas"
-        >
-          <span className="report-summary-label" style={{ color: '#b45309' }}>Não Faturadas</span>
-          <strong className="report-summary-value" style={{ color: '#b45309' }}>{kpiMetrics.notBilled}</strong>
-          <small className="report-summary-hint">pendente de pagamento</small>
-        </article>
+            <article
+              className={`report-summary-card report-summary-card--not_billed ${activeKpiFilter === 'not_billed' ? 'report-summary-card--active' : ''}`}
+              onClick={() => setActiveKpiFilter(activeKpiFilter === 'not_billed' ? 'all' : 'not_billed')}
+              title="Clique para filtrar ordens não faturadas"
+            >
+              <span className="report-summary-label" style={{ color: '#b45309' }}>Não Faturadas</span>
+              <strong className="report-summary-value" style={{ color: '#b45309' }}>{kpiMetrics.notBilled}</strong>
+              <small className="report-summary-hint">pendente de pagamento</small>
+            </article>
 
-        <article
-          className="report-summary-card report-summary-card--cycle"
-          title="Tempo médio decorrido entre a criação da ordem e o pagamento"
-        >
-          <span className="report-summary-label" style={{ color: '#2563eb' }}>Ciclo Médio</span>
-          <strong className="report-summary-value" style={{ color: '#2563eb' }}>{kpiMetrics.avgBillingCycle}</strong>
-          <small className="report-summary-hint">Criação ➔ Pagamento</small>
-        </article>
+            <article
+              className="report-summary-card report-summary-card--cycle"
+              title="Tempo médio decorrido entre a criação da ordem e o pagamento"
+            >
+              <span className="report-summary-label" style={{ color: '#2563eb' }}>Ciclo Médio</span>
+              <strong className="report-summary-value" style={{ color: '#2563eb' }}>{kpiMetrics.avgBillingCycle}</strong>
+              <small className="report-summary-hint">Criação ➔ Pagamento</small>
+            </article>
+          </>
+        )}
 
         <article
           className={`report-summary-card report-summary-card--urgent ${activeKpiFilter === 'urgent' ? 'report-summary-card--active' : ''}`}

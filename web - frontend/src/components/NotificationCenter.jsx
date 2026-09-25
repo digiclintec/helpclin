@@ -54,7 +54,11 @@ function NotificationCenter() {
   useEffect(() => {
     loadNotificationsData();
     const interval = setInterval(loadNotificationsData, 30000); // 30s auto-refresh
-    return () => clearInterval(interval);
+    window.addEventListener('helpclin_settings_changed', loadNotificationsData);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('helpclin_settings_changed', loadNotificationsData);
+    };
   }, []);
 
   // Close dropdown on outside click or ESC key

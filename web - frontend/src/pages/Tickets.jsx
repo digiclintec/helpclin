@@ -31,17 +31,37 @@ import {
 } from '../services/api.js';
 import { exportToPdf, exportToXls } from '../utils/exportReport.js';
 import { matchTicketSearch } from '../utils/searchUtils.js';
+import {
+  isTIModuleEnabled,
+  isClinicalModuleEnabled,
+  isPredialModuleEnabled
+} from '../utils/billingUtils.js';
 
-const SERVICE_PROBLEMS = [
-  'Dificuldades com sistema Clinux',
-  'Lentidão ou travamento no sistema',
+const TI_PROBLEMS = [
+  'Dificuldades com sistema Clinux / PEP / Prontuário',
+  'Lentidão ou travamento no sistema de atendimento',
   'Erro de login / Senha bloqueada',
-  'Sem conexão com a internet / Rede oscilando',
-  'Falha na impressão de prontuários / laudos',
-  'Problema no e-mail corporativo',
-  'Instalação / Atualização de software',
-  'Cadastro / Permissão de acesso de usuário',
-  'Outro problema (detalhado nas observações)'
+  'Sem conexão com a internet / Rede Wi-Fi oscilando',
+  'Falha na impressão de prontuários / laudos / pulseiras',
+  'Problema no e-mail corporativo / Comunicação interna',
+  'Instalação / Atualização de software ou antivírus',
+  'Cadastro / Permissão de acesso de novo usuário (LGPD)'
+];
+
+const CLINICAL_PROBLEMS = [
+  'Solicitação de calibração periódica / Certificado RBC',
+  'Equipamento médico com alarme falso constante',
+  'Necessidade de teste de segurança elétrica (NBR IEC 60601)',
+  'Troca preventiva de acessórios médicos (cabos/sensores)'
+];
+
+const PREDIAL_PROBLEMS = [
+  'Oscilação na rede elétrica / Teste do grupo gerador',
+  'Alarme de pressão na central de gases medicinais',
+  'Ar-condicionado fora da temperatura ideal (PMOC / Centro Cirúrgico)',
+  'Vazamento hidráulico ou falta de água no setor',
+  'Falha no sistema de iluminação de emergência / AVCB',
+  'Problema em porta corta-fogo ou trava de leito'
 ];
 
 function getEquipmentProblemSuggestions(selectedEquipment) {
@@ -60,23 +80,139 @@ function getEquipmentProblemSuggestions(selectedEquipment) {
   const type = (selectedEquipment.equipment_type || '').toLowerCase();
   const name = (selectedEquipment.name || '').toLowerCase();
 
+  // 1. Engenharia Predial / Infraestrutura
+  if (type.includes('gerador') || name.includes('gerador') || type.includes('ups') || type.includes('no-break') || name.includes('no-break')) {
+    return [
+      'Falha na partida automática do gerador em queda de rede',
+      'Nível baixo de combustível diesel / Bateria descarregada',
+      'No-break operando em modo bateria / Alarme de sobrecarga',
+      'Oscilação de tensão ou frequência elétrica na subestação',
+      'Necessidade de teste preventivo com carga / Manutenção periódica',
+      'Vazamento de óleo / Aquecimento anormal do motor',
+      'Outro problema (detalhado nas observações)'
+    ];
+  }
+
+  if (type.includes('gás') || type.includes('gas') || name.includes('oxig') || name.includes('vácuo') || name.includes('vacuo') || name.includes('ar comprimido')) {
+    return [
+      'Alarme de baixa pressão na rede de gases medicinais',
+      'Vazamento perceptível em régua / tomada de gás do leito',
+      'Bomba de vácuo clínico desarmando / Baixa sucção',
+      'Compressor de ar medicinal com superaquecimento',
+      'Necessidade de troca / Comutação de bateria de cilindros',
+      'Outro problema (detalhado nas observações)'
+    ];
+  }
+
+  if (type.includes('clima') || type.includes('chiller') || type.includes('ar-cond') || type.includes('ar cond') || type.includes('pmoc') || name.includes('split') || name.includes('ar cond') || name.includes('chiller')) {
+    return [
+      'Ar-condicionado não resfria / Sala cirúrgica fora da temperatura normatizada',
+      'Gotejamento de água / Dreno de condensado entupido',
+      'Pressão positiva/negativa inadequada na sala de isolamento',
+      'Ruído excessivo ou vibração no motor/ventilador',
+      'Manutenção preventiva periódica do PMOC / Troca de filtros HEPA',
+      'Aparelho desarmando disjuntor elétrico / Não liga',
+      'Outro problema (detalhado nas observações)'
+    ];
+  }
+
+  if (type.includes('bomba') || type.includes('hidrául') || type.includes('hidraul') || name.includes('pressuriz') || name.includes('caixa d')) {
+    return [
+      'Bomba de água potável desarmada / Sem pressão no setor',
+      'Vazamento na tubulação principal / Barrilete',
+      'Falha no sistema de pressurização de água',
+      'Alarme de nível crítico no reservatório hospitalar',
+      'Necessidade de limpeza ou desinfecção periódica de reservatório',
+      'Outro problema (detalhado nas observações)'
+    ];
+  }
+
+  if (type.includes('incênd') || type.includes('incend') || type.includes('avcb') || name.includes('hidrante') || name.includes('sprinkler') || name.includes('extintor')) {
+    return [
+      'Painel de alarme de incêndio acusando falha de laço',
+      'Detector de fumaça acionando falso alarme no setor',
+      'Extintor com manômetro despressurizado / Carga vencida',
+      'Vazamento na rede de hidrantes ou sprinklers',
+      'Porta corta-fogo com mola frouxa / Não veda corretamente',
+      'Outro problema (detalhado nas observações)'
+    ];
+  }
+
+  // 2. Engenharia Clínica / Equipamentos Médicos
+  if (type.includes('ventilador') || type.includes('respirador') || name.includes('ventilador') || name.includes('respirador')) {
+    return [
+      'Alarme de baixa pressão inspiratória / Vazamento no circuito',
+      'Falha no sensor de fluxo ou célula galvânica de O2',
+      'Equipamento acusando erro de autoteste na inicialização',
+      'Bateria interna não segura carga em transporte de paciente',
+      'Necessidade de teste de segurança elétrica / Calibração anual RBC',
+      'Válvula expiratória travada / Alarme de sobrepressão',
+      'Outro problema (detalhado nas observações)'
+    ];
+  }
+
+  if (type.includes('desfibrilador') || name.includes('desfibrilador') || type.includes('cardioversor') || name.includes('cardioversor')) {
+    return [
+      'Falha no autoteste de descarga / Joules inconsistentes',
+      'Pás de desfibrilação com cabo rompido ou mau contato',
+      'Bateria interna com aviso de substituição / Carga fraca',
+      'Impressora térmica de eletrocardiograma sem tracionar',
+      'Certificado de calibração anual vencendo (RDC ANVISA)',
+      'Outro problema (detalhado nas observações)'
+    ];
+  }
+
+  if (type.includes('infus') || name.includes('infus') || name.includes('seringa')) {
+    return [
+      'Alarme de oclusão falso / Sensor de pressão desregulado',
+      'Erro de vazão de infusão em ml/h / Alarme de ar constante',
+      'Sensor de gotas falhando ou quebrado',
+      'Bateria interna não carrega',
+      'Mecanismo de porta ou trava mecânica danificada',
+      'Outro problema (detalhado nas observações)'
+    ];
+  }
+
+  if (type.includes('autoclave') || name.includes('autoclave') || type.includes('esteriliz')) {
+    return [
+      'Temperatura ou pressão não atinge patamar de esterilização',
+      'Vazamento de vapor pela guarnição da porta da câmara',
+      'Falha na bomba de vácuo / Ciclo abortado pela CPU',
+      'Impressora de registro do ciclo térmico inoperante',
+      'Teste biológico reprovado / Necessidade de qualificação térmica',
+      'Outro problema (detalhado nas observações)'
+    ];
+  }
+
+  if (type.includes('balan') || type.includes('clínic') || name.includes('balan') || name.includes('sensor') || name.includes('cardio') || name.includes('eletro')) {
+    return [
+      'Erro de calibração / Leitura oscilando ou imprecisa',
+      'Equipamento não liga / Bateria não carrega',
+      'Display apagado / Dígitos falhando no visor',
+      'Cabo de derivação ou transdutor com defeito',
+      'Alarme sonoro intermitente / Código de erro no visor',
+      'Outro problema (detalhado nas observações)'
+    ];
+  }
+
+  // 3. Tecnologia da Informação (T.I.)
   if (type.includes('impress') || name.includes('impress') || name.includes('epson') || name.includes('hp') || name.includes('zebra')) {
     return [
-      'Impressora travada / Não imprime',
-      'Atolamento de papel constante',
+      'Impressora travada / Não imprime prescrições e laudos',
+      'Atolamento de papel ou etiqueta constante',
       'Qualidade de impressão ruim / Falha de tinta ou toner',
-      'Impressora offline / Não reconhecida na rede',
-      'Necessidade de troca de suprimento / Toner / Fita',
-      'Luz de erro piscando no painel',
+      'Impressora offline / Não reconhecida na rede hospitalar',
+      'Necessidade de troca de suprimento / Toner / Rolo térmico de pulseiras',
+      'Luz de erro piscando no painel frontal',
       'Outro problema (detalhado nas observações)'
     ];
   }
 
   if (type.includes('monitor') || name.includes('monitor') || name.includes('tela') || name.includes('display')) {
     return [
-      'Monitor sem sinal de vídeo',
-      'Tela piscando ou com linhas / faixas',
-      'Monitor não liga / Sem energia',
+      'Monitor sem sinal de vídeo da estação médica',
+      'Tela piscando ou com faixas horizontais/verticais',
+      'Monitor não liga / Sem alimentação elétrica',
       'Cabo HDMI / DisplayPort com mau contato',
       'Imagem desfocada / Resolução incorreta',
       'Outro problema (detalhado nas observações)'
@@ -85,23 +221,12 @@ function getEquipmentProblemSuggestions(selectedEquipment) {
 
   if (type.includes('computador') || type.includes('notebook') || name.includes('computador') || name.includes('notebook') || name.includes('pc') || name.includes('cpu') || name.includes('desktop')) {
     return [
-      'Computador não liga / Não dá vídeo',
-      'Lentidão extrema / Travando o Windows',
-      'Tela azul / Reiniciando sozinho',
-      'Teclado / Mouse / Leitor com defeito',
-      'Sem acesso à rede local / Wi-Fi',
-      'Barulho excessivo na ventoinha / Cooler',
-      'Outro problema (detalhado nas observações)'
-    ];
-  }
-
-  if (type.includes('balan') || type.includes('clínic') || name.includes('balan') || name.includes('sensor') || name.includes('cardio') || name.includes('eletro')) {
-    return [
-      'Erro de calibração / Leitura oscilando',
-      'Equipamento não liga / Bateria não carrega',
-      'Display apagado / Dígitos falhando',
-      'Cabo de alimentação ou sensor com defeito',
-      'Alarme sonoro / Código de erro no visor',
+      'Computador não liga / Não inicializa o sistema operacional',
+      'Lentidão extrema / Travamento durante uso do prontuário',
+      'Tela azul / Reiniciando sozinho no meio do atendimento',
+      'Teclado / Mouse / Leitor óptico de código de barras com defeito',
+      'Sem acesso à rede local / Wi-Fi assistencial desconectando',
+      'Barulho excessivo na ventoinha / Cooler da CPU',
       'Outro problema (detalhado nas observações)'
     ];
   }
@@ -168,12 +293,20 @@ function Tickets() {
   const [onlyMyTickets, setOnlyMyTickets] = useState(false);
   const [search, setSearch] = useState('');
 
+  const [settingsVersion, setSettingsVersion] = useState(0);
+
   useEffect(() => {
     loadData();
     const params = new URLSearchParams(window.location.search);
     if (params.get('novo') === '1' || params.get('novo') === 'true') {
       setIsFormOpen(true);
     }
+
+    function handleSettingsChange() {
+      setSettingsVersion((v) => v + 1);
+    }
+    window.addEventListener('helpclin_settings_changed', handleSettingsChange);
+    return () => window.removeEventListener('helpclin_settings_changed', handleSettingsChange);
   }, []);
 
   async function loadData() {
@@ -201,10 +334,15 @@ function Tickets() {
 
   const currentProblemSuggestions = useMemo(() => {
     if (form.ticketType === 'service') {
-      return SERVICE_PROBLEMS;
+      const activeProblems = [];
+      if (isTIModuleEnabled()) activeProblems.push(...TI_PROBLEMS);
+      if (isClinicalModuleEnabled()) activeProblems.push(...CLINICAL_PROBLEMS);
+      if (isPredialModuleEnabled()) activeProblems.push(...PREDIAL_PROBLEMS);
+      activeProblems.push('Outro problema (detalhado nas observações)');
+      return activeProblems;
     }
     return getEquipmentProblemSuggestions(selectedEquipment);
-  }, [form.ticketType, selectedEquipment]);
+  }, [form.ticketType, selectedEquipment, settingsVersion]);
 
   function updateField(event) {
     const { name, value, type, files } = event.target;

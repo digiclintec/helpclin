@@ -1,10 +1,81 @@
-import { Edit, Laptop, MonitorDot, Plus, Search, Trash2, X } from 'lucide-react';
+import { Building2, Edit3, Filter, Laptop, MonitorDot, Plus, Search, Stethoscope, Trash2, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import ExportDropdown from '../components/ExportDropdown.jsx';
 import { createEquipment, deleteEquipment, getInventory, updateEquipment } from '../services/api.js';
 import { exportToPdf, exportToXls } from '../utils/exportReport.js';
 import { normalizeText } from '../utils/searchUtils.js';
+import {
+  isTIModuleEnabled,
+  isClinicalModuleEnabled,
+  isPredialModuleEnabled
+} from '../utils/billingUtils.js';
+
+function getAssetVertical(type) {
+  const t = (type || '').toLowerCase();
+  if (
+    t.includes('gerador') ||
+    t.includes('ups') ||
+    t.includes('no-break') ||
+    t.includes('gás') ||
+    t.includes('gas') ||
+    t.includes('oxig') ||
+    t.includes('vácuo') ||
+    t.includes('vacuo') ||
+    t.includes('clima') ||
+    t.includes('chiller') ||
+    t.includes('ar-cond') ||
+    t.includes('pmoc') ||
+    t.includes('subest') ||
+    t.includes('elétr') ||
+    t.includes('eletr') ||
+    t.includes('bomba') ||
+    t.includes('incênd') ||
+    t.includes('incend') ||
+    t.includes('avcb') ||
+    t.includes('elevador')
+  ) {
+    return {
+      name: 'Engenharia Predial',
+      code: 'predial',
+      color: '#b45309',
+      bg: '#fef3c7',
+      icon: Building2
+    };
+  }
+
+  if (
+    t.includes('respirador') ||
+    t.includes('ventilador') ||
+    t.includes('desfibrilador') ||
+    t.includes('cardio') ||
+    t.includes('infus') ||
+    t.includes('eletroc') ||
+    t.includes('autoclave') ||
+    t.includes('bisturi') ||
+    t.includes('diagnóst') ||
+    t.includes('imagem') ||
+    t.includes('multipar') ||
+    t.includes('clínic') ||
+    t.includes('balan')
+  ) {
+    return {
+      name: 'Engenharia Clínica',
+      code: 'clinical',
+      color: '#0f766e',
+      bg: '#ccfbf1',
+      icon: Stethoscope
+    };
+  }
+
+  return {
+    name: 'T.I. em Saúde',
+    code: 'ti',
+    color: '#1d4ed8',
+    bg: '#dbeafe',
+    icon: Laptop
+  };
+}
 
 function Inventory() {
   const [equipments, setEquipments] = useState([]);
@@ -14,6 +85,8 @@ function Inventory() {
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
+
+  const [verticalFilter, setVerticalFilter] = useState('all');
 
   const [name, setName] = useState('');
   const [equipmentType, setEquipmentType] = useState('Computador');
@@ -94,6 +167,10 @@ function Inventory() {
   }
 
   const filteredEquipments = equipments.filter((eq) => {
+    if (verticalFilter !== 'all') {
+      const vert = getAssetVertical(eq.equipment_type);
+      if (vert.code !== verticalFilter) return false;
+    }
     if (!search.trim()) return true;
     const str = normalizeText(`${eq.name} ${eq.equipment_type} ${eq.serial_number || ''} ${eq.location || ''} ${eq.status}`);
     const normSearch = normalizeText(search);
@@ -180,15 +257,62 @@ function Inventory() {
           </div>
         </div>
 
+        {/* Multi-Vertical Filters */}
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', margin: '14px 0 18px', paddingBottom: '14px', borderBottom: '1px solid var(--line)' }}>
+          {[
+            { id: 'all', label: 'Todos os Ativos', count: equipments.length, enabled: true },
+            { id: 'ti', label: 'T.I. em Saúde', icon: Laptop, count: equipments.filter(e => getAssetVertical(e.equipment_type).code === 'ti').length, enabled: isTIModuleEnabled() },
+            { id: 'clinical', label: 'Engenharia Clínica', icon: Stethoscope, count: equipments.filter(e => getAssetVertical(e.equipment_type).code === 'clinical').length, enabled: isClinicalModuleEnabled() },
+            { id: 'predial', label: 'Engenharia Predial / Facilities', icon: Building2, count: equipments.filter(e => getAssetVertical(e.equipment_type).code === 'predial').length, enabled: isPredialModuleEnabled() }
+          ].filter(tab => tab.enabled).map(tab => {
+            const Icon = tab.icon;
+            const isActive = verticalFilter === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setVerticalFilter(tab.id)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '6px 12px',
+                  borderRadius: '20px',
+                  fontSize: '12px',
+                  fontWeight: isActive ? 700 : 500,
+                  border: isActive ? '1.5px solid var(--teal)' : '1px solid var(--line)',
+                  background: isActive ? 'var(--teal)' : '#fff',
+                  color: isActive ? '#fff' : 'var(--muted)',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                {Icon && <Icon size={13} />}
+                <span>{tab.label}</span>
+                <span style={{
+                  fontSize: '10px',
+                  padding: '1px 6px',
+                  borderRadius: '10px',
+                  background: isActive ? 'rgba(255,255,255,0.25)' : '#f0f3f1',
+                  color: isActive ? '#fff' : 'var(--teal)',
+                  fontWeight: 700
+                }}>
+                  {tab.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
         {isLoading ? (
           <div className="data-state">Carregando inventário...</div>
         ) : filteredEquipments.length === 0 ? (
           <div className="user-empty-state" style={{ padding: '3rem', textAlign: 'center' }}>
             <MonitorDot size={32} style={{ margin: '0 auto', color: '#67a486' }} />
             <strong style={{ display: 'block', marginTop: '1rem' }}>
-              {search ? 'Nenhum equipamento encontrado' : 'Nenhum equipamento cadastrado'}
+              {search || verticalFilter !== 'all' ? 'Nenhum equipamento encontrado' : 'Nenhum equipamento cadastrado'}
             </strong>
-            <span>{search ? 'Tente pesquisar com outro termo.' : 'Clique em "Novo equipamento" para registrar o primeiro.'}</span>
+            <span>{search || verticalFilter !== 'all' ? 'Tente ajustar os filtros ou pesquisar com outro termo.' : 'Clique em "Novo equipamento" para registrar o primeiro.'}</span>
           </div>
         ) : (
           <div className="helpclin-table-wrapper">
@@ -196,7 +320,8 @@ function Inventory() {
               <thead>
                 <tr>
                   <th>Nome / Modelo</th>
-                  <th>Tipo</th>
+                  <th>Vertente</th>
+                  <th>Tipo Específico</th>
                   <th>Nº de Série</th>
                   <th>Localização</th>
                   <th>Status</th>
@@ -206,15 +331,33 @@ function Inventory() {
               <tbody>
                 {filteredEquipments.map((eq) => {
                   const style = statusStyles[eq.status] || { color: '#4B5563', bg: '#F3F4F6' };
+                  const vert = getAssetVertical(eq.equipment_type);
+                  const VertIcon = vert.icon;
                   return (
                     <tr key={eq.id}>
                       <td style={{ fontWeight: 600, color: 'var(--teal)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <div style={{ display: 'grid', placeItems: 'center', width: '32px', height: '32px', borderRadius: '8px', background: '#e2eff1', color: '#4d8796' }}>
-                            <Laptop size={16} />
+                          <div style={{ display: 'grid', placeItems: 'center', width: '32px', height: '32px', borderRadius: '8px', background: vert.bg, color: vert.color }}>
+                            <VertIcon size={16} />
                           </div>
                           <span>{eq.name}</span>
                         </div>
+                      </td>
+                      <td>
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                          padding: '3px 8px',
+                          borderRadius: '6px',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          background: vert.bg,
+                          color: vert.color
+                        }}>
+                          <VertIcon size={12} />
+                          {vert.name}
+                        </span>
                       </td>
                       <td style={{ color: 'var(--muted)' }}>{eq.equipment_type}</td>
                       <td style={{ color: 'var(--muted)', fontFamily: 'monospace' }}>
@@ -247,7 +390,7 @@ function Inventory() {
                             title="Editar equipamento"
                             aria-label="Editar equipamento"
                           >
-                            <Edit size={14} />
+                            <Edit3 size={14} />
                           </button>
                           <button
                             type="button"
@@ -314,12 +457,35 @@ function Inventory() {
                     onChange={(e) => setEquipmentType(e.target.value)}
                     required
                   >
-                    <option value="Computador">Computador / Notebook</option>
-                    <option value="Monitor">Monitor</option>
-                    <option value="Impressora">Impressora</option>
-                    <option value="Rede">Equipamento de Rede</option>
-                    <option value="Acessório">Acessório</option>
-                    <option value="Outro">Outro</option>
+                    <optgroup label="Tecnologia da Informação (T.I.)">
+                      <option value="Computador / Notebook">Computador / Notebook</option>
+                      <option value="Monitor de Vídeo">Monitor de Vídeo</option>
+                      <option value="Impressora">Impressora (Térmica / Convencional)</option>
+                      <option value="Equipamento de Rede">Equipamento de Rede (Switch / AP / Roteador)</option>
+                      <option value="Servidor / Storage">Servidor / Storage</option>
+                      <option value="Acessório de T.I.">Acessório de T.I.</option>
+                    </optgroup>
+                    <optgroup label="Engenharia Clínica (Equipamentos Médicos)">
+                      <option value="Monitor Multiparâmetro">Monitor Multiparâmetro / Sinais Vitais</option>
+                      <option value="Ventilador Pulmonar">Ventilador Pulmonar / Respirador</option>
+                      <option value="Desfibrilador / Cardioversor">Desfibrilador / Cardioversor</option>
+                      <option value="Bomba de Infusão">Bomba de Infusão / Seringa</option>
+                      <option value="Eletrocardiógrafo">Eletrocardiógrafo (ECG)</option>
+                      <option value="Autoclave / Esterilização">Autoclave / Esterilização</option>
+                      <option value="Bisturi Elétrico">Bisturi Elétrico / Eletrocirúrgico</option>
+                      <option value="Equipamento de Diagnóstico">Equipamento de Diagnóstico / Imagem</option>
+                    </optgroup>
+                    <optgroup label="Engenharia Predial & Facilities Hospitalar">
+                      <option value="Grupo Gerador">Grupo Gerador de Emergência</option>
+                      <option value="No-Break Industrial / UPS">No-Break Industrial / UPS</option>
+                      <option value="Central de Gases Medicinais">Central de Gases Medicinais (O2, Ar, Vácuo)</option>
+                      <option value="Sistema de Climatização / PMOC">Sistema de Climatização / Chiller (PMOC)</option>
+                      <option value="Subestação / Elétrica">Subestação / Quadro de Distribuição</option>
+                      <option value="Bomba Hidráulica">Bomba Hidráulica / Pressurização</option>
+                      <option value="Sistema de Incêndio / AVCB">Sistema de Incêndio / AVCB</option>
+                      <option value="Elevador Hospitalar">Elevador Hospitalar / Monta-cargas</option>
+                    </optgroup>
+                    <option value="Outro">Outro Ativo</option>
                   </select>
                 </div>
                 <div className="inventory-field">

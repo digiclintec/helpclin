@@ -1,4 +1,4 @@
-import { BarChart3, FilePlus2, Headset, LayoutDashboard, LogOut, Menu, UserCheck, X, Monitor } from 'lucide-react';
+import { BarChart3, FilePlus2, Headset, LayoutDashboard, LogOut, Menu, UserCheck, X, Monitor, Settings as SettingsIcon, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 import NotificationCenter from './NotificationCenter.jsx';
 import ThemeToggle from './ThemeToggle.jsx';
@@ -22,13 +22,35 @@ function AppShellInner({ children }) {
 
   if (!user) {
     window.location.replace('/login');
-    return null;
+    return (
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: '#f7f8f5',
+        color: '#123b3d',
+        fontFamily: 'sans-serif'
+      }}>
+        <p style={{ fontWeight: 600 }}>Redirecionando para o login...</p>
+      </div>
+    );
   }
 
   const userName = user?.name ?? 'Usuário';
   const userInitials = userName.split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
   const roleLabel = user?.role === 'admin' ? 'Administrador' : user?.role === 'technician' ? 'Técnico' : 'Cliente';
-  const navigationItems = [...navigation, ...(user?.role === 'admin' ? [{ label: 'Usuários', icon: UserCheck, href: '/usuarios' }] : [])];
+  
+  // Painel de Gestão HelpClin e Usuários somente aparecem para role === 'admin'
+  const navigationItems = [
+    ...navigation,
+    ...(user?.role === 'admin'
+      ? [
+          { label: 'Usuários', icon: UserCheck, href: '/usuarios' },
+          { label: 'Gestão HelpClin', icon: ShieldCheck, href: '/gestao' }
+        ]
+      : [])
+  ];
 
   function handleLogout() {
     localStorage.removeItem('helpclin_user');

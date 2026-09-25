@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, Eye, EyeOff, LockKeyhole, Stethoscope } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Eye, EyeOff, LockKeyhole, Sparkles, Stethoscope } from 'lucide-react';
 import { useState } from 'react';
 import { loginUser } from '../services/api.js';
 
@@ -11,6 +11,17 @@ function AdminLogin() {
   function updateField(event) {
     setForm({ ...form, [event.target.name]: event.target.value });
     setFeedback(null);
+  }
+
+  function handleDemoLogin() {
+    const demoUser = {
+      id: 1,
+      name: 'Administrador Demo',
+      email: 'admin@helpclintec.com.br',
+      role: 'admin'
+    };
+    localStorage.setItem('helpclin_user', JSON.stringify(demoUser));
+    window.location.href = '/dashboard';
   }
 
   async function handleSubmit(event) {
@@ -50,7 +61,44 @@ function AdminLogin() {
             <div className="password-field"><input id="password" name="password" type={showPassword ? 'text' : 'password'} placeholder="Digite sua senha" autoComplete="current-password" value={form.password} onChange={updateField} required /><button type="button" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button></div>
             <button className="login-submit" type="submit" disabled={isLoading}>{isLoading ? 'Entrando...' : 'Entrar no painel'} {isLoading ? <LockKeyhole size={16} /> : <ArrowRight size={16} />}</button>
           </form>
-          {feedback && <p className="form-feedback form-feedback--error"><LockKeyhole size={15} /> {feedback}</p>}
+
+          <div style={{ marginTop: '18px', paddingTop: '16px', borderTop: '1px dashed #dce7df', textAlign: 'center' }}>
+            <p style={{ margin: '0 0 10px', fontSize: '12px', color: '#5e726e' }}>
+              Testando localmente ou banco de dados offline?
+            </p>
+            <button
+              type="button"
+              onClick={handleDemoLogin}
+              style={{
+                width: '100%',
+                padding: '12px',
+                borderRadius: '8px',
+                border: '1.5px solid #194e50',
+                background: '#f1f8f5',
+                color: '#123b3d',
+                fontWeight: '700',
+                fontSize: '13px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              <Sparkles size={16} color="#e78368" />
+              <span>Entrar no Modo Demonstração (Sem Banco)</span>
+            </button>
+          </div>
+
+          {feedback && (
+            <div style={{ marginTop: '16px' }}>
+              <p className="form-feedback form-feedback--error"><LockKeyhole size={15} /> {feedback}</p>
+              <p style={{ fontSize: '11px', color: '#6f7f7c', marginTop: '6px', textAlign: 'center' }}>
+                Dica: O banco PostgreSQL local pode estar desligado. Use o botão de <strong>Modo Demonstração</strong> acima para testar todos os recursos!
+              </p>
+            </div>
+          )}
           <p className="login-help">Ainda não tem uma conta? <a href="/registro">Crie seu acesso</a></p>
         </section>
         <p className="login-security"><LockKeyhole size={14} /> Seus dados estão protegidos com segurança de ponta a ponta.</p>

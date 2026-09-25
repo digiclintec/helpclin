@@ -25,6 +25,7 @@ import {
   Plus,
   RefreshCw,
   Search,
+  ShieldCheck,
   SlidersHorizontal,
   Sparkles,
   Stethoscope,
@@ -57,7 +58,8 @@ import {
   getOrderStatusBadgeClass,
   getOrderStatusLabel,
   isBillingPending,
-  isBilled
+  isBilled,
+  isBillingModuleEnabled
 } from '../utils/billingUtils.js';
 import { matchOrderSearch, matchTicketSearch } from '../utils/searchUtils.js';
 
@@ -95,6 +97,7 @@ function Dashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [billingEnabled, setBillingEnabled] = useState(isBillingModuleEnabled);
 
   // Sub-tabs
   const [activeTab, setActiveTab] = useState('geral');
@@ -141,6 +144,12 @@ function Dashboard() {
 
   useEffect(() => {
     loadAllData();
+
+    function onSettingsChanged() {
+      setBillingEnabled(isBillingModuleEnabled());
+    }
+    window.addEventListener('helpclin_settings_changed', onSettingsChanged);
+    return () => window.removeEventListener('helpclin_settings_changed', onSettingsChanged);
   }, []);
 
   async function loadAllData() {
@@ -614,14 +623,16 @@ function Dashboard() {
               <Headset size={16} />
               <span>Chamados ({tickets.length})</span>
             </button>
-            <button
-              type="button"
-              className={`dash-tab-btn ${activeTab === 'faturadas' ? 'dash-tab-btn--active' : ''}`}
-              onClick={() => setActiveTab('faturadas')}
-            >
-              <DollarSign size={16} />
-              <span>Ordens Faturadas ({kpis.billed})</span>
-            </button>
+            {billingEnabled && (
+              <button
+                type="button"
+                className={`dash-tab-btn ${activeTab === 'faturadas' ? 'dash-tab-btn--active' : ''}`}
+                onClick={() => setActiveTab('faturadas')}
+              >
+                <DollarSign size={16} />
+                <span>Ordens Faturadas ({kpis.billed})</span>
+              </button>
+            )}
             <a
               href="/ordens"
               className="dash-tab-btn"
@@ -670,13 +681,13 @@ function Dashboard() {
       {errorMessage && <div className="dash-alert dash-alert--error">{errorMessage}</div>}
 
       {/* Freelancer Billing Alert Banner */}
-      {kpis.billingPending > 0 && (
+      {billingEnabled && kpis.billingPending > 0 && (
         <div className="billing-client-alert" style={{ margin: '0 24px 20px 24px' }}>
           <AlertCircle size={22} style={{ color: '#b45309', flexShrink: 0, marginTop: '2px' }} />
           <div style={{ flex: 1 }}>
             <strong>Atenção Freelancer: {kpis.billingPending} Ordem{kpis.billingPending > 1 ? 'ns' : ''} com Pendência de Faturamento</strong>
             <p>
-              Existem ordens concluídas há mais de 2 dias sem confirmação de pagamento. Os clientes já estão informados na central e o acesso de edição dos técnicos permanece bloqueado até você faturar.
+              Existem ordens concluídas com pendência de faturamento regulamentar. O cliente já foi notificado e você pode auditar e dar baixa a qualquer momento.
             </p>
           </div>
           <a
@@ -719,54 +730,92 @@ function Dashboard() {
           </div>
         </article>
 
-        <article
-          className="dash-kpi-card dash-kpi-card--billed"
-          onClick={() => setActiveTab('faturadas')}
-          role="button"
-          tabIndex={0}
-          style={{ cursor: 'pointer' }}
-          title="Clique para ver a tela de ordens faturadas"
-        >
-          <div className="dash-kpi-header">
-            <span className="dash-kpi-label">
-              Ordens Faturadas
-            </span>
-            <div className="dash-kpi-icon-pill">
-              <CheckCircle2 size={16} />
-            </div>
-          </div>
-          <strong className="dash-kpi-value">
-            {kpis.billed}
-          </strong>
-          <div className="dash-kpi-trend">
-            <ArrowRight size={12} />
-            <span>{kpis.billingRate}% das finalizadas faturadas</span>
-          </div>
-        </article>
+        {billingEnabled ? (
+          <>
+            <article
+              className="dash-kpi-card dash-kpi-card--billed"
+              onClick={() => setActiveTab('faturadas')}
+              role="button"
+              tabIndex={0}
+              style={{ cursor: 'pointer' }}
+              title="Clique para ver a tela de ordens faturadas"
+            >
+              <div className="dash-kpi-header">
+                <span className="dash-kpi-label">Ordens Faturadas</span>
+                <div className="dash-kpi-icon-pill">
+                  <CheckCircle2 size={16} />
+                </div>
+              </div>
+              <strong className="dash-kpi-value">{kpis.billed}</strong>
+              <div className="dash-kpi-trend">
+                <ArrowRight size={12} />
+                <span>{kpis.billingRate}% das finalizadas faturadas</span>
+              </div>
+            </article>
 
-        <article
-          className={`dash-kpi-card ${kpis.billingPending > 0 ? 'dash-kpi-card--pending' : ''}`}
-          style={{ cursor: 'pointer' }}
-          onClick={() => setActiveTab('faturadas')}
-          role="button"
-          tabIndex={0}
-          title="Clique para ver o painel financeiro"
-        >
-          <div className="dash-kpi-header">
-            <span className="dash-kpi-label">
-              Faturamento Pendente
-            </span>
-            <div className="dash-kpi-icon-pill">
-              <Clock size={16} />
-            </div>
-          </div>
-          <strong className="dash-kpi-value">
-            {kpis.billingPending}
-          </strong>
-          <div className="dash-kpi-trend">
-            <span>Concluídas há &gt; 2 dias ({kpis.billed} faturadas)</span>
-          </div>
-        </article>
+            <article
+              className={`dash-kpi-card ${kpis.billingPending > 0 ? 'dash-kpi-card--pending' : ''}`}
+              style={{ cursor: 'pointer' }}
+              onClick={() => setActiveTab('faturadas')}
+              role="button"
+              tabIndex={0}
+              title="Clique para ver o painel financeiro"
+            >
+              <div className="dash-kpi-header">
+                <span className="dash-kpi-label">Faturamento Pendente</span>
+                <div className="dash-kpi-icon-pill">
+                  <Clock size={16} />
+                </div>
+              </div>
+              <strong className="dash-kpi-value">{kpis.billingPending}</strong>
+              <div className="dash-kpi-trend">
+                <span>{kpis.billingPending > 0 ? `${kpis.billingPending} aguardando baixa` : 'Sem pendências financeiras'}</span>
+              </div>
+            </article>
+          </>
+        ) : (
+          <>
+            <article
+              className="dash-kpi-card dash-kpi-card--billed"
+              onClick={() => setActiveTab('geral')}
+              role="button"
+              tabIndex={0}
+              style={{ cursor: 'pointer' }}
+              title="Ordens concluídas pela equipe interna"
+            >
+              <div className="dash-kpi-header">
+                <span className="dash-kpi-label">Ordens Concluídas</span>
+                <div className="dash-kpi-icon-pill dash-kpi-icon-pill--mint">
+                  <CheckCircle2 size={16} />
+                </div>
+              </div>
+              <strong className="dash-kpi-value">{kpis.completed}</strong>
+              <div className="dash-kpi-trend dash-kpi-trend--positive">
+                <CheckCircle2 size={12} />
+                <span>{kpis.orderCompletionRate}% taxa de conclusão técnica</span>
+              </div>
+            </article>
+
+            <article
+              className="dash-kpi-card"
+              role="button"
+              tabIndex={0}
+              style={{ cursor: 'default' }}
+              title="Modo Equipe Própria ativo: sem cobrança de O.S."
+            >
+              <div className="dash-kpi-header">
+                <span className="dash-kpi-label">Modelo Operacional</span>
+                <div className="dash-kpi-icon-pill dash-kpi-icon-pill--mint">
+                  <ShieldCheck size={16} />
+                </div>
+              </div>
+              <strong className="dash-kpi-value" style={{ fontSize: '18px', paddingTop: '4px' }}>Equipe Interna</strong>
+              <div className="dash-kpi-trend">
+                <span style={{ color: 'var(--muted)' }}>Cobrança por O.S. desativada</span>
+              </div>
+            </article>
+          </>
+        )}
 
         <article
           className="dash-kpi-card"

@@ -190,8 +190,47 @@ router.post('/', async (request, response) => {
     );
     const ticket = result.rows[0];
 
-    // 2. Gerar a Ordem de Serviço em aberto (aguardando aceite técnico)
-    const serviceTypeDesc = normalizedType === 'equipment' ? 'Manutenção de Equipamento' : 'Suporte / Atendimento a Sistemas';
+    // 2. Gerar a Ordem de Serviço em aberto (aguardando aceite técnico) com a vertente correta
+    let serviceTypeDesc = normalizedType === 'equipment' ? 'Manutenção de Equipamento' : 'Suporte / Atendimento a Sistemas';
+    if (normalizedType === 'equipment' && equipmentId) {
+      const eqRow = await client.query('SELECT equipment_type FROM inventory_equipments WHERE id = $1', [equipmentId]);
+      if (eqRow.rowCount > 0) {
+        const eqT = (eqRow.rows[0].equipment_type || '').toLowerCase();
+        if (
+          eqT.includes('gerador') ||
+          eqT.includes('ups') ||
+          eqT.includes('no-break') ||
+          eqT.includes('gás') ||
+          eqT.includes('gas') ||
+          eqT.includes('clima') ||
+          eqT.includes('chiller') ||
+          eqT.includes('pmoc') ||
+          eqT.includes('subest') ||
+          eqT.includes('elétr') ||
+          eqT.includes('bomba') ||
+          eqT.includes('incênd') ||
+          eqT.includes('elevador')
+        ) {
+          serviceTypeDesc = 'Engenharia Predial / Infraestrutura';
+        } else if (
+          eqT.includes('ventilador') ||
+          eqT.includes('respirador') ||
+          eqT.includes('desfibrilador') ||
+          eqT.includes('cardio') ||
+          eqT.includes('infus') ||
+          eqT.includes('autoclave') ||
+          eqT.includes('bisturi') ||
+          eqT.includes('eletroc') ||
+          eqT.includes('multipar') ||
+          eqT.includes('clínic')
+        ) {
+          serviceTypeDesc = 'Engenharia Clínica / Manutenção Biomédica';
+        } else {
+          serviceTypeDesc = 'T.I. / Suporte de Equipamentos';
+        }
+      }
+    }
+
     const orderResult = await client.query(
       `INSERT INTO service_orders (patient_name, service_type, priority, description, service_requested_description, status, created_by, support_ticket_id, equipment_id)
        VALUES ($1, $2, $3, $4, $4, 'open', $5, $6, $7)
