@@ -24,6 +24,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import ExportDropdown from '../components/ExportDropdown.jsx';
 import BillingConfirmationModal from '../components/BillingConfirmationModal.jsx';
+import RecurringServicesTab from '../components/RecurringServicesTab.jsx';
 import {
   confirmPaymentReceipt,
   deleteServiceOrder,
@@ -49,6 +50,7 @@ import {
 } from '../utils/billingUtils.js';
 import { exportToPdf, exportToXls, printServiceOrder } from '../utils/exportReport.js';
 import { matchOrderSearch } from '../utils/searchUtils.js';
+import { canUserAccessVertical, getAssetVertical } from '../utils/verticalUtils.js';
 
 function formatDate(value) {
   if (!value) return '—';
@@ -90,15 +92,41 @@ function ServiceOrders() {
   const [deleteLinkedTicket, setDeleteLinkedTicket] = useState(true);
   const [billingEnabled, setBillingEnabled] = useState(isBillingModuleEnabled);
 
+  // Tabs: Ordens de Serviço vs Serviços Recorrentes
+  const initialTab = new URLSearchParams(window.location.search).get('tab');
+  const [activeTab, setActiveTab] = useState(
+    initialTab === 'recorrentes' || initialTab === 'recurring' ? 'recurring' : 'orders'
+  );
+  const [recurringPlansCount, setRecurringPlansCount] = useState(6);
+
   useEffect(() => {
     loadOrders();
 
     function onSettingsChanged() {
       setBillingEnabled(isBillingModuleEnabled());
     }
+    function onOrdersUpdated() {
+      loadOrders();
+    }
     window.addEventListener('helpclin_settings_changed', onSettingsChanged);
-    return () => window.removeEventListener('helpclin_settings_changed', onSettingsChanged);
+    window.addEventListener('helpclin_orders_updated', onOrdersUpdated);
+    return () => {
+      window.removeEventListener('helpclin_settings_changed', onSettingsChanged);
+      window.removeEventListener('helpclin_orders_updated', onOrdersUpdated);
+    };
   }, []);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('helpclin_recurring_plans');
+      if (stored) {
+        const list = JSON.parse(stored);
+        if (Array.isArray(list)) {
+          setRecurringPlansCount(list.filter((p) => p.status === 'active').length);
+        }
+      }
+    } catch {}
+  }, [activeTab]);
 
   async function loadOrders() {
     setIsLoading(true);
@@ -320,6 +348,16 @@ function ServiceOrders() {
     }
   }
 
+  // Filtrar ordens acessíveis de acordo com as vertentes contratadas pelo cliente
+  const accessibleOrders = useMemo(() => {
+    if (user?.role === 'admin' || user?.role === 'technician') return orders;
+    return orders.filter((order) => {
+      const orderType = order.equipment_type || order.service_type || order.equipment_name || '';
+      const vert = getAssetVertical(orderType, order.vertical);
+      return canUserAccessVertical(user, vert.code);
+    });
+  }, [orders, user]);
+
   // Calculate KPIs
   const now = new Date();
   const kpis = useMemo(() => {
@@ -332,7 +370,7 @@ function ServiceOrders() {
     let billedCount = 0;
     let urgentCount = 0;
 
-    orders.forEach((o) => {
+    accessibleOrders.forEach((o) => {
       const effective = getEffectiveOrderStatus(o);
       if (effective === 'open') openCount++;
       if (effective === 'in_progress') inProgressCount++;
@@ -355,7 +393,7 @@ function ServiceOrders() {
     });
 
     return {
-      total: orders.length,
+      total: accessibleOrders.length,
       open: openCount,
       inProgress: inProgressCount,
       completed: completedCount,
@@ -365,11 +403,11 @@ function ServiceOrders() {
       billed: billedCount,
       urgent: urgentCount
     };
-  }, [orders]);
+  }, [accessibleOrders]);
 
   // Filtered orders
   const filteredOrders = useMemo(() => {
-    return orders.filter((order) => {
+    return accessibleOrders.filter((order) => {
       const effective = getEffectiveOrderStatus(order);
 
       // 1. KPI Tab Filter
@@ -518,21 +556,29 @@ function ServiceOrders() {
       {/* Top Header */}
       <section className="simple-page-heading">
         <div>
-          <p className="eyebrow">Central de Operações</p>
-          <h1>Ordens de Serviço</h1>
-          <p>Consulte, gerencie e atualize as ordens de serviço geradas a partir dos chamados técnicos.</p>
+          <p className="eyebrow">Central de Operações e Engenharia</p>
+          <h1>{activeTab === 'recurring' ? 'Serviços Recorrentes & Preventivas' : 'Ordens de Serviço'}</h1>
+          <p>
+            {activeTab === 'recurring'
+              ? 'Defina e gerencie planos periódicos de calibração, manutenção preventiva e abertura automática de O.S.'
+              : 'Consulte, gerencie e atualize as ordens de serviço geradas a partir dos chamados técnicos.'}
+          </p>
         </div>
         <div className="simple-page-actions">
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={handleExportPdf}
-            title="Imprimir listagem oficial das ordens de serviço filtradas"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-          >
-            <Printer size={15} /> Imprimir Lista
-          </button>
-          <ExportDropdown onExportXls={handleExportXls} onExportPdf={handleExportPdf} />
+          {activeTab === 'orders' && (
+            <>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={handleExportPdf}
+                title="Imprimir listagem oficial das ordens de serviço filtradas"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              >
+                <Printer size={15} /> Imprimir Lista
+              </button>
+              <ExportDropdown onExportXls={handleExportXls} onExportPdf={handleExportPdf} />
+            </>
+          )}
           <div className="work-order-user" style={{ margin: 0 }}>
             <span>Usuário:</span>
             <strong>{user?.name ?? 'Administrador'}</strong>
@@ -540,7 +586,45 @@ function ServiceOrders() {
         </div>
       </section>
 
-      {successMessage && <p className="ticket-feedback" style={{ marginBottom: '16px' }}>{successMessage}</p>}
+      {/* Navigation Tabs: Ordens de Serviço vs Serviços Recorrentes */}
+      <div className="services-tab-bar">
+        <button
+          type="button"
+          className={`services-tab-btn ${activeTab === 'orders' ? 'services-tab-btn--active' : ''}`}
+          onClick={() => {
+            setActiveTab('orders');
+            const url = new URL(window.location.href);
+            url.searchParams.delete('tab');
+            window.history.replaceState({}, '', url.toString());
+          }}
+        >
+          <FileText size={16} />
+          <span>Ordens de Serviço</span>
+          <span className="services-tab-badge">{orders.length}</span>
+        </button>
+        <button
+          type="button"
+          className={`services-tab-btn ${activeTab === 'recurring' ? 'services-tab-btn--active' : ''}`}
+          onClick={() => {
+            setActiveTab('recurring');
+            const url = new URL(window.location.href);
+            url.searchParams.set('tab', 'recorrentes');
+            window.history.replaceState({}, '', url.toString());
+          }}
+        >
+          <RotateCcw size={16} />
+          <span>Serviços Recorrentes & Preventivas</span>
+          <span className="services-tab-badge services-tab-badge--accent">
+            {recurringPlansCount}
+          </span>
+        </button>
+      </div>
+
+      {activeTab === 'recurring' ? (
+        <RecurringServicesTab />
+      ) : (
+        <>
+          {successMessage && <p className="ticket-feedback" style={{ marginBottom: '16px' }}>{successMessage}</p>}
       {errorMessage && !editingOrder && <p className="ticket-feedback data-state--error" style={{ marginBottom: '16px', background: '#fee2e2' }}>{errorMessage}</p>}
 
       {/* Interactive Metric / KPI Cards */}
@@ -1244,7 +1328,6 @@ function ServiceOrders() {
                     <input
                       value={editingOrder.patient_name || ''}
                       disabled
-                      style={{ background: '#f0f3f1', cursor: 'not-allowed', color: '#687b76' }}
                     />
                   </div>
 
@@ -1253,7 +1336,6 @@ function ServiceOrders() {
                     <input
                       value={editingOrder.equipment_name || 'Nenhum equipamento vinculado'}
                       disabled
-                      style={{ background: '#f0f3f1', cursor: 'not-allowed', color: '#687b76' }}
                     />
                   </div>
                 </div>
@@ -1515,6 +1597,8 @@ function ServiceOrders() {
             </div>
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );

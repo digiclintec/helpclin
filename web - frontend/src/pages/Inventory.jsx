@@ -1,83 +1,22 @@
-import { Building2, Edit3, Filter, Laptop, MonitorDot, Plus, Search, Stethoscope, Trash2, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { Building2, Edit3, Filter, Laptop, MonitorDot, Plus, Search, ShieldCheck, Stethoscope, Trash2, X } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 
 import ExportDropdown from '../components/ExportDropdown.jsx';
-import { createEquipment, deleteEquipment, getInventory, updateEquipment } from '../services/api.js';
+import { createEquipment, deleteEquipment, getInventory, getStoredUser, updateEquipment } from '../services/api.js';
 import { exportToPdf, exportToXls } from '../utils/exportReport.js';
 import { normalizeText } from '../utils/searchUtils.js';
 import {
-  isTIModuleEnabled,
-  isClinicalModuleEnabled,
-  isPredialModuleEnabled
-} from '../utils/billingUtils.js';
-
-function getAssetVertical(type) {
-  const t = (type || '').toLowerCase();
-  if (
-    t.includes('gerador') ||
-    t.includes('ups') ||
-    t.includes('no-break') ||
-    t.includes('gás') ||
-    t.includes('gas') ||
-    t.includes('oxig') ||
-    t.includes('vácuo') ||
-    t.includes('vacuo') ||
-    t.includes('clima') ||
-    t.includes('chiller') ||
-    t.includes('ar-cond') ||
-    t.includes('pmoc') ||
-    t.includes('subest') ||
-    t.includes('elétr') ||
-    t.includes('eletr') ||
-    t.includes('bomba') ||
-    t.includes('incênd') ||
-    t.includes('incend') ||
-    t.includes('avcb') ||
-    t.includes('elevador')
-  ) {
-    return {
-      name: 'Engenharia Predial',
-      code: 'predial',
-      color: '#b45309',
-      bg: '#fef3c7',
-      icon: Building2
-    };
-  }
-
-  if (
-    t.includes('respirador') ||
-    t.includes('ventilador') ||
-    t.includes('desfibrilador') ||
-    t.includes('cardio') ||
-    t.includes('infus') ||
-    t.includes('eletroc') ||
-    t.includes('autoclave') ||
-    t.includes('bisturi') ||
-    t.includes('diagnóst') ||
-    t.includes('imagem') ||
-    t.includes('multipar') ||
-    t.includes('clínic') ||
-    t.includes('balan')
-  ) {
-    return {
-      name: 'Engenharia Clínica',
-      code: 'clinical',
-      color: '#0f766e',
-      bg: '#ccfbf1',
-      icon: Stethoscope
-    };
-  }
-
-  return {
-    name: 'T.I. em Saúde',
-    code: 'ti',
-    color: '#1d4ed8',
-    bg: '#dbeafe',
-    icon: Laptop
-  };
-}
+  VERTICALS,
+  canUserAccessVertical,
+  formatUserVerticalsSummary,
+  getAssetVertical,
+  getUserAllowedVerticals
+} from '../utils/verticalUtils.js';
 
 function Inventory() {
+  const user = getStoredUser();
+  const allowedVerticals = useMemo(() => getUserAllowedVerticals(user), [user]);
+
   const [equipments, setEquipments] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [feedback, setFeedback] = useState('');
@@ -86,10 +25,14 @@ function Inventory() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
 
-  const [verticalFilter, setVerticalFilter] = useState('all');
+  // If user only has 1 vertical contracted, default directly to that vertical
+  const [verticalFilter, setVerticalFilter] = useState(() => {
+    return allowedVerticals.length === 1 ? allowedVerticals[0] : 'all';
+  });
 
   const [name, setName] = useState('');
-  const [equipmentType, setEquipmentType] = useState('Computador');
+  const [selectedVertical, setSelectedVertical] = useState(() => allowedVerticals[0] || 'clinical');
+  const [equipmentType, setEquipmentType] = useState('Computador / Notebook');
   const [serialNumber, setSerialNumber] = useState('');
   const [location, setLocation] = useState('');
   const [status, setStatus] = useState('Ativo');
@@ -97,6 +40,34 @@ function Inventory() {
 
   useEffect(() => {
     loadInventory();
+  }, []);
+
+  // Sync URL query params (?vertical=clinical | ti | predial)
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const vertParam = urlParams.get('vertical');
+    if (vertParam && ['clinical', 'ti', 'predial'].includes(vertParam)) {
+      if (allowedVerticals.includes(vertParam)) {
+        setVerticalFilter(vertParam);
+      } else if (allowedVerticals.length > 0) {
+        setVerticalFilter(allowedVerticals[0]);
+      }
+    } else if (allowedVerticals.length === 1) {
+      setVerticalFilter(allowedVerticals[0]);
+    }
+  }, [allowedVerticals]);
+
+  // Escuta alteração de vertentes contratuais em tempo real
+  useEffect(() => {
+    function handleVerticalsUpdate() {
+      loadInventory();
+    }
+    window.addEventListener('helpclin_verticals_changed', handleVerticalsUpdate);
+    window.addEventListener('helpclin_settings_changed', handleVerticalsUpdate);
+    return () => {
+      window.removeEventListener('helpclin_verticals_changed', handleVerticalsUpdate);
+      window.removeEventListener('helpclin_settings_changed', handleVerticalsUpdate);
+    };
   }, []);
 
   async function loadInventory() {
@@ -114,6 +85,8 @@ function Inventory() {
     if (equipment) {
       setEditingId(equipment.id);
       setName(equipment.name);
+      const detected = getAssetVertical(equipment.equipment_type, equipment.vertical);
+      setSelectedVertical(detected.code);
       setEquipmentType(equipment.equipment_type);
       setSerialNumber(equipment.serial_number || '');
       setLocation(equipment.location || '');
@@ -121,7 +94,15 @@ function Inventory() {
     } else {
       setEditingId(null);
       setName('');
-      setEquipmentType('Computador');
+      const defaultVert = allowedVerticals[0] || 'clinical';
+      setSelectedVertical(defaultVert);
+      setEquipmentType(
+        defaultVert === 'clinical'
+          ? 'Monitor Multiparâmetro'
+          : defaultVert === 'predial'
+          ? 'Grupo Gerador'
+          : 'Computador / Notebook'
+      );
       setSerialNumber('');
       setLocation('');
       setStatus('Ativo');
@@ -141,7 +122,14 @@ function Inventory() {
     setFeedback('');
 
     try {
-      const payload = { name, equipmentType, serialNumber, location, status };
+      const payload = {
+        name,
+        equipmentType,
+        serialNumber,
+        location,
+        status,
+        vertical: selectedVertical
+      };
       if (editingId) {
         await updateEquipment(editingId, payload);
       } else {
@@ -166,26 +154,39 @@ function Inventory() {
     }
   }
 
-  const filteredEquipments = equipments.filter((eq) => {
-    if (verticalFilter !== 'all') {
-      const vert = getAssetVertical(eq.equipment_type);
-      if (vert.code !== verticalFilter) return false;
-    }
-    if (!search.trim()) return true;
-    const str = normalizeText(`${eq.name} ${eq.equipment_type} ${eq.serial_number || ''} ${eq.location || ''} ${eq.status}`);
-    const normSearch = normalizeText(search);
-    const tokens = normSearch.split(/\s+/).filter(Boolean);
-    return tokens.every((token) => str.includes(token));
-  });
+  // REQUISITO CRÍTICO: Cada cliente só pode visualizar o que está setado nas suas vertentes contratadas
+  const accessibleEquipments = useMemo(() => {
+    return equipments.filter((eq) => {
+      const vert = getAssetVertical(eq.equipment_type, eq.vertical);
+      return canUserAccessVertical(user, vert.code);
+    });
+  }, [equipments, user]);
+
+  const filteredEquipments = useMemo(() => {
+    return accessibleEquipments.filter((eq) => {
+      if (verticalFilter !== 'all') {
+        const vert = getAssetVertical(eq.equipment_type, eq.vertical);
+        if (vert.code !== verticalFilter) return false;
+      }
+      if (!search.trim()) return true;
+      const str = normalizeText(
+        `${eq.name} ${eq.equipment_type} ${eq.serial_number || ''} ${eq.location || ''} ${eq.status}`
+      );
+      const normSearch = normalizeText(search);
+      const tokens = normSearch.split(/\s+/).filter(Boolean);
+      return tokens.every((token) => str.includes(token));
+    });
+  }, [accessibleEquipments, verticalFilter, search]);
 
   const statusStyles = {
-    'Ativo': { color: '#059669', bg: '#e8f5e9' },
-    'Manutenção': { color: '#d97706', bg: '#fef3c7' },
-    'Desativado': { color: '#dc2626', bg: '#fee2e2' }
+    Ativo: { color: '#059669', bg: '#e8f5e9' },
+    Manutenção: { color: '#d97706', bg: '#fef3c7' },
+    Desativado: { color: '#dc2626', bg: '#fee2e2' }
   };
 
   const exportColumns = [
     { header: 'Nome / Modelo', accessor: 'name' },
+    { header: 'Vertente', accessor: (e) => getAssetVertical(e.equipment_type, e.vertical).name },
     { header: 'Tipo', accessor: 'equipment_type' },
     { header: 'Número de Série (S/N)', accessor: (e) => e.serial_number || '—' },
     { header: 'Localização', accessor: (e) => e.location || '—' },
@@ -203,12 +204,12 @@ function Inventory() {
 
   function handleExportPdf() {
     exportToPdf({
-      title: 'Inventário de Ativos de Hardware',
-      subtitle: `Listagem de ${filteredEquipments.length} equipamentos cadastrados`,
+      title: 'Inventário de Ativos HelpClin',
+      subtitle: `Listagem de ${filteredEquipments.length} equipamentos da vertente ${verticalFilter === 'all' ? 'geral contratada' : VERTICALS[verticalFilter]?.name || ''}`,
       columns: exportColumns,
       data: filteredEquipments,
       summary: [
-        { label: 'Total de Ativos', value: filteredEquipments.length },
+        { label: 'Total de Ativos Visíveis', value: filteredEquipments.length },
         { label: 'Ativos', value: filteredEquipments.filter((e) => e.status === 'Ativo').length },
         { label: 'Em Manutenção', value: filteredEquipments.filter((e) => e.status === 'Manutenção').length },
         { label: 'Desativados', value: filteredEquipments.filter((e) => e.status === 'Desativado').length }
@@ -216,13 +217,41 @@ function Inventory() {
     });
   }
 
+  const isClientRole = user?.role !== 'admin' && user?.role !== 'technician';
+  const contractSummary = formatUserVerticalsSummary(user);
+
   return (
     <div className="simple-page">
       <section className="simple-page-heading">
         <div>
-          <p className="eyebrow">Gestão de T.I.</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+            <p className="eyebrow" style={{ margin: 0 }}>Gestão de Ativos</p>
+            {isClientRole && (
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '2px 8px',
+                  borderRadius: '12px',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  background: '#e3f2e8',
+                  color: '#286756',
+                  border: '1px solid #bce1ce'
+                }}
+              >
+                <ShieldCheck size={12} />
+                Seu Contrato: {contractSummary}
+              </span>
+            )}
+          </div>
           <h1>Inventário de Equipamentos</h1>
-          <p>Cadastre e acompanhe os ativos de hardware da clínica.</p>
+          <p>
+            {isClientRole
+              ? `Acompanhe os equipamentos vinculados às vertentes contratadas (${contractSummary}).`
+              : 'Cadastre e acompanhe os ativos de Engenharia Clínica, T.I. e Predial da clínica.'}
+          </p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <ExportDropdown onExportXls={handleExportXls} onExportPdf={handleExportPdf} />
@@ -243,7 +272,7 @@ function Inventory() {
           <div>
             <p className="eyebrow">Ativos Cadastrados</p>
             <h2>
-              Equipamentos <span>{equipments.length}</span>
+              Equipamentos <span>{accessibleEquipments.length}</span>
             </h2>
           </div>
           <div className="search-control">
@@ -257,21 +286,69 @@ function Inventory() {
           </div>
         </div>
 
-        {/* Multi-Vertical Filters */}
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', margin: '14px 0 18px', paddingBottom: '14px', borderBottom: '1px solid var(--line)' }}>
-          {[
-            { id: 'all', label: 'Todos os Ativos', count: equipments.length, enabled: true },
-            { id: 'ti', label: 'T.I. em Saúde', icon: Laptop, count: equipments.filter(e => getAssetVertical(e.equipment_type).code === 'ti').length, enabled: isTIModuleEnabled() },
-            { id: 'clinical', label: 'Engenharia Clínica', icon: Stethoscope, count: equipments.filter(e => getAssetVertical(e.equipment_type).code === 'clinical').length, enabled: isClinicalModuleEnabled() },
-            { id: 'predial', label: 'Engenharia Predial / Facilities', icon: Building2, count: equipments.filter(e => getAssetVertical(e.equipment_type).code === 'predial').length, enabled: isPredialModuleEnabled() }
-          ].filter(tab => tab.enabled).map(tab => {
-            const Icon = tab.icon;
-            const isActive = verticalFilter === tab.id;
+        {/* Separador de Vertentes: Cada cliente só vê o que contratou (1, 2 ou todas) */}
+        <div
+          style={{
+            display: 'flex',
+            gap: '8px',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            margin: '14px 0 18px',
+            paddingBottom: '14px',
+            borderBottom: '1px solid var(--line)'
+          }}
+        >
+          {/* Aba "Todos os Ativos" só é exibida se o cliente tem mais de 1 vertente */}
+          {allowedVerticals.length > 1 && (
+            <button
+              type="button"
+              onClick={() => setVerticalFilter('all')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 12px',
+                borderRadius: '20px',
+                fontSize: '12px',
+                fontWeight: verticalFilter === 'all' ? 700 : 500,
+                border: verticalFilter === 'all' ? '1.5px solid var(--teal)' : '1px solid var(--line)',
+                background: verticalFilter === 'all' ? 'var(--teal)' : '#fff',
+                color: verticalFilter === 'all' ? '#fff' : 'var(--muted)',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <span>Todos os Ativos Contratados</span>
+              <span
+                style={{
+                  fontSize: '10px',
+                  padding: '1px 6px',
+                  borderRadius: '10px',
+                  background: verticalFilter === 'all' ? 'rgba(255,255,255,0.25)' : '#f0f3f1',
+                  color: verticalFilter === 'all' ? '#fff' : 'var(--teal)',
+                  fontWeight: 700
+                }}
+              >
+                {accessibleEquipments.length}
+              </span>
+            </button>
+          )}
+
+          {/* Abas filtradas pelas vertentes contratadas do cliente */}
+          {allowedVerticals.map((vertId) => {
+            const v = VERTICALS[vertId];
+            if (!v) return null;
+            const Icon = v.icon;
+            const isActive = verticalFilter === vertId;
+            const count = accessibleEquipments.filter(
+              (e) => getAssetVertical(e.equipment_type, e.vertical).code === vertId
+            ).length;
+
             return (
               <button
-                key={tab.id}
+                key={vertId}
                 type="button"
-                onClick={() => setVerticalFilter(tab.id)}
+                onClick={() => setVerticalFilter(vertId)}
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -280,24 +357,26 @@ function Inventory() {
                   borderRadius: '20px',
                   fontSize: '12px',
                   fontWeight: isActive ? 700 : 500,
-                  border: isActive ? '1.5px solid var(--teal)' : '1px solid var(--line)',
-                  background: isActive ? 'var(--teal)' : '#fff',
+                  border: isActive ? `1.5px solid ${v.color}` : '1px solid var(--line)',
+                  background: isActive ? v.color : '#fff',
                   color: isActive ? '#fff' : 'var(--muted)',
                   cursor: 'pointer',
                   transition: 'all 0.15s ease'
                 }}
               >
                 {Icon && <Icon size={13} />}
-                <span>{tab.label}</span>
-                <span style={{
-                  fontSize: '10px',
-                  padding: '1px 6px',
-                  borderRadius: '10px',
-                  background: isActive ? 'rgba(255,255,255,0.25)' : '#f0f3f1',
-                  color: isActive ? '#fff' : 'var(--teal)',
-                  fontWeight: 700
-                }}>
-                  {tab.count}
+                <span>{v.name}</span>
+                <span
+                  style={{
+                    fontSize: '10px',
+                    padding: '1px 6px',
+                    borderRadius: '10px',
+                    background: isActive ? 'rgba(255,255,255,0.25)' : v.bg,
+                    color: isActive ? '#fff' : v.color,
+                    fontWeight: 700
+                  }}
+                >
+                  {count}
                 </span>
               </button>
             );
@@ -450,44 +529,31 @@ function Inventory() {
               <div className="inventory-grid-2">
                 <div className="inventory-field">
                   <label>
-                    Tipo <span className="required">*</span>
+                    Vertente do Ativo <span className="required">*</span>
                   </label>
                   <select
-                    value={equipmentType}
-                    onChange={(e) => setEquipmentType(e.target.value)}
+                    value={selectedVertical}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setSelectedVertical(v);
+                      if (v === 'clinical') setEquipmentType('Monitor Multiparâmetro');
+                      else if (v === 'predial') setEquipmentType('Grupo Gerador');
+                      else setEquipmentType('Computador / Notebook');
+                    }}
                     required
                   >
-                    <optgroup label="Tecnologia da Informação (T.I.)">
-                      <option value="Computador / Notebook">Computador / Notebook</option>
-                      <option value="Monitor de Vídeo">Monitor de Vídeo</option>
-                      <option value="Impressora">Impressora (Térmica / Convencional)</option>
-                      <option value="Equipamento de Rede">Equipamento de Rede (Switch / AP / Roteador)</option>
-                      <option value="Servidor / Storage">Servidor / Storage</option>
-                      <option value="Acessório de T.I.">Acessório de T.I.</option>
-                    </optgroup>
-                    <optgroup label="Engenharia Clínica (Equipamentos Médicos)">
-                      <option value="Monitor Multiparâmetro">Monitor Multiparâmetro / Sinais Vitais</option>
-                      <option value="Ventilador Pulmonar">Ventilador Pulmonar / Respirador</option>
-                      <option value="Desfibrilador / Cardioversor">Desfibrilador / Cardioversor</option>
-                      <option value="Bomba de Infusão">Bomba de Infusão / Seringa</option>
-                      <option value="Eletrocardiógrafo">Eletrocardiógrafo (ECG)</option>
-                      <option value="Autoclave / Esterilização">Autoclave / Esterilização</option>
-                      <option value="Bisturi Elétrico">Bisturi Elétrico / Eletrocirúrgico</option>
-                      <option value="Equipamento de Diagnóstico">Equipamento de Diagnóstico / Imagem</option>
-                    </optgroup>
-                    <optgroup label="Engenharia Predial & Facilities Hospitalar">
-                      <option value="Grupo Gerador">Grupo Gerador de Emergência</option>
-                      <option value="No-Break Industrial / UPS">No-Break Industrial / UPS</option>
-                      <option value="Central de Gases Medicinais">Central de Gases Medicinais (O2, Ar, Vácuo)</option>
-                      <option value="Sistema de Climatização / PMOC">Sistema de Climatização / Chiller (PMOC)</option>
-                      <option value="Subestação / Elétrica">Subestação / Quadro de Distribuição</option>
-                      <option value="Bomba Hidráulica">Bomba Hidráulica / Pressurização</option>
-                      <option value="Sistema de Incêndio / AVCB">Sistema de Incêndio / AVCB</option>
-                      <option value="Elevador Hospitalar">Elevador Hospitalar / Monta-cargas</option>
-                    </optgroup>
-                    <option value="Outro">Outro Ativo</option>
+                    {allowedVerticals.includes('clinical') && (
+                      <option value="clinical">🩺 Engenharia Clínica</option>
+                    )}
+                    {allowedVerticals.includes('ti') && (
+                      <option value="ti">💻 T.I. em Saúde</option>
+                    )}
+                    {allowedVerticals.includes('predial') && (
+                      <option value="predial">🏢 Engenharia Predial</option>
+                    )}
                   </select>
                 </div>
+
                 <div className="inventory-field">
                   <label>
                     Status <span className="required">*</span>
@@ -502,6 +568,53 @@ function Inventory() {
                     <option value="Desativado">Desativado</option>
                   </select>
                 </div>
+              </div>
+
+              <div className="inventory-field">
+                <label>
+                  Tipo Específico <span className="required">*</span>
+                </label>
+                <select
+                  value={equipmentType}
+                  onChange={(e) => setEquipmentType(e.target.value)}
+                  required
+                >
+                  {selectedVertical === 'ti' && (
+                    <optgroup label="Tecnologia da Informação (T.I.)">
+                      <option value="Computador / Notebook">Computador / Notebook</option>
+                      <option value="Monitor de Vídeo">Monitor de Vídeo</option>
+                      <option value="Impressora">Impressora (Térmica / Convencional)</option>
+                      <option value="Equipamento de Rede">Equipamento de Rede (Switch / AP / Roteador)</option>
+                      <option value="Servidor / Storage">Servidor / Storage</option>
+                      <option value="Acessório de T.I.">Acessório de T.I.</option>
+                    </optgroup>
+                  )}
+                  {selectedVertical === 'clinical' && (
+                    <optgroup label="Engenharia Clínica (Equipamentos Médicos)">
+                      <option value="Monitor Multiparâmetro">Monitor Multiparâmetro / Sinais Vitais</option>
+                      <option value="Ventilador Pulmonar">Ventilador Pulmonar / Respirador</option>
+                      <option value="Desfibrilador / Cardioversor">Desfibrilador / Cardioversor</option>
+                      <option value="Bomba de Infusão">Bomba de Infusão / Seringa</option>
+                      <option value="Eletrocardiógrafo">Eletrocardiógrafo (ECG)</option>
+                      <option value="Autoclave / Esterilização">Autoclave / Esterilização</option>
+                      <option value="Bisturi Elétrico">Bisturi Elétrico / Eletrocirúrgico</option>
+                      <option value="Equipamento de Diagnóstico">Equipamento de Diagnóstico / Imagem</option>
+                    </optgroup>
+                  )}
+                  {selectedVertical === 'predial' && (
+                    <optgroup label="Engenharia Predial & Facilities Hospitalar">
+                      <option value="Grupo Gerador">Grupo Gerador de Emergência</option>
+                      <option value="No-Break Industrial / UPS">No-Break Industrial / UPS</option>
+                      <option value="Central de Gases Medicinais">Central de Gases Medicinais (O2, Ar, Vácuo)</option>
+                      <option value="Sistema de Climatização / PMOC">Sistema de Climatização / Chiller (PMOC)</option>
+                      <option value="Subestação / Elétrica">Subestação / Quadro de Distribuição</option>
+                      <option value="Bomba Hidráulica">Bomba Hidráulica / Pressurização</option>
+                      <option value="Sistema de Incêndio / AVCB">Sistema de Incêndio / AVCB</option>
+                      <option value="Elevador Hospitalar">Elevador Hospitalar / Monta-cargas</option>
+                    </optgroup>
+                  )}
+                  <option value="Outro">Outro Ativo</option>
+                </select>
               </div>
 
               <div className="inventory-grid-2">
