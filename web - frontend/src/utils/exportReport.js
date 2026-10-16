@@ -65,15 +65,24 @@ export function exportToXls({ title, columns, data, filename = 'relatorio' }) {
   URL.revokeObjectURL(url);
 }
 
-export function exportToPdf({ title, subtitle = '', columns, data, summary = [] }) {
-  const dateStr = new Date().toLocaleDateString('pt-BR');
-  const timeStr = new Date().toLocaleTimeString('pt-BR');
-
-  const printWindow = window.open('', '_blank');
-  if (!printWindow) {
-    alert('Por favor, permita popups para visualizar e baixar o relatório em PDF.');
-    return;
+export function exportToPdf({ title, subtitle = '', columns, data, summary = [], tipo, orientation = 'landscape' } = {}) {
+  let detectedTipo = tipo;
+  if (!detectedTipo) {
+    const t = (title || '').toLowerCase();
+    if (t.includes('chamado')) detectedTipo = 'chamados';
+    else if (t.includes('inventário') || t.includes('equipamento') || t.includes('ativo')) detectedTipo = 'inventario';
+    else detectedTipo = 'ordens';
   }
+
+  const url = `/relatorio-impressao?tipo=${detectedTipo}&orientacao=${orientation}`;
+  const win = window.open(url, '_blank');
+  if (!win) {
+    window.location.href = url;
+  }
+  return;
+}
+
+function _legacyExportToPdf({ title, subtitle = '', columns, data, summary = [] }) {
 
   const printHtml = `
     <!DOCTYPE html>
