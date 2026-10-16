@@ -65,7 +65,7 @@ export function exportToXls({ title, columns, data, filename = 'relatorio' }) {
   URL.revokeObjectURL(url);
 }
 
-export function exportToPdf({ title, subtitle = '', columns, data, summary = [], tipo, orientation = 'landscape' } = {}) {
+export function exportToPdf({ title, subtitle = '', columns, data, summary = [], tipo, orientation = 'portrait' } = {}) {
   let detectedTipo = tipo;
   if (!detectedTipo) {
     const t = (title || '').toLowerCase();

@@ -3,13 +3,8 @@ import {
   ArrowLeft,
   CheckCircle2,
   Clock,
-  FileSpreadsheet,
-  FileText,
   Laptop,
-  Maximize2,
   Printer,
-  RefreshCw,
-  RotateCcw,
   ShieldCheck,
   Wrench
 } from 'lucide-react';
@@ -18,7 +13,6 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   getInventory,
   getServiceOrders,
-  getStoredUser,
   getSupportTickets
 } from '../services/api.js';
 import {
@@ -31,21 +25,30 @@ import {
   isPaymentInformed
 } from '../utils/billingUtils.js';
 
+function formatDateParts(value) {
+  if (!value) return { date: '—', time: '' };
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return { date: '—', time: '' };
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  return {
+    date: `${day}/${month}/${year}`,
+    time: `${hours}:${minutes}`
+  };
+}
+
 function formatDate(value) {
-  if (!value) return '—';
-  const date = new Date(value);
-  if (isNaN(date.getTime())) return '—';
-  const day = String(date.getDate()).padStart(2, '0');
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const year = date.getFullYear();
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  return `${day}/${month}/${year}, ${hours}:${minutes}`;
+  const { date, time } = formatDateParts(value);
+  if (!time) return date;
+  return `${date}, ${time}`;
 }
 
 function getPriorityLabel(priority) {
   const p = (priority || '').toLowerCase();
-  if (['low', 'pouco urgente', 'baixa'].includes(p)) return 'Pouco urgente';
+  if (['low', 'pouco urgente', 'baixa'].includes(p)) return 'Baixa';
   if (p === 'normal') return 'Normal';
   if (['high', 'alta'].includes(p)) return 'Alta';
   if (['urgent', 'urgente'].includes(p)) return 'Urgente';
@@ -63,10 +66,8 @@ function getPriorityClass(priority) {
 export default function ReportPrintPreview() {
   const searchParams = new URLSearchParams(window.location.search);
   const tipoParam = searchParams.get('tipo') || 'ordens'; // 'ordens' | 'chamados' | 'inventario'
-  const orientacaoParam = searchParams.get('orientacao') || 'landscape'; // 'landscape' | 'portrait'
 
-  const [orientation, setOrientation] = useState(orientacaoParam);
-  const [reportType, setReportType] = useState(tipoParam);
+  const [reportType] = useState(tipoParam);
   const [orders, setOrders] = useState([]);
   const [tickets, setTickets] = useState([]);
   const [inventory, setInventory] = useState([]);
@@ -158,6 +159,27 @@ export default function ReportPrintPreview() {
     };
   }, [tickets]);
 
+  // Compute KPIs dynamically for Inventory
+  const inventoryKpis = useMemo(() => {
+    let active = 0;
+    let maintenance = 0;
+    let inactive = 0;
+
+    inventory.forEach((i) => {
+      const s = (i.status || '').toLowerCase();
+      if (['active', 'ativo', 'operacional'].includes(s)) active++;
+      else if (['maintenance', 'manutencao', 'manutenção'].includes(s)) maintenance++;
+      else inactive++;
+    });
+
+    return {
+      total: inventory.length,
+      active,
+      maintenance,
+      inactive
+    };
+  }, [inventory]);
+
   // Format emission timestamp
   const emissionString = useMemo(() => {
     const day = String(lastUpdated.getDate()).padStart(2, '0');
@@ -168,10 +190,6 @@ export default function ReportPrintPreview() {
     const seconds = String(lastUpdated.getSeconds()).padStart(2, '0');
     return `${day}/${month}/${year} às ${hours}:${minutes}:${seconds}`;
   }, [lastUpdated]);
-
-  function handleToggleOrientation() {
-    setOrientation((prev) => (prev === 'landscape' ? 'portrait' : 'landscape'));
-  }
 
   function handlePrint() {
     window.print();
@@ -185,71 +203,83 @@ export default function ReportPrintPreview() {
 
   return (
     <div className="report-preview-page">
-      {/* Dynamic Print CSS */}
+      {/* Dynamic Print CSS for Standard A4 (Chamex 210mm x 297mm) */}
       <style>{`
         @page {
-          size: A4 ${orientation};
-          margin: 6mm 6mm;
+          size: A4 portrait;
+          margin: 6mm 6mm 6mm 6mm;
         }
 
         @media print {
-          body {
+          html, body {
+            width: 210mm !important;
+            height: auto !important;
             background: #ffffff !important;
             padding: 0 !important;
             margin: 0 !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
-          .report-preview-action-bar {
+
+          .report-preview-page {
+            padding: 0 !important;
+            margin: 0 !important;
+            background: #ffffff !important;
+          }
+
+          .report-preview-action-bar,
+          .report-preview-error {
             display: none !important;
           }
+
           .report-preview-document {
+            width: 100% !important;
             max-width: 100% !important;
+            min-height: auto !important;
             box-shadow: none !important;
             border: none !important;
             padding: 0 !important;
             margin: 0 !important;
+            border-radius: 0 !important;
+          }
+
+          .report-table {
+            page-break-inside: auto;
+          }
+
+          .report-table tr {
+            page-break-inside: avoid;
+            break-inside: avoid;
+          }
+
+          .document-header,
+          .document-title-banner,
+          .document-summary-grid,
+          .document-footer {
+            page-break-inside: avoid;
+            break-inside: avoid;
           }
         }
       `}</style>
 
-      {/* 1. TOP ACTION BAR (Hidden when printing or saving PDF) */}
+      {/* 1. TOP ACTION BAR (Clean: Removed 'Atualizar Dados' and 'Alternar Orientação') */}
       <header className="report-preview-action-bar">
         <div className="action-bar-left">
           <span className="action-bar-badge">
             <span className="pulse-dot" />
-            Visualização de Impressão Oficial (A4)
+            Padrão A4 (Chamex) • Folha Única
           </span>
           <span className="action-bar-hint">
-            Pressione <strong>F5</strong> a qualquer momento para recarregar com as últimas alterações do banco.
+            Pressione <strong>F5</strong> no teclado para atualizar dados do banco.
           </span>
         </div>
 
         <div className="action-bar-controls">
           <button
             type="button"
-            className="btn-action btn-refresh"
-            onClick={loadData}
-            disabled={isLoading}
-            title="Recarrega as informações mais recentes das ordens e chamados"
-          >
-            <RefreshCw size={15} className={isLoading ? 'spin-icon' : ''} />
-            <span>{isLoading ? 'Atualizando...' : 'Atualizar Dados (F5)'}</span>
-          </button>
-
-          <button
-            type="button"
-            className="btn-action btn-orient"
-            onClick={handleToggleOrientation}
-            title="Alterna o formato da folha A4 entre Paisagem e Retrato"
-          >
-            <RotateCcw size={15} />
-            <span>{orientation === 'landscape' ? 'Alternar para Retrato' : 'Alternar para Paisagem (Ideal)'}</span>
-          </button>
-
-          <button
-            type="button"
             className="btn-action btn-close"
             onClick={handleGoBack}
-            title="Fechar relatório e voltar para o sistema"
+            title="Voltar ao sistema"
           >
             <ArrowLeft size={15} />
             <span>Voltar ao Sistema</span>
@@ -275,12 +305,8 @@ export default function ReportPrintPreview() {
         </div>
       )}
 
-      {/* 2. DOCUMENT PAPER (Simulates A4 Paper Layout) */}
-      <main
-        className={`report-preview-document ${
-          orientation === 'landscape' ? 'document--landscape' : 'document--portrait'
-        }`}
-      >
+      {/* 2. DOCUMENT PAPER (Standard A4 Chamex: 210mm x 297mm) */}
+      <main className="report-preview-document">
         {/* Document Header */}
         <header className="document-header">
           <div className="header-brand">
@@ -297,7 +323,7 @@ export default function ReportPrintPreview() {
               Registros: <strong>{reportType === 'ordens' ? orders.length : reportType === 'chamados' ? tickets.length : inventory.length} item(ns)</strong>
             </p>
             <p>
-              Status: <strong className="status-autenticado"><ShieldCheck size={13} /> Documento Autenticado</strong>
+              Status: <strong className="status-autenticado"><ShieldCheck size={12} /> Autenticado</strong>
             </p>
           </div>
         </header>
@@ -305,14 +331,14 @@ export default function ReportPrintPreview() {
         {/* Title Banner */}
         <section className="document-title-banner">
           <h1>
-            {reportType === 'ordens' && 'Relatório de Ordens de Serviço'}
-            {reportType === 'chamados' && 'Relatório de Chamados Técnicos'}
-            {reportType === 'inventario' && 'Relatório de Inventário & Ativos'}
+            {reportType === 'ordens' && 'Relatório Oficial de Ordens de Serviço'}
+            {reportType === 'chamados' && 'Relatório Oficial de Chamados Técnicos'}
+            {reportType === 'inventario' && 'Relatório Oficial de Inventário & Ativos'}
           </h1>
           <p>
             {reportType === 'ordens' && `Listagem consolidada de ${orders.length} ordens de serviço filtradas`}
-            {reportType === 'chamados' && `Listagem consolidada de ${tickets.length} chamados de suporte técnico`}
-            {reportType === 'inventario' && `Listagem de ${inventory.length} equipamentos e ativos hospitalares`}
+            {reportType === 'chamados' && `Listagem consolidada de ${tickets.length} chamados técnicos`}
+            {reportType === 'inventario' && `Listagem consolidada de ${inventory.length} equipamentos e ativos`}
           </p>
         </section>
 
@@ -320,7 +346,7 @@ export default function ReportPrintPreview() {
         {reportType === 'ordens' && (
           <section className="document-summary-grid">
             <div className="summary-box">
-              <span>Total Filtrado</span>
+              <span>Total</span>
               <strong>{orderKpis.total}</strong>
             </div>
             <div className="summary-box summary-box--open">
@@ -328,7 +354,7 @@ export default function ReportPrintPreview() {
               <strong>{orderKpis.open}</strong>
             </div>
             <div className="summary-box summary-box--progress">
-              <span>Em Andamento</span>
+              <span>Andamento</span>
               <strong>{orderKpis.inProgress}</strong>
             </div>
             <div className="summary-box summary-box--completed">
@@ -336,7 +362,7 @@ export default function ReportPrintPreview() {
               <strong>{orderKpis.completed}</strong>
             </div>
             <div className="summary-box summary-box--pending">
-              <span>Aguardando Faturamento (Prazo 30 dias)</span>
+              <span>Aguardando Fat.</span>
               <strong>{orderKpis.billingPending}</strong>
             </div>
             <div className="summary-box summary-box--billed">
@@ -344,7 +370,7 @@ export default function ReportPrintPreview() {
               <strong>{orderKpis.billed}</strong>
             </div>
             <div className="summary-box summary-box--urgent">
-              <span>Urgentes / Atrasadas</span>
+              <span>Urgentes</span>
               <strong>{orderKpis.urgent}</strong>
             </div>
           </section>
@@ -371,24 +397,45 @@ export default function ReportPrintPreview() {
           </section>
         )}
 
-        {/* 3. TABLE WITH NEVER-CUT-OFF COLUMNS */}
+        {reportType === 'inventario' && (
+          <section className="document-summary-grid summary-grid--4">
+            <div className="summary-box">
+              <span>Total de Ativos</span>
+              <strong>{inventoryKpis.total}</strong>
+            </div>
+            <div className="summary-box summary-box--open">
+              <span>Operacionais</span>
+              <strong>{inventoryKpis.active}</strong>
+            </div>
+            <div className="summary-box summary-box--progress">
+              <span>Em Manutenção</span>
+              <strong>{inventoryKpis.maintenance}</strong>
+            </div>
+            <div className="summary-box summary-box--urgent">
+              <span>Inativos / Baixa</span>
+              <strong>{inventoryKpis.inactive}</strong>
+            </div>
+          </section>
+        )}
+
+        {/* 3. TABLE WITH OPTIMIZED PROPORTIONS FOR STANDARD A4 (210mm) */}
         <section className="document-table-wrapper">
           {reportType === 'ordens' && (
             <table className="report-table">
               <thead>
                 <tr>
-                  <th style={{ width: '82px' }}>Prioridade</th>
-                  <th style={{ width: '74px' }}>Número OS</th>
-                  <th style={{ width: '92px' }}>Estado</th>
-                  <th style={{ width: '130px' }}>Solicitante / Setor</th>
-                  <th style={{ width: '150px' }}>Equipamento / Ativo</th>
-                  <th style={{ width: '130px' }}>Responsável Técnico</th>
-                  <th style={{ width: '130px' }}>Tipo de Serviço</th>
-                  <th style={{ width: '105px' }}>Criada em</th>
-                  <th style={{ width: '105px' }}>Concluída em</th>
-                  {/* CRITICAL FIX: Explicit header, proper width, wrapping, never truncated */}
-                  <th style={{ width: '135px' }} className="th-billing">
-                    Data do Faturamento / Pagamento
+                  <th style={{ width: '46px' }}>OS</th>
+                  <th style={{ width: '56px' }}>Prioridade</th>
+                  <th style={{ width: '68px' }}>Estado</th>
+                  <th style={{ width: '105px' }}>Solicitante / Setor</th>
+                  <th style={{ width: '115px' }}>Equipamento / Ativo</th>
+                  <th style={{ width: '90px' }}>Responsável</th>
+                  <th style={{ width: '75px' }}>Serviço</th>
+                  <th style={{ width: '62px' }}>Criada em</th>
+                  <th style={{ width: '62px' }}>Concluída em</th>
+                  {/* CRITICAL: Explicit header, proper width, wrapping, never truncated */}
+                  <th style={{ width: '84px' }} className="th-billing">
+                    Data Fat. / Pagamento
                   </th>
                 </tr>
               </thead>
@@ -403,18 +450,21 @@ export default function ReportPrintPreview() {
                   orders.map((o) => {
                     const eff = getEffectiveOrderStatus(o);
                     const billedDate = o.billed_at || (o.status === 'billed' ? o.updated_at : null);
+                    const createdParts = formatDateParts(o.created_at);
+                    const completedParts = formatDateParts(o.completed_at);
+                    const billedParts = formatDateParts(billedDate);
 
                     return (
                       <tr key={o.id}>
                         <td>
-                          <span className={`table-badge ${getPriorityClass(o.priority)}`}>
-                            {getPriorityLabel(o.priority)}
-                          </span>
-                        </td>
-                        <td>
                           <strong className="os-number">
                             OS-{String(o.order_number || o.id).padStart(5, '0')}
                           </strong>
+                        </td>
+                        <td>
+                          <span className={`table-badge ${getPriorityClass(o.priority)}`}>
+                            {getPriorityLabel(o.priority)}
+                          </span>
                         </td>
                         <td>
                           <span className={`table-badge badge--${eff}`}>
@@ -429,7 +479,7 @@ export default function ReportPrintPreview() {
                         <td>
                           <div className="cell-sub-item">
                             <span className="cell-icon">
-                              {o.equipment_name ? <Laptop size={12} /> : <Wrench size={12} />}
+                              {o.equipment_name ? <Laptop size={11} /> : <Wrench size={11} />}
                             </span>
                             <span className="cell-main-text" title={o.equipment_name || 'Serviço Geral'}>
                               {o.equipment_name || 'Serviço Geral'}
@@ -447,28 +497,31 @@ export default function ReportPrintPreview() {
                           </div>
                         </td>
                         <td className="cell-date">
-                          {formatDate(o.created_at)}
+                          <span className="date-dmy">{createdParts.date}</span>
+                          {createdParts.time && <span className="date-time">{createdParts.time}</span>}
                         </td>
                         <td className="cell-date">
-                          {formatDate(o.completed_at)}
+                          <span className="date-dmy">{completedParts.date}</span>
+                          {completedParts.time && <span className="date-time">{completedParts.time}</span>}
                         </td>
                         <td className="cell-billing">
                           {o.status === 'billed' || eff === 'billed' ? (
                             <div className="billing-paid">
                               <span className="billing-tag billing-tag--paid">
-                                <CheckCircle2 size={11} /> Faturada
+                                <CheckCircle2 size={9} /> Faturada
                               </span>
                               <span className="billing-date">
-                                {formatDate(billedDate)}
+                                {billedParts.date}
+                                {billedParts.time && <small> {billedParts.time}</small>}
                               </span>
                             </div>
                           ) : isBillingPending(o) ? (
                             <div className="billing-pending">
                               <span className="billing-tag billing-tag--pending">
-                                <Clock size={11} /> Aguardando Faturamento
+                                <Clock size={9} /> Aguardando Fat.
                               </span>
                               <span className="billing-sub">
-                                ({getDaysSinceCompletion(o)}/30 dias)
+                                ({getDaysSinceCompletion(o)}/30d)
                               </span>
                             </div>
                           ) : (
@@ -491,15 +544,15 @@ export default function ReportPrintPreview() {
             <table className="report-table">
               <thead>
                 <tr>
-                  <th style={{ width: '85px' }}>Prioridade</th>
-                  <th style={{ width: '90px' }}>Nº Chamado / OS</th>
-                  <th style={{ width: '95px' }}>Estado</th>
-                  <th style={{ width: '140px' }}>Setor / Empresa</th>
-                  <th style={{ width: '160px' }}>Ativo / Serviço</th>
-                  <th style={{ width: '140px' }}>Responsável</th>
+                  <th style={{ width: '56px' }}>Prioridade</th>
+                  <th style={{ width: '55px' }}>Nº OS</th>
+                  <th style={{ width: '70px' }}>Estado</th>
+                  <th style={{ width: '110px' }}>Setor / Empresa</th>
+                  <th style={{ width: '115px' }}>Ativo / Serviço</th>
+                  <th style={{ width: '95px' }}>Responsável</th>
                   <th>Problema Relatado</th>
-                  <th style={{ width: '130px' }}>Solicitante</th>
-                  <th style={{ width: '110px' }}>Data Abertura</th>
+                  <th style={{ width: '95px' }}>Solicitante</th>
+                  <th style={{ width: '64px' }}>Data Abertura</th>
                 </tr>
               </thead>
               <tbody>
@@ -510,31 +563,83 @@ export default function ReportPrintPreview() {
                     </td>
                   </tr>
                 ) : (
-                  tickets.map((t) => (
-                    <tr key={t.id}>
-                      <td>
-                        <span className={`table-badge ${getPriorityClass(t.priority)}`}>
-                          {getPriorityLabel(t.priority)}
-                        </span>
-                      </td>
-                      <td>
-                        <strong className="os-number">
-                          OS-{String(t.service_order_number || t.ticket_number || t.id).padStart(5, '0')}
-                        </strong>
-                      </td>
-                      <td>
-                        <span className={`table-badge badge--${t.status === 'resolved' ? 'completed' : t.status}`}>
-                          {t.status === 'resolved' ? 'Resolvido' : t.status === 'in_progress' ? 'Em andamento' : 'Aberto'}
-                        </span>
-                      </td>
-                      <td>{t.company_sector || '—'}</td>
-                      <td>{t.equipment_name || (t.ticket_type === 'equipment' ? 'Equipamento' : 'Serviço Geral')}</td>
-                      <td>{t.assigned_to_name || 'Sem responsável'}</td>
-                      <td>{t.related_problem || t.observations || '—'}</td>
-                      <td>{t.requester || '—'}</td>
-                      <td className="cell-date">{formatDate(t.created_at)}</td>
-                    </tr>
-                  ))
+                  tickets.map((t) => {
+                    const createdParts = formatDateParts(t.created_at);
+                    return (
+                      <tr key={t.id}>
+                        <td>
+                          <span className={`table-badge ${getPriorityClass(t.priority)}`}>
+                            {getPriorityLabel(t.priority)}
+                          </span>
+                        </td>
+                        <td>
+                          <strong className="os-number">
+                            OS-{String(t.service_order_number || t.ticket_number || t.id).padStart(5, '0')}
+                          </strong>
+                        </td>
+                        <td>
+                          <span className={`table-badge badge--${t.status === 'resolved' ? 'completed' : t.status}`}>
+                            {t.status === 'resolved' ? 'Resolvido' : t.status === 'in_progress' ? 'Em andamento' : 'Aberto'}
+                          </span>
+                        </td>
+                        <td><div className="cell-main-text">{t.company_sector || '—'}</div></td>
+                        <td><div className="cell-main-text">{t.equipment_name || (t.ticket_type === 'equipment' ? 'Equipamento' : 'Serviço Geral')}</div></td>
+                        <td><div className="cell-main-text">{t.assigned_to_name || 'Sem responsável'}</div></td>
+                        <td><div className="cell-service-type">{t.related_problem || t.observations || '—'}</div></td>
+                        <td><div className="cell-main-text">{t.requester || '—'}</div></td>
+                        <td className="cell-date">
+                          <span className="date-dmy">{createdParts.date}</span>
+                          {createdParts.time && <span className="date-time">{createdParts.time}</span>}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          )}
+
+          {reportType === 'inventario' && (
+            <table className="report-table">
+              <thead>
+                <tr>
+                  <th style={{ width: '60px' }}>Código</th>
+                  <th>Nome do Equipamento</th>
+                  <th style={{ width: '70px' }}>Estado</th>
+                  <th style={{ width: '110px' }}>Setor / Local</th>
+                  <th style={{ width: '120px' }}>Fabricante / Modelo</th>
+                  <th style={{ width: '90px' }}>Nº de Série</th>
+                  <th style={{ width: '65px' }}>Atualizado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {inventory.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="table-empty-cell">
+                      {isLoading ? 'Carregando inventário...' : 'Nenhum equipamento registrado.'}
+                    </td>
+                  </tr>
+                ) : (
+                  inventory.map((item) => {
+                    const upParts = formatDateParts(item.last_maintenance_at || item.updated_at);
+                    return (
+                      <tr key={item.id}>
+                        <td><strong className="os-number">{item.asset_tag || item.code || `EQ-${item.id}`}</strong></td>
+                        <td><div className="cell-main-text">{item.name || '—'}</div></td>
+                        <td>
+                          <span className={`table-badge badge--${item.status === 'active' ? 'open' : item.status === 'maintenance' ? 'in_progress' : 'low'}`}>
+                            {item.status === 'active' ? 'Ativo' : item.status === 'maintenance' ? 'Manutenção' : item.status || 'Ativo'}
+                          </span>
+                        </td>
+                        <td><div className="cell-main-text">{item.location || item.sector || '—'}</div></td>
+                        <td><div className="cell-service-type">{item.manufacturer ? `${item.manufacturer} ${item.model || ''}` : item.model || '—'}</div></td>
+                        <td><div className="cell-service-type">{item.serial_number || '—'}</div></td>
+                        <td className="cell-date">
+                          <span className="date-dmy">{upParts.date}</span>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -544,10 +649,10 @@ export default function ReportPrintPreview() {
         {/* Document Footer */}
         <footer className="document-footer">
           <p>
-            <strong>HelpClinTec</strong> • Sistema Integrado de Gestão Clínica e Suporte em Engenharia
+            <strong>HelpClinTec</strong> • Sistema Integrado de Gestão Clínica e Engenharia Biomédica
           </p>
           <p className="footer-confidential">
-            Documento Oficial Confidencial • Emitido pelo Painel de Controle • Página 1 de 1
+            Documento Oficial Autenticado • Emitido pelo Painel de Controle • Página 1 de 1
           </p>
         </footer>
       </main>
@@ -557,48 +662,50 @@ export default function ReportPrintPreview() {
         .report-preview-page {
           min-height: 100vh;
           background: #eef3f0;
-          padding: 24px 16px 60px 16px;
+          padding: 18px 12px 40px 12px;
           font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
           color: #143b3d;
         }
 
         .report-preview-action-bar {
-          max-width: 1140px;
-          margin: 0 auto 20px auto;
+          width: 210mm;
+          max-width: 100%;
+          margin: 0 auto 14px auto;
           display: flex;
           align-items: center;
           justify-content: space-between;
           flex-wrap: wrap;
-          gap: 12px;
-          padding: 12px 20px;
+          gap: 10px;
+          padding: 10px 16px;
           background: #ffffff;
           border: 1px solid #dce7df;
-          border-radius: 12px;
-          box-shadow: 0 4px 18px rgba(18, 59, 61, 0.06);
+          border-radius: 10px;
+          box-shadow: 0 4px 16px rgba(18, 59, 61, 0.05);
+          box-sizing: border-box;
         }
 
         .action-bar-left {
           display: flex;
           align-items: center;
-          gap: 12px;
+          gap: 10px;
           flex-wrap: wrap;
         }
 
         .action-bar-badge {
           display: inline-flex;
           align-items: center;
-          gap: 7px;
-          padding: 4px 10px;
+          gap: 6px;
+          padding: 4px 9px;
           border-radius: 20px;
           background: #e6f6ee;
           color: #0f6244;
-          font-size: 12px;
+          font-size: 11.5px;
           font-weight: 700;
         }
 
         .pulse-dot {
-          width: 8px;
-          height: 8px;
+          width: 7px;
+          height: 7px;
           border-radius: 50%;
           background: #059669;
           animation: pulse 1.8s infinite;
@@ -606,12 +713,12 @@ export default function ReportPrintPreview() {
 
         @keyframes pulse {
           0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.7); }
-          70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(5, 150, 105, 0); }
+          70% { transform: scale(1); box-shadow: 0 0 0 5px rgba(5, 150, 105, 0); }
           100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(5, 150, 105, 0); }
         }
 
         .action-bar-hint {
-          font-size: 12px;
+          font-size: 11.5px;
           color: #5d7570;
         }
 
@@ -619,41 +726,21 @@ export default function ReportPrintPreview() {
           display: flex;
           align-items: center;
           gap: 8px;
-          flex-wrap: wrap;
         }
 
         .btn-action {
           display: inline-flex;
           align-items: center;
           gap: 6px;
-          height: 38px;
+          height: 36px;
           padding: 0 14px;
           border-radius: 8px;
-          font-size: 13px;
+          font-size: 12.5px;
           font-weight: 600;
           cursor: pointer;
           font-family: inherit;
           transition: all 0.15s ease;
           border: 1px solid transparent;
-        }
-
-        .btn-refresh {
-          background: #f1f7f4;
-          color: #1c5446;
-          border-color: #cde0d5;
-        }
-        .btn-refresh:hover {
-          background: #e2f0e8;
-        }
-
-        .btn-orient {
-          background: #ffffff;
-          color: #123b3d;
-          border-color: #dce7df;
-        }
-        .btn-orient:hover {
-          background: #f8faf9;
-          border-color: #c2d8c9;
         }
 
         .btn-close {
@@ -677,18 +764,11 @@ export default function ReportPrintPreview() {
           transform: translateY(-1px);
         }
 
-        .spin-icon {
-          animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-
         .report-preview-error {
-          max-width: 1140px;
-          margin: 0 auto 16px auto;
-          padding: 10px 16px;
+          width: 210mm;
+          max-width: 100%;
+          margin: 0 auto 14px auto;
+          padding: 10px 14px;
           background: #fee2e2;
           color: #991b1b;
           border-radius: 8px;
@@ -696,7 +776,8 @@ export default function ReportPrintPreview() {
           display: flex;
           align-items: center;
           gap: 10px;
-          font-size: 13px;
+          font-size: 12.5px;
+          box-sizing: border-box;
         }
         .report-preview-error button {
           margin-left: auto;
@@ -706,67 +787,62 @@ export default function ReportPrintPreview() {
           padding: 4px 10px;
           border-radius: 6px;
           cursor: pointer;
-          font-size: 12px;
+          font-size: 11.5px;
         }
 
-        /* 2. DOCUMENT PAPER */
+        /* 2. DOCUMENT PAPER (Standard A4 Chamex: 210mm x 297mm) */
         .report-preview-document {
           margin: 0 auto;
           background: #ffffff;
-          padding: 32px 36px;
+          width: 210mm;
+          max-width: 100%;
+          min-height: 297mm;
+          padding: 7mm 7mm;
           border: 1px solid #dce7df;
-          border-radius: 14px;
-          box-shadow: 0 8px 30px rgba(18, 59, 61, 0.08);
+          border-radius: 4px;
+          box-shadow: 0 4px 24px rgba(18, 59, 61, 0.08);
           box-sizing: border-box;
-          transition: max-width 0.25s ease;
-        }
-
-        .document--landscape {
-          max-width: 1140px;
-        }
-
-        .document--portrait {
-          max-width: 860px;
+          font-size: 8pt;
         }
 
         /* Header */
         .document-header {
           display: flex;
           justify-content: space-between;
-          align-items: flex-start;
+          align-items: center;
           border-bottom: 2px solid #123b3d;
-          padding-bottom: 18px;
-          margin-bottom: 22px;
-          gap: 16px;
+          padding-bottom: 8px;
+          margin-bottom: 8px;
+          gap: 12px;
         }
 
         .header-brand {
           display: flex;
           align-items: center;
-          gap: 12px;
+          gap: 10px;
         }
 
         .brand-logo-mark {
           display: grid;
           place-items: center;
-          width: 44px;
-          height: 44px;
+          width: 34px;
+          height: 34px;
           background: #e78368;
           color: #ffffff;
-          border-radius: 12px;
+          border-radius: 8px;
           font-weight: 800;
-          font-size: 22px;
-          box-shadow: 0 4px 12px rgba(231, 131, 104, 0.3);
+          font-size: 17px;
+          box-shadow: 0 2px 8px rgba(231, 131, 104, 0.3);
         }
 
         .brand-logo-details h2 {
           font-family: 'Manrope', sans-serif;
-          font-size: 24px;
+          font-size: 19px;
           font-weight: 800;
           color: #123b3d;
-          letter-spacing: -0.5px;
+          letter-spacing: -0.4px;
           margin: 0;
-          line-height: 1.1;
+          line-height: 1.05;
         }
 
         .brand-logo-details h2 span {
@@ -774,9 +850,9 @@ export default function ReportPrintPreview() {
         }
 
         .brand-logo-details p {
-          font-size: 11px;
+          font-size: 9px;
           color: #64748b;
-          margin: 3px 0 0 0;
+          margin: 2px 0 0 0;
           font-weight: 500;
         }
 
@@ -784,11 +860,14 @@ export default function ReportPrintPreview() {
           text-align: right;
           background: #f8faf8;
           border: 1px solid #e2ece5;
-          padding: 8px 14px;
-          border-radius: 8px;
-          font-size: 11px;
+          padding: 5px 10px;
+          border-radius: 6px;
+          font-size: 8pt;
           color: #64748b;
-          line-height: 1.6;
+          line-height: 1.35;
+        }
+        .header-meta p {
+          margin: 0;
         }
 
         .header-meta strong {
@@ -805,25 +884,24 @@ export default function ReportPrintPreview() {
         /* Title Banner */
         .document-title-banner {
           text-align: center;
-          margin: 0 auto 22px auto;
-          max-width: 680px;
-          padding: 14px 22px;
+          margin: 0 auto 8px auto;
+          padding: 6px 14px;
           background: linear-gradient(180deg, #f7faf8 0%, #ffffff 100%);
           border: 1px solid #e1eee6;
-          border-radius: 10px;
+          border-radius: 6px;
         }
 
         .document-title-banner h1 {
           font-family: 'Manrope', sans-serif;
-          font-size: 20px;
+          font-size: 13pt;
           font-weight: 800;
           color: #123b3d;
-          margin: 0 0 4px 0;
-          letter-spacing: -0.3px;
+          margin: 0 0 2px 0;
+          letter-spacing: -0.2px;
         }
 
         .document-title-banner p {
-          font-size: 12px;
+          font-size: 8pt;
           color: #59716e;
           margin: 0;
         }
@@ -832,8 +910,8 @@ export default function ReportPrintPreview() {
         .document-summary-grid {
           display: grid;
           grid-template-columns: repeat(7, 1fr);
-          gap: 8px;
-          margin-bottom: 22px;
+          gap: 4px;
+          margin-bottom: 8px;
         }
 
         .summary-grid--4 {
@@ -843,11 +921,11 @@ export default function ReportPrintPreview() {
         .summary-box {
           background: #ffffff;
           border: 1px solid #dce7df;
-          border-top: 3px solid #123b3d;
-          border-radius: 8px;
-          padding: 10px 8px;
+          border-top: 2.5px solid #123b3d;
+          border-radius: 6px;
+          padding: 4px 2px;
           text-align: center;
-          box-shadow: 0 2px 6px rgba(18, 59, 61, 0.02);
+          box-shadow: 0 1px 4px rgba(18, 59, 61, 0.02);
         }
 
         .summary-box--open { border-top-color: #059669; }
@@ -859,12 +937,13 @@ export default function ReportPrintPreview() {
 
         .summary-box span {
           display: block;
-          font-size: 9.5px;
+          font-size: 6.8pt;
           color: #64748b;
           font-weight: 700;
           text-transform: uppercase;
-          margin-bottom: 4px;
-          line-height: 1.2;
+          margin-bottom: 2px;
+          line-height: 1.1;
+          white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
         }
@@ -872,25 +951,27 @@ export default function ReportPrintPreview() {
         .summary-box strong {
           display: block;
           font-family: 'Manrope', sans-serif;
-          font-size: 18px;
+          font-size: 12.5pt;
           font-weight: 800;
           color: #123b3d;
+          line-height: 1.05;
         }
 
         /* Table */
         .document-table-wrapper {
           width: 100%;
-          overflow-x: auto;
           border: 1px solid #dce7df;
-          border-radius: 10px;
-          margin-bottom: 24px;
+          border-radius: 6px;
+          margin-bottom: 10px;
+          overflow: hidden;
         }
 
         .report-table {
           width: 100%;
           border-collapse: collapse;
-          font-size: 10.5px;
+          font-size: 8pt;
           text-align: left;
+          table-layout: auto;
         }
 
         .report-table thead tr {
@@ -899,14 +980,13 @@ export default function ReportPrintPreview() {
         }
 
         .report-table th {
-          padding: 9px 8px;
+          padding: 5px 4px;
           font-weight: 700;
-          font-size: 9px;
+          font-size: 7.2pt;
           text-transform: uppercase;
-          letter-spacing: 0.3px;
-          border-bottom: 2px solid #0d2a2b;
-          line-height: 1.3;
-          /* CRITICAL: Allow wrapping in table header so wide titles are never truncated */
+          letter-spacing: 0.2px;
+          border-bottom: 1.5px solid #0d2a2b;
+          line-height: 1.2;
           white-space: normal !important;
           word-wrap: break-word;
           overflow-wrap: break-word;
@@ -915,40 +995,39 @@ export default function ReportPrintPreview() {
         .th-billing {
           background: #0f3234;
           color: #a7f3d0;
+          text-align: center;
         }
 
         .report-table td {
-          padding: 8px 8px;
+          padding: 4.5px 4px;
           border-bottom: 1px solid #e7efe9;
           color: #223532;
           vertical-align: middle;
-          font-size: 10.5px;
-          line-height: 1.35;
+          font-size: 8pt;
+          line-height: 1.25;
         }
 
         .report-table tbody tr:nth-child(even) {
           background: #fbfdfc;
         }
 
-        .report-table tbody tr:hover {
-          background: #f3f8f5;
-        }
-
         .table-empty-cell {
           text-align: center;
-          padding: 36px 16px !important;
+          padding: 24px 12px !important;
           color: #64748b;
-          font-size: 13px;
+          font-size: 9.5pt;
         }
 
         /* Table Badges */
         .table-badge {
           display: inline-block;
-          padding: 2px 6px;
-          border-radius: 4px;
-          font-size: 9px;
+          padding: 1px 4px;
+          border-radius: 3px;
+          font-size: 7pt;
           font-weight: 700;
           text-transform: uppercase;
+          line-height: 1.15;
+          white-space: nowrap;
         }
 
         .badge--urgent { background: #fee2e2; color: #dc2626; }
@@ -964,7 +1043,7 @@ export default function ReportPrintPreview() {
 
         .os-number {
           color: #123b3d;
-          font-size: 11px;
+          font-size: 8pt;
           font-weight: 800;
           white-space: nowrap;
         }
@@ -972,15 +1051,15 @@ export default function ReportPrintPreview() {
         .cell-main-text {
           font-weight: 600;
           color: #143b3d;
-          font-size: 10.5px;
-          line-height: 1.25;
+          font-size: 8pt;
+          line-height: 1.2;
           word-break: break-word;
         }
 
         .cell-sub-item {
           display: flex;
           align-items: center;
-          gap: 5px;
+          gap: 4px;
         }
         .cell-icon {
           color: #4b8391;
@@ -989,37 +1068,52 @@ export default function ReportPrintPreview() {
         }
 
         .cell-service-type {
-          font-size: 10px;
+          font-size: 7.5pt;
           color: #3b504d;
-          line-height: 1.2;
+          line-height: 1.15;
           word-break: break-word;
         }
 
         .cell-date {
-          font-size: 10px;
-          color: #556c67;
           white-space: nowrap;
+          line-height: 1.15;
+        }
+
+        .date-dmy {
+          display: block;
+          font-size: 7.5pt;
+          font-weight: 600;
+          color: #1e293b;
+        }
+
+        .date-time {
+          display: block;
+          font-size: 6.8pt;
+          color: #64748b;
         }
 
         .cell-billing {
           vertical-align: middle;
+          text-align: center;
         }
 
-        .billing-paid {
+        .billing-paid, .billing-pending, .billing-open {
           display: flex;
           flex-direction: column;
-          gap: 2px;
+          align-items: center;
+          gap: 1px;
         }
 
         .billing-tag {
           display: inline-flex;
           align-items: center;
           gap: 3px;
-          padding: 2px 6px;
-          border-radius: 4px;
-          font-size: 9.5px;
+          padding: 1px 4px;
+          border-radius: 3px;
+          font-size: 7pt;
           font-weight: 700;
           width: fit-content;
+          white-space: nowrap;
         }
 
         .billing-tag--paid {
@@ -1038,14 +1132,14 @@ export default function ReportPrintPreview() {
         }
 
         .billing-date {
-          font-size: 9.5px;
+          font-size: 7pt;
           font-weight: 700;
           color: #047857;
           white-space: nowrap;
         }
 
         .billing-sub {
-          font-size: 9px;
+          font-size: 6.5pt;
           color: #c2410c;
         }
 
@@ -1055,16 +1149,19 @@ export default function ReportPrintPreview() {
           justify-content: space-between;
           align-items: center;
           flex-wrap: wrap;
-          gap: 12px;
+          gap: 8px;
           border-top: 1px solid #dce7df;
-          padding-top: 14px;
-          font-size: 10.5px;
+          padding-top: 6px;
+          font-size: 7.5pt;
           color: #64748b;
+        }
+        .document-footer p {
+          margin: 0;
         }
 
         .footer-confidential {
           color: #94a3b8;
-          font-size: 10px;
+          font-size: 7pt;
         }
       `}</style>
     </div>
