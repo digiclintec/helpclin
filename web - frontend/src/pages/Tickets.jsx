@@ -19,7 +19,6 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
-import ExportDropdown from '../components/ExportDropdown.jsx';
 import {
   assignSupportTicket,
   createSupportTicket,
@@ -29,7 +28,6 @@ import {
   getSupportTickets,
   rejectSupportTicket
 } from '../services/api.js';
-import { exportToPdf, exportToXls } from '../utils/exportReport.js';
 import { matchTicketSearch } from '../utils/searchUtils.js';
 import {
   isTIModuleEnabled,
@@ -586,45 +584,6 @@ function Tickets() {
     return 'ticket-priority-badge--normal';
   }
 
-  const exportColumns = [
-    { header: 'Prioridade', accessor: (t) => getPriorityLabel(t.priority) },
-    { header: 'Ordem de Serviço (OS)', accessor: (t) => `OS-${String(t.service_order_number || t.ticket_number).padStart(5, '0')}` },
-    { header: 'Estado / Status', accessor: (t) => (t.status === 'resolved' ? 'Resolvido' : t.status === 'in_progress' ? 'Em andamento' : 'Aberto') },
-    { header: 'Empresa / Setor', accessor: 'company_sector' },
-    { header: 'Ativo / Serviço', accessor: (t) => t.equipment_name || (t.ticket_type === 'equipment' ? 'Equipamento' : 'Serviço Geral') },
-    { header: 'Responsável', accessor: (t) => t.assigned_to_name || 'Sem responsável' },
-    { header: 'Problema Relatado', accessor: 'related_problem' },
-    { header: 'Observações / Solicitado', accessor: 'observations' },
-    { header: 'Serviço Realizado pelo Técnico', accessor: (t) => t.service_performed_description || '—' },
-    { header: 'Solicitante', accessor: (t) => t.requester || '—' },
-    { header: 'Localização', accessor: 'location' },
-    { header: 'Data de Abertura', accessor: (t) => formatDate(t.created_at) }
-  ];
-
-  function handleExportXls() {
-    exportToXls({
-      title: 'Relatório de Chamados',
-      filename: 'Relatorio_Chamados_HelpClin',
-      columns: exportColumns,
-      data: filteredTickets
-    });
-  }
-
-  function handleExportPdf() {
-    exportToPdf({
-      title: 'Relatório de Chamados',
-      subtitle: `Listagem de ${filteredTickets.length} chamados filtrados`,
-      columns: exportColumns,
-      data: filteredTickets,
-      summary: [
-        { label: 'Total Filtrado', value: filteredTickets.length },
-        { label: 'Sem Responsável', value: kpis.unassigned },
-        { label: 'Em Andamento', value: kpis.inProgress },
-        { label: 'Resolvidos', value: kpis.resolved }
-      ]
-    });
-  }
-
   return (
     <div className="simple-page tickets-page">
       {/* Top Header */}
@@ -639,9 +598,6 @@ function Tickets() {
           </p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          {!isClient && (
-            <ExportDropdown onExportXls={handleExportXls} onExportPdf={handleExportPdf} />
-          )}
           <button
             className="primary-button"
             onClick={() => {

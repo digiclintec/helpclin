@@ -65,7 +65,7 @@ export function exportToXls({ title, columns, data, filename = 'relatorio' }) {
   URL.revokeObjectURL(url);
 }
 
-export function exportToPdf({ title, subtitle = '', columns, data, summary = [], tipo, orientation = 'portrait' } = {}) {
+export function exportToPdf({ title, subtitle = '', columns, data, summary = [], tipo, orientation = 'portrait', filterStatus, dateFrom, dateTo } = {}) {
   let detectedTipo = tipo;
   if (!detectedTipo) {
     const t = (title || '').toLowerCase();
@@ -74,7 +74,33 @@ export function exportToPdf({ title, subtitle = '', columns, data, summary = [],
     else detectedTipo = 'ordens';
   }
 
-  const url = `/relatorio-impressao?tipo=${detectedTipo}&orientacao=${orientation}`;
+  // Grava o payload exato com os dados filtrados no sessionStorage
+  try {
+    const payload = {
+      title,
+      subtitle,
+      data: Array.isArray(data) ? data : [],
+      summary: Array.isArray(summary) ? summary : [],
+      tipo: detectedTipo,
+      filterStatus: filterStatus || '',
+      dateFrom: dateFrom || '',
+      dateTo: dateTo || '',
+      timestamp: Date.now()
+    };
+    sessionStorage.setItem('helpclin_print_report_payload', JSON.stringify(payload));
+  } catch (err) {
+    console.warn('Falha ao salvar payload no sessionStorage:', err);
+  }
+
+  const query = new URLSearchParams({
+    tipo: detectedTipo,
+    orientacao: orientation
+  });
+  if (filterStatus) query.set('status', filterStatus);
+  if (dateFrom) query.set('dataInicio', dateFrom);
+  if (dateTo) query.set('dataFim', dateTo);
+
+  const url = `/relatorio-impressao?${query.toString()}`;
   const win = window.open(url, '_blank');
   if (!win) {
     window.location.href = url;

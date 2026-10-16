@@ -1,9 +1,7 @@
 import { Building2, Edit3, Filter, Laptop, MonitorDot, Plus, Search, Stethoscope, Trash2, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
-import ExportDropdown from '../components/ExportDropdown.jsx';
 import { createEquipment, deleteEquipment, getInventory, updateEquipment } from '../services/api.js';
-import { exportToPdf, exportToXls } from '../utils/exportReport.js';
 import { normalizeText } from '../utils/searchUtils.js';
 import {
   isTIModuleEnabled,
@@ -184,38 +182,6 @@ function Inventory() {
     'Desativado': { color: '#dc2626', bg: '#fee2e2' }
   };
 
-  const exportColumns = [
-    { header: 'Nome / Modelo', accessor: 'name' },
-    { header: 'Tipo', accessor: 'equipment_type' },
-    { header: 'Número de Série (S/N)', accessor: (e) => e.serial_number || '—' },
-    { header: 'Localização', accessor: (e) => e.location || '—' },
-    { header: 'Status', accessor: 'status' }
-  ];
-
-  function handleExportXls() {
-    exportToXls({
-      title: 'Inventário de Equipamentos',
-      filename: 'Inventario_Equipamentos_HelpClin',
-      columns: exportColumns,
-      data: filteredEquipments
-    });
-  }
-
-  function handleExportPdf() {
-    exportToPdf({
-      title: 'Inventário de Ativos de Hardware',
-      subtitle: `Listagem de ${filteredEquipments.length} equipamentos cadastrados`,
-      columns: exportColumns,
-      data: filteredEquipments,
-      summary: [
-        { label: 'Total de Ativos', value: filteredEquipments.length },
-        { label: 'Ativos', value: filteredEquipments.filter((e) => e.status === 'Ativo').length },
-        { label: 'Em Manutenção', value: filteredEquipments.filter((e) => e.status === 'Manutenção').length },
-        { label: 'Desativados', value: filteredEquipments.filter((e) => e.status === 'Desativado').length }
-      ]
-    });
-  }
-
   return (
     <div className="simple-page">
       <section className="simple-page-heading">
@@ -225,7 +191,6 @@ function Inventory() {
           <p>Cadastre e acompanhe os ativos de hardware da clínica.</p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <ExportDropdown onExportXls={handleExportXls} onExportPdf={handleExportPdf} />
           <button
             className="primary-button"
             onClick={() => handleOpenForm()}

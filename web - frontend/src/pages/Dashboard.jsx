@@ -612,8 +612,8 @@ function Dashboard() {
               className={`dash-tab-btn ${activeTab === 'geral' ? 'dash-tab-btn--active' : ''}`}
               onClick={() => setActiveTab('geral')}
             >
-              <BarChart3 size={16} />
-              <span>Visão Geral & Relatórios</span>
+              <LayoutDashboard size={16} />
+              <span>Visão Geral</span>
             </button>
             <button
               type="button"
@@ -1207,9 +1207,6 @@ function Dashboard() {
                 </p>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <a href="/relatorios" className="secondary-button" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px' }} title="Ir para a Central de Relatórios">
-                  <BarChart3 size={15} /> Central de Relatórios
-                </a>
                 <a href="/ordens" className="secondary-button" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <FileText size={15} /> Todas as OS
                 </a>

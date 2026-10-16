@@ -132,17 +132,17 @@ function Reports() {
   const [endDate, setEndDate] = useState(() => getTodayString());
   const [dateField, setDateField] = useState('created_at'); // 'created_at' | 'completed_at' | 'billed_at'
 
-  // 2. FILTROS DE OPERAÇÃO E CONTEÚDO
-  const [reportType, setReportType] = useState('all_orders'); // 'all_orders' | 'billed' | 'pending_billing'
+  // 2. FILTRO UNIFICADO DE STATUS
+  // 'all' | 'billed' | 'billing_pending' | 'completed' | 'in_progress' | 'open' | 'urgent'
   const [statusFilter, setStatusFilter] = useState('all');
+
+  // 3. FILTROS SECUNDÁRIOS / BUSCA
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [technicianFilter, setTechnicianFilter] = useState('all');
   const [sectorFilter, setSectorFilter] = useState('all');
   const [serviceTypeFilter, setServiceTypeFilter] = useState('all');
-  const [searchQuery, setSearchQuery] = useState('');
-
-  // 3. FILTRO DE KPI (clique direto nos cards de resumo)
-  const [activeKpiFilter, setActiveKpiFilter] = useState('all');
   const [billingEnabled, setBillingEnabled] = useState(isBillingModuleEnabled);
 
   useEffect(() => {
@@ -235,14 +235,12 @@ function Reports() {
     setStartDate(getPastDaysString(30));
     setEndDate(getTodayString());
     setDateField('created_at');
-    setReportType('all_orders');
     setStatusFilter('all');
     setPriorityFilter('all');
     setTechnicianFilter('all');
     setSectorFilter('all');
     setServiceTypeFilter('all');
     setSearchQuery('');
-    setActiveKpiFilter('all');
   }
 
   // Extract unique sectors, technicians and service types for dropdowns

@@ -22,7 +22,6 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
-import ExportDropdown from '../components/ExportDropdown.jsx';
 import BillingConfirmationModal from '../components/BillingConfirmationModal.jsx';
 import {
   confirmPaymentReceipt,
@@ -47,7 +46,7 @@ import {
   isWaitingTechnicianConfirmation,
   isBillingModuleEnabled
 } from '../utils/billingUtils.js';
-import { exportToPdf, exportToXls, printServiceOrder } from '../utils/exportReport.js';
+import { printServiceOrder } from '../utils/exportReport.js';
 import { matchOrderSearch } from '../utils/searchUtils.js';
 
 function formatDate(value) {
@@ -470,49 +469,6 @@ function ServiceOrders() {
     return 'ticket-priority-badge--normal';
   }
 
-  const exportColumns = [
-    { header: 'Prioridade', accessor: (o) => getPriorityLabel(o.priority) },
-    { header: 'Número OS', accessor: (o) => `OS-${String(o.order_number).padStart(5, '0')}` },
-    { header: 'Estado', accessor: (o) => getOrderStatusLabel(getEffectiveOrderStatus(o)) },
-    { header: 'Solicitante / Setor', accessor: (o) => o.patient_name || 'Setor Não Informado' },
-    { header: 'Equipamento / Ativo', accessor: (o) => o.equipment_name || 'Serviço Geral' },
-    { header: 'Responsável Técnico', accessor: (o) => o.technician_name || 'Não atribuído' },
-    { header: 'Tipo de Serviço', accessor: (o) => o.service_type || 'Manutenção' },
-    { header: 'Criada em', accessor: (o) => formatDate(o.created_at) },
-    { header: 'Concluída em', accessor: (o) => formatDate(o.completed_at) },
-    { header: 'Data do Faturamento / Pagamento', accessor: (o) => (o.billed_at ? formatDate(o.billed_at) : (o.status === 'billed' ? 'Faturada' : 'Pendente')) },
-    { header: 'Situação de Faturamento', accessor: (o) => o.status === 'billed' ? `Faturada em ${formatDate(o.billed_at || o.updated_at)}` : (isAwaitingBilling(o) ? `Aguardando faturamento (${getDaysSinceCompletion(o)}/30 dias)` : 'Em atendimento') },
-    { header: 'Descrição Solicitada', accessor: (o) => o.service_requested_description || o.description || '—' },
-    { header: 'Serviço Realizado', accessor: (o) => o.service_performed_description || '—' }
-  ];
-
-  function handleExportXls() {
-    exportToXls({
-      title: 'Relatório de Ordens de Serviço',
-      filename: 'Relatorio_Ordens_Servico_HelpClin',
-      columns: exportColumns,
-      data: filteredOrders
-    });
-  }
-
-  function handleExportPdf() {
-    exportToPdf({
-      title: 'Relatório de Ordens de Serviço',
-      subtitle: `Listagem de ${filteredOrders.length} ordens de serviço filtradas`,
-      columns: exportColumns,
-      data: filteredOrders,
-      summary: [
-        { label: 'Total Filtrado', value: filteredOrders.length },
-        { label: 'Abertas', value: kpis.open },
-        { label: 'Em Andamento', value: kpis.inProgress },
-        { label: 'Concluídas', value: kpis.completed },
-        { label: 'Aguardando Faturamento (Prazo 30 dias)', value: kpis.billingPending },
-        { label: 'Faturadas', value: kpis.billed },
-        { label: 'Urgentes / Atrasadas', value: kpis.urgent }
-      ]
-    });
-  }
-
   return (
     <div className="simple-page orders-page">
       {/* Top Header */}
@@ -523,16 +479,6 @@ function ServiceOrders() {
           <p>Consulte, gerencie e atualize as ordens de serviço geradas a partir dos chamados técnicos.</p>
         </div>
         <div className="simple-page-actions">
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={handleExportPdf}
-            title="Imprimir listagem oficial das ordens de serviço filtradas"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-          >
-            <Printer size={15} /> Imprimir Lista
-          </button>
-          <ExportDropdown onExportXls={handleExportXls} onExportPdf={handleExportPdf} />
           <div className="work-order-user" style={{ margin: 0 }}>
             <span>Usuário:</span>
             <strong>{user?.name ?? 'Administrador'}</strong>

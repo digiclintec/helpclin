@@ -66,23 +66,87 @@ function getPriorityClass(priority) {
 export default function ReportPrintPreview() {
   const searchParams = new URLSearchParams(window.location.search);
   const tipoParam = searchParams.get('tipo') || 'ordens'; // 'ordens' | 'chamados' | 'inventario'
+  const statusParam = searchParams.get('status') || '';
+  const dateFromParam = searchParams.get('dataInicio') || '';
+  const dateToParam = searchParams.get('dataFim') || '';
 
   const [reportType] = useState(tipoParam);
   const [orders, setOrders] = useState([]);
   const [tickets, setTickets] = useState([]);
   const [inventory, setInventory] = useState([]);
+  const [customTitle, setCustomTitle] = useState('');
+  const [customSubtitle, setCustomSubtitle] = useState('');
+  const [activeFilterStatus, setActiveFilterStatus] = useState(statusParam);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const [lastUpdated, setLastUpdated] = useState(() => new Date());
 
-  // Load fresh data directly from backend database API
-  async function loadData() {
+  function applyOrderFilters(rawOrders, filterStatus, dateFrom, dateTo) {
+    if (!filterStatus && !dateFrom && !dateTo) return rawOrders;
+    return rawOrders.filter((o) => {
+      const eff = getEffectiveOrderStatus(o);
+      const billed = isBilled(o) || o.status === 'billed';
+
+      if (filterStatus === 'billed' && !billed) return false;
+      if (filterStatus === 'billing_pending' && eff !== 'billing_pending') return false;
+      if (filterStatus === 'open' && eff !== 'open') return false;
+      if (filterStatus === 'in_progress' && eff !== 'in_progress') return false;
+      if (filterStatus === 'completed' && eff !== 'completed') return false;
+      if (filterStatus === 'urgent') {
+        const p = (o.priority || '').toLowerCase();
+        if (p !== 'urgent' && p !== 'urgente') return false;
+      }
+
+      if (dateFrom) {
+        const d = new Date(o.created_at);
+        if (d < new Date(`${dateFrom}T00:00:00`)) return false;
+      }
+      if (dateTo) {
+        const d = new Date(o.created_at);
+        if (d > new Date(`${dateTo}T23:59:59`)) return false;
+      }
+
+      return true;
+    });
+  }
+
+  // Load fresh data directly from backend database API or sessionStorage
+  async function loadData(forceApi = false) {
     setIsLoading(true);
     setErrorMessage('');
+
+    // Se houver dados no sessionStorage salvos pelo exportToPdf da tela de relatórios
+    if (!forceApi) {
+      try {
+        const rawPayload = sessionStorage.getItem('helpclin_print_report_payload');
+        if (rawPayload) {
+          const payload = JSON.parse(rawPayload);
+          const isRecent = Date.now() - (payload.timestamp || 0) < 1000 * 60 * 30; // 30 min
+          if (isRecent && payload.tipo === reportType && Array.isArray(payload.data)) {
+            if (reportType === 'ordens') setOrders(payload.data);
+            else if (reportType === 'chamados') setTickets(payload.data);
+            else if (reportType === 'inventario') setInventory(payload.data);
+
+            if (payload.title) setCustomTitle(payload.title);
+            if (payload.subtitle) setCustomSubtitle(payload.subtitle);
+            if (payload.filterStatus) setActiveFilterStatus(payload.filterStatus);
+
+            setLastUpdated(new Date());
+            setIsLoading(false);
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('Erro ao carregar dados do sessionStorage:', err);
+      }
+    }
+
     try {
+      const currentFilter = activeFilterStatus || statusParam;
       if (reportType === 'ordens') {
         const data = await getServiceOrders();
-        setOrders(data || []);
+        const filtered = applyOrderFilters(data || [], currentFilter, dateFromParam, dateToParam);
+        setOrders(filtered);
       } else if (reportType === 'chamados') {
         const data = await getSupportTickets();
         setTickets(data || []);
@@ -331,14 +395,26 @@ export default function ReportPrintPreview() {
         {/* Title Banner */}
         <section className="document-title-banner">
           <h1>
-            {reportType === 'ordens' && 'Relatório Oficial de Ordens de Serviço'}
-            {reportType === 'chamados' && 'Relatório Oficial de Chamados Técnicos'}
-            {reportType === 'inventario' && 'Relatório Oficial de Inventário & Ativos'}
+            {customTitle || (
+              reportType === 'ordens'
+                ? ((activeFilterStatus || statusParam) === 'billed'
+                    ? 'Relatório Oficial de Ordens Faturadas'
+                    : (activeFilterStatus || statusParam) === 'billing_pending'
+                    ? 'Relatório Oficial de Ordens Aguardando Faturamento'
+                    : 'Relatório Oficial de Ordens de Serviço')
+                : reportType === 'chamados'
+                ? 'Relatório Oficial de Chamados Técnicos'
+                : 'Relatório Oficial de Inventário & Ativos'
+            )}
           </h1>
           <p>
-            {reportType === 'ordens' && `Listagem consolidada de ${orders.length} ordens de serviço filtradas`}
-            {reportType === 'chamados' && `Listagem consolidada de ${tickets.length} chamados técnicos`}
-            {reportType === 'inventario' && `Listagem consolidada de ${inventory.length} equipamentos e ativos`}
+            {customSubtitle || (
+              reportType === 'ordens'
+                ? `Listagem consolidada de ${orders.length} ordens de serviço ${(activeFilterStatus || statusParam) === 'billed' ? 'faturadas' : 'filtradas'}`
+                : reportType === 'chamados'
+                ? `Listagem consolidada de ${tickets.length} chamados técnicos`
+                : `Listagem consolidada de ${inventory.length} equipamentos e ativos`
+            )}
           </p>
         </section>
 
