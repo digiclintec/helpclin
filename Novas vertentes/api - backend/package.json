@@ -1,0 +1,26 @@
+{
+  "name": "helpclin-api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch --watch-path=src src/server.js",
+    "start": "node src/server.js",
+    "build:hml": "node --env-file=.env.hml --check src/server.js",
+    "build:prd": "node --env-file=.env.prd --check src/server.js",
+    "start:hml": "node --env-file=.env.hml src/server.js",
+    "start:prd": "node --env-file=.env.prd src/server.js",
+    "migrate": "node --env-file=.env scripts/migrate.js",
+    "migrate:hml": "node --env-file=.env.hml scripts/migrate.js",
+    "migrate:prd": "node --env-file=.env.prd scripts/migrate.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "express": "^5.1.0",
+    "helmet": "^8.1.0",
+    "morgan": "^1.10.0",
+    "pg": "^8.23.0"
+  }
+}
