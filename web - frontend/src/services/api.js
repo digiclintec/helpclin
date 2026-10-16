@@ -1,4 +1,9 @@
-const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:3333/api';
+const apiUrl =
+  import.meta.env.MODE === 'prd' || import.meta.env.MODE === 'production' || import.meta.env.PROD
+    ? (import.meta.env.VITE_API_URL && !import.meta.env.VITE_API_URL.includes('localhost')
+        ? import.meta.env.VITE_API_URL
+        : 'https://api.helpclintec.com.br/api')
+    : (import.meta.env.VITE_API_URL ?? 'http://localhost:3333/api');
 
 export async function getHealth() {
   const response = await fetch(`${apiUrl}/health`);
