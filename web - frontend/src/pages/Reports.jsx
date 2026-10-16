@@ -396,35 +396,19 @@ function Reports() {
       const effective = getEffectiveOrderStatus(order);
       const rel = getOrderCreationToPaymentRelation(order);
 
-      // Report Type Filter
-      if (reportType === 'billed' && !rel.isBilled) return false;
-      if (reportType === 'not_billed' && rel.isBilled) return false;
-      if (reportType === 'pending_billing' && effective !== 'billing_pending') return false;
-
-      // KPI Card Click Filter
-      if (activeKpiFilter === 'open' && effective !== 'open') return false;
-      if (activeKpiFilter === 'in_progress' && effective !== 'in_progress') return false;
-      if (activeKpiFilter === 'completed' && effective !== 'completed') return false;
-      if (activeKpiFilter === 'billing_pending' && effective !== 'billing_pending') return false;
-      if (activeKpiFilter === 'billed' && !rel.isBilled) return false;
-      if (activeKpiFilter === 'not_billed' && rel.isBilled) return false;
-      if (activeKpiFilter === 'urgent') {
+      // Status filter (unified)
+      if (statusFilter === 'billed' && !rel.isBilled) return false;
+      if (statusFilter === 'not_billed' && rel.isBilled) return false;
+      if (statusFilter === 'billing_pending' && effective !== 'billing_pending') return false;
+      if (statusFilter === 'open' && effective !== 'open') return false;
+      if (statusFilter === 'in_progress' && effective !== 'in_progress') return false;
+      if (statusFilter === 'completed' && effective !== 'completed') return false;
+      if (statusFilter === 'urgent') {
         const p = (order.priority || '').toLowerCase();
         const createdAt = new Date(order.created_at);
         const hoursOld = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60);
         const isUrgent = effective !== 'completed' && effective !== 'billed' && (p === 'urgent' || p === 'high' || hoursOld > 24);
         if (!isUrgent) return false;
-      }
-
-      // Status dropdown filter
-      if (statusFilter !== 'all') {
-        if (statusFilter === 'billing_pending') {
-          if (effective !== 'billing_pending') return false;
-        } else if (statusFilter === 'billed') {
-          if (effective !== 'billed') return false;
-        } else if (order.status !== statusFilter) {
-          return false;
-        }
       }
 
       // Priority filter
@@ -462,8 +446,6 @@ function Reports() {
     });
   }, [
     dateFilteredOrders,
-    reportType,
-    activeKpiFilter,
     statusFilter,
     priorityFilter,
     technicianFilter,
@@ -548,11 +530,30 @@ function Reports() {
 
   // EXPORT HANDLERS
   function handleExportPdf() {
+    const isBilledOnly = statusFilter === 'billed';
+    const isPendingOnly = statusFilter === 'billing_pending';
+
+    const customTitle = isBilledOnly
+      ? 'Relatório Oficial de Ordens Faturadas'
+      : isPendingOnly
+      ? 'Relatório Oficial de Ordens Aguardando Faturamento'
+      : statusFilter === 'open'
+      ? 'Relatório de Ordens de Serviço Abertas'
+      : statusFilter === 'completed'
+      ? 'Relatório de Ordens de Serviço Concluídas'
+      : 'Relatório Oficial de Ordens de Serviço';
+
+    const customSubtitle = `Listagem de ${finalFilteredOrders.length} ordens de serviço ${isBilledOnly ? 'faturadas' : 'filtradas'} • ${periodDescription}`;
+
     exportToPdf({
-      title: 'Relatório de Ordens de Serviço',
-      subtitle: `Listagem de ${finalFilteredOrders.length} ordens de serviço filtradas • ${periodDescription}`,
+      title: customTitle,
+      subtitle: customSubtitle,
       columns: pdfColumns,
       data: finalFilteredOrders,
+      tipo: 'ordens',
+      filterStatus: statusFilter !== 'all' ? statusFilter : '',
+      dateFrom: startDate,
+      dateTo: endDate,
       summary: [
         { label: 'Total Filtrado', value: finalFilteredOrders.length },
         { label: 'Faturadas (Confirmadas)', value: `${kpiMetrics.billed} (${kpiMetrics.billedPercentage}%)` },
@@ -644,17 +645,17 @@ function Reports() {
         </div>
       )}
 
-      {/* 2. DATE FILTER & PERIOD SELECTION CARD */}
+      {/* 2. DATE FILTER & SIMPLIFIED FILTER CONTROLS */}
       <section className="report-filter-card" style={{ marginBottom: '22px' }}>
         <div className="report-filter-card-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Calendar size={18} style={{ color: 'var(--coral)' }} />
-            <strong style={{ color: 'var(--teal)', fontSize: '15px' }}>Período do Relatório (Escolha de Data)</strong>
+            <strong style={{ color: 'var(--teal)', fontSize: '15px' }}>Filtros do Relatório</strong>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span style={{ fontSize: '13px', color: '#64748b' }}>
-              Período atual: <b>{periodDescription}</b>
+              Período: <b>{periodDescription}</b>
             </span>
             {(datePreset !== '30days' || statusFilter !== 'all' || priorityFilter !== 'all' || technicianFilter !== 'all' || sectorFilter !== 'all' || searchQuery) && (
               <button
@@ -670,9 +671,136 @@ function Reports() {
           </div>
         </div>
 
-        {/* Quick Date Presets */}
-        <div className="report-preset-row">
-          <span className="report-filter-label" style={{ marginRight: '6px' }}>Atalhos Rápidos:</span>
+        {/* 1. STATUS QUICK TABS (Clean, prominent status selection) */}
+        <div style={{ marginBottom: '16px' }}>
+          <span className="report-filter-label" style={{ display: 'block', marginBottom: '8px', fontWeight: 700, fontSize: '12px', color: '#475569', textTransform: 'uppercase' }}>
+            Situação das Ordens:
+          </span>
+          <div className="report-preset-pills" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className={`report-preset-pill ${statusFilter === 'all' ? 'report-preset-pill--active' : ''}`}
+              onClick={() => setStatusFilter('all')}
+            >
+              Todas as Ordens ({orders.length})
+            </button>
+            {billingEnabled && (
+              <button
+                type="button"
+                className={`report-preset-pill ${statusFilter === 'billed' ? 'report-preset-pill--active' : ''}`}
+                onClick={() => setStatusFilter('billed')}
+                style={statusFilter === 'billed' ? { background: '#059669', borderColor: '#059669', color: '#fff', fontWeight: 700 } : {}}
+              >
+                🟢 Somente Faturadas ({kpiMetrics.billed})
+              </button>
+            )}
+            {billingEnabled && (
+              <button
+                type="button"
+                className={`report-preset-pill ${statusFilter === 'billing_pending' ? 'report-preset-pill--active' : ''}`}
+                onClick={() => setStatusFilter('billing_pending')}
+                style={statusFilter === 'billing_pending' ? { background: '#ea580c', borderColor: '#ea580c', color: '#fff', fontWeight: 700 } : {}}
+              >
+                🟠 Aguardando Faturamento ({kpiMetrics.billingPending})
+              </button>
+            )}
+            <button
+              type="button"
+              className={`report-preset-pill ${statusFilter === 'completed' ? 'report-preset-pill--active' : ''}`}
+              onClick={() => setStatusFilter('completed')}
+            >
+              🔵 Concluídas ({kpiMetrics.completed})
+            </button>
+            <button
+              type="button"
+              className={`report-preset-pill ${statusFilter === 'in_progress' ? 'report-preset-pill--active' : ''}`}
+              onClick={() => setStatusFilter('in_progress')}
+            >
+              🟡 Em Andamento ({kpiMetrics.inProgress})
+            </button>
+            <button
+              type="button"
+              className={`report-preset-pill ${statusFilter === 'open' ? 'report-preset-pill--active' : ''}`}
+              onClick={() => setStatusFilter('open')}
+            >
+              ⚪ Abertas ({kpiMetrics.open})
+            </button>
+            <button
+              type="button"
+              className={`report-preset-pill ${statusFilter === 'urgent' ? 'report-preset-pill--active' : ''}`}
+              onClick={() => setStatusFilter('urgent')}
+            >
+              🔴 Urgentes ({kpiMetrics.urgent})
+            </button>
+          </div>
+        </div>
+
+        {/* 2. SEARCH & DATES ROW (Clean and straightforward) */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px', alignItems: 'flex-end', marginBottom: '14px' }}>
+          {/* Busca Textual Direta */}
+          <div className="report-filter-field" style={{ minWidth: '260px' }}>
+            <label>Buscar na Listagem:</label>
+            <div className="search-control" style={{ width: '100%', height: '40px' }}>
+              <Search size={16} />
+              <input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Nº da OS, equipamento, solicitante..."
+                aria-label="Busca textual na listagem"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Data Inicial */}
+          <div className="report-filter-field">
+            <label>Data Inicial:</label>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => handleStartDateChange(e.target.value)}
+              aria-label="Data Inicial do Relatório"
+              style={{ height: '40px' }}
+            />
+          </div>
+
+          {/* Data Final */}
+          <div className="report-filter-field">
+            <label>Data Final:</label>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => handleEndDateChange(e.target.value)}
+              aria-label="Data Final do Relatório"
+              style={{ height: '40px' }}
+            />
+          </div>
+
+          {/* Botão de Filtros Avançados */}
+          <div style={{ display: 'flex', gap: '8px', height: '40px' }}>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+              style={{ height: '40px', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}
+            >
+              <Filter size={14} />
+              <span>{showAdvancedFilters ? 'Ocultar Opções ▲' : 'Mais Filtros ▼'}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Atalhos Rápidos de Período */}
+        <div className="report-preset-row" style={{ paddingTop: '10px', borderTop: '1px solid #eef3f0' }}>
+          <span className="report-filter-label" style={{ marginRight: '6px' }}>Período:</span>
           <div className="report-preset-pills">
             <button
               type="button"
@@ -686,21 +814,21 @@ function Reports() {
               className={`report-preset-pill ${datePreset === '7days' ? 'report-preset-pill--active' : ''}`}
               onClick={() => applyDatePreset('7days')}
             >
-              Últimos 7 dias
+              7 dias
             </button>
             <button
               type="button"
               className={`report-preset-pill ${datePreset === '15days' ? 'report-preset-pill--active' : ''}`}
               onClick={() => applyDatePreset('15days')}
             >
-              Últimos 15 dias
+              15 dias
             </button>
             <button
               type="button"
               className={`report-preset-pill ${datePreset === '30days' ? 'report-preset-pill--active' : ''}`}
               onClick={() => applyDatePreset('30days')}
             >
-              Últimos 30 dias
+              30 dias
             </button>
             <button
               type="button"
@@ -726,159 +854,77 @@ function Reports() {
           </div>
         </div>
 
-        {/* Date Inputs & Field Filter */}
-        <div className="report-date-inputs-grid">
-          <div className="report-filter-field">
-            <label>Data Inicial (De):</label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => handleStartDateChange(e.target.value)}
-              aria-label="Data Inicial do Relatório"
-            />
-          </div>
+        {/* 3. FILTROS AVANÇADOS (Discretos / Opcionais) */}
+        {showAdvancedFilters && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginTop: '14px', paddingTop: '14px', borderTop: '1px solid #e2ece5' }}>
+            <div className="report-filter-field">
+              <label>Filtrar pela data de:</label>
+              <select
+                value={dateField}
+                onChange={(e) => setDateField(e.target.value)}
+                aria-label="Campo de Data para o filtro"
+              >
+                <option value="created_at">Data de Abertura / Criação</option>
+                <option value="completed_at">Data de Conclusão Técnica</option>
+                <option value="billed_at">Data de Faturamento / Pagamento</option>
+              </select>
+            </div>
 
-          <div className="report-filter-field">
-            <label>Data Final (Até):</label>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => handleEndDateChange(e.target.value)}
-              aria-label="Data Final do Relatório"
-            />
-          </div>
+            <div className="report-filter-field">
+              <label>Prioridade:</label>
+              <select
+                value={priorityFilter}
+                onChange={(e) => setPriorityFilter(e.target.value)}
+                aria-label="Filtrar por prioridade"
+              >
+                <option value="all">Todas as prioridades</option>
+                <option value="low">Pouco urgente</option>
+                <option value="normal">Normal</option>
+                <option value="high">Alta</option>
+                <option value="urgent">Urgente</option>
+              </select>
+            </div>
 
-          <div className="report-filter-field">
-            <label>Filtrar pela data de:</label>
-            <select
-              value={dateField}
-              onChange={(e) => setDateField(e.target.value)}
-              aria-label="Campo de Data para o filtro"
-            >
-              <option value="created_at">Data de Abertura / Criação</option>
-              <option value="completed_at">Data de Conclusão Técnica</option>
-              <option value="billed_at">Data de Faturamento / Pagamento</option>
-            </select>
-          </div>
+            <div className="report-filter-field">
+              <label>Responsável Técnico:</label>
+              <select
+                value={technicianFilter}
+                onChange={(e) => setTechnicianFilter(e.target.value)}
+                aria-label="Filtrar por responsável técnico"
+              >
+                <option value="all">Todos os técnicos</option>
+                {technicianList.map((tech) => (
+                  <option key={tech} value={tech}>
+                    {tech}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          <div className="report-filter-field">
-            <label>Tipo de Relatório:</label>
-            <select
-              value={reportType}
-              onChange={(e) => setReportType(e.target.value)}
-              aria-label="Categoria do relatório"
-            >
-              <option value="all_orders">Todas as Ordens de Serviço</option>
-              {billingEnabled && (
-                <>
-                  <option value="billed">Apenas Ordens Faturadas (com data)</option>
-                  <option value="not_billed">Apenas Ordens NÃO Faturadas (Pendentes)</option>
-                  <option value="pending_billing">Pendências de Faturamento (&gt; 48h)</option>
-                </>
-              )}
-            </select>
-          </div>
-        </div>
-
-        {/* Operational Filters Row (Status, Priority, Technician, Sector, Search) */}
-        <div className="report-secondary-filters-grid">
-          <div className="report-filter-field">
-            <label>Status:</label>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              aria-label="Filtrar por status"
-            >
-              <option value="all">Todos os status</option>
-              <option value="open">Abertas</option>
-              <option value="in_progress">Em andamento</option>
-              <option value="completed">Concluídas</option>
-              {billingEnabled && (
-                <>
-                  <option value="billing_pending">Aguardando Faturamento</option>
-                  <option value="billed">Faturadas</option>
-                </>
-              )}
-              <option value="cancelled">Canceladas</option>
-            </select>
-          </div>
-
-          <div className="report-filter-field">
-            <label>Prioridade:</label>
-            <select
-              value={priorityFilter}
-              onChange={(e) => setPriorityFilter(e.target.value)}
-              aria-label="Filtrar por prioridade"
-            >
-              <option value="all">Todas as prioridades</option>
-              <option value="low">Pouco urgente</option>
-              <option value="normal">Normal</option>
-              <option value="high">Alta</option>
-              <option value="urgent">Urgente</option>
-            </select>
-          </div>
-
-          <div className="report-filter-field">
-            <label>Responsável Técnico:</label>
-            <select
-              value={technicianFilter}
-              onChange={(e) => setTechnicianFilter(e.target.value)}
-              aria-label="Filtrar por responsável técnico"
-            >
-              <option value="all">Todos os técnicos</option>
-              {technicianList.map((tech) => (
-                <option key={tech} value={tech}>
-                  {tech}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="report-filter-field">
-            <label>Setor / Solicitante:</label>
-            <select
-              value={sectorFilter}
-              onChange={(e) => setSectorFilter(e.target.value)}
-              aria-label="Filtrar por setor ou solicitante"
-            >
-              <option value="all">Todos os setores</option>
-              {sectorList.map((sec) => (
-                <option key={sec} value={sec}>
-                  {sec}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="report-filter-field report-filter-field--search">
-            <label>Busca Textual:</label>
-            <div className="search-control" style={{ width: '100%', height: '42px' }}>
-              <Search size={16} />
-              <input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Número da OS, equipamento, serviço, descrição..."
-                aria-label="Busca textual na listagem"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}
-                >
-                  <X size={14} />
-                </button>
-              )}
+            <div className="report-filter-field">
+              <label>Setor / Solicitante:</label>
+              <select
+                value={sectorFilter}
+                onChange={(e) => setSectorFilter(e.target.value)}
+                aria-label="Filtrar por setor ou solicitante"
+              >
+                <option value="all">Todos os setores</option>
+                {sectorList.map((sec) => (
+                  <option key={sec} value={sec}>
+                    {sec}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
-        </div>
+        )}
       </section>
 
-      {/* 3. DYNAMIC SUMMARY CARDS (Exact match to the HelpClin authenticated report layout) */}
+      {/* 3. DYNAMIC SUMMARY CARDS (Sincronizados diretamente com o filtro ativo) */}
       <section className="report-summary-cards" style={{ marginBottom: '24px' }}>
         <article
-          className={`report-summary-card ${activeKpiFilter === 'all' ? 'report-summary-card--active' : ''}`}
-          onClick={() => setActiveKpiFilter('all')}
+          className={`report-summary-card ${statusFilter === 'all' ? 'report-summary-card--active' : ''}`}
+          onClick={() => setStatusFilter('all')}
           title="Clique para ver todos os registros filtrados"
         >
           <span className="report-summary-label">Total Filtrado</span>
@@ -887,8 +933,8 @@ function Reports() {
         </article>
 
         <article
-          className={`report-summary-card report-summary-card--open ${activeKpiFilter === 'open' ? 'report-summary-card--active' : ''}`}
-          onClick={() => setActiveKpiFilter(activeKpiFilter === 'open' ? 'all' : 'open')}
+          className={`report-summary-card report-summary-card--open ${statusFilter === 'open' ? 'report-summary-card--active' : ''}`}
+          onClick={() => setStatusFilter(statusFilter === 'open' ? 'all' : 'open')}
           title="Clique para filtrar apenas abertas"
         >
           <span className="report-summary-label">Abertas</span>
@@ -897,8 +943,8 @@ function Reports() {
         </article>
 
         <article
-          className={`report-summary-card report-summary-card--progress ${activeKpiFilter === 'in_progress' ? 'report-summary-card--active' : ''}`}
-          onClick={() => setActiveKpiFilter(activeKpiFilter === 'in_progress' ? 'all' : 'in_progress')}
+          className={`report-summary-card report-summary-card--progress ${statusFilter === 'in_progress' ? 'report-summary-card--active' : ''}`}
+          onClick={() => setStatusFilter(statusFilter === 'in_progress' ? 'all' : 'in_progress')}
           title="Clique para filtrar apenas em andamento"
         >
           <span className="report-summary-label">Em Andamento</span>
@@ -907,8 +953,8 @@ function Reports() {
         </article>
 
         <article
-          className={`report-summary-card report-summary-card--completed ${activeKpiFilter === 'completed' ? 'report-summary-card--active' : ''}`}
-          onClick={() => setActiveKpiFilter(activeKpiFilter === 'completed' ? 'all' : 'completed')}
+          className={`report-summary-card report-summary-card--completed ${statusFilter === 'completed' ? 'report-summary-card--active' : ''}`}
+          onClick={() => setStatusFilter(statusFilter === 'completed' ? 'all' : 'completed')}
           title="Clique para filtrar apenas concluídas"
         >
           <span className="report-summary-label">Concluídas</span>
@@ -919,8 +965,8 @@ function Reports() {
         {billingEnabled && (
           <>
             <article
-              className={`report-summary-card report-summary-card--billed ${activeKpiFilter === 'billed' ? 'report-summary-card--active' : ''}`}
-              onClick={() => setActiveKpiFilter(activeKpiFilter === 'billed' ? 'all' : 'billed')}
+              className={`report-summary-card report-summary-card--billed ${statusFilter === 'billed' ? 'report-summary-card--active' : ''}`}
+              onClick={() => setStatusFilter(statusFilter === 'billed' ? 'all' : 'billed')}
               title="Clique para filtrar apenas faturadas"
             >
               <span className="report-summary-label" style={{ color: '#059669' }}>Faturadas</span>
@@ -929,8 +975,8 @@ function Reports() {
             </article>
 
             <article
-              className={`report-summary-card report-summary-card--not_billed ${activeKpiFilter === 'not_billed' ? 'report-summary-card--active' : ''}`}
-              onClick={() => setActiveKpiFilter(activeKpiFilter === 'not_billed' ? 'all' : 'not_billed')}
+              className={`report-summary-card report-summary-card--not_billed ${statusFilter === 'billing_pending' ? 'report-summary-card--active' : ''}`}
+              onClick={() => setStatusFilter(statusFilter === 'billing_pending' ? 'all' : 'billing_pending')}
               title="Clique para filtrar ordens não faturadas"
             >
               <span className="report-summary-label" style={{ color: '#b45309' }}>Não Faturadas</span>
@@ -950,8 +996,8 @@ function Reports() {
         )}
 
         <article
-          className={`report-summary-card report-summary-card--urgent ${activeKpiFilter === 'urgent' ? 'report-summary-card--active' : ''}`}
-          onClick={() => setActiveKpiFilter(activeKpiFilter === 'urgent' ? 'all' : 'urgent')}
+          className={`report-summary-card report-summary-card--urgent ${statusFilter === 'urgent' ? 'report-summary-card--active' : ''}`}
+          onClick={() => setStatusFilter(statusFilter === 'urgent' ? 'all' : 'urgent')}
           title="Clique para filtrar urgentes ou com atraso"
         >
           <span className="report-summary-label">Urgentes / Atrasadas</span>
@@ -967,9 +1013,15 @@ function Reports() {
             <h2 style={{ margin: '0 0 4px 0', fontSize: '18px', color: 'var(--teal)' }}>
               Pré-visualização do Relatório
             </h2>
-            <span style={{ fontSize: '13px', color: '#64748b' }}>
+            <span style={{ fontSize: '13px', color: '#64748b', display: 'block' }}>
               Listagem de <b>{finalFilteredOrders.length}</b> {finalFilteredOrders.length === 1 ? 'ordem de serviço filtrada' : 'ordens de serviço filtradas'} • {periodDescription}
             </span>
+            {statusFilter !== 'all' && (
+              <div style={{ marginTop: '6px', display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#e6f6ee', border: '1px solid #bbf7d0', padding: '3px 10px', borderRadius: '14px', fontSize: '12px', color: '#166534', fontWeight: 600 }}>
+                <span>Filtro ativo: {statusFilter === 'billed' ? '🟢 Somente Faturadas' : statusFilter === 'billing_pending' ? '🟠 Aguardando Faturamento' : statusFilter === 'completed' ? '🔵 Concluídas' : statusFilter === 'in_progress' ? '🟡 Em Andamento' : statusFilter === 'open' ? '⚪ Abertas' : '🔴 Urgentes'}</span>
+                <button type="button" onClick={() => setStatusFilter('all')} style={{ background: 'none', border: 'none', color: '#166534', cursor: 'pointer', padding: 0, fontWeight: 700 }} title="Remover filtro de status">✕</button>
+              </div>
+            )}
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
