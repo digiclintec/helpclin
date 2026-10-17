@@ -20,6 +20,7 @@ import {
   Headset,
   Laptop,
   Layers,
+  LayoutDashboard,
   Monitor,
   PieChart,
   Plus,

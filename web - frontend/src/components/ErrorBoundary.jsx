@@ -124,7 +124,7 @@ class ErrorBoundary extends React.Component {
               </button>
 
               <a
-                href="/"
+                href="/ordens"
                 style={{
                   display: 'inline-block',
                   padding: '12px 22px',
@@ -137,7 +137,24 @@ class ErrorBoundary extends React.Component {
                   textDecoration: 'none'
                 }}
               >
-                Ir para o Site Principal
+                Ir para Ordens de Serviço
+              </a>
+
+              <a
+                href="/"
+                style={{
+                  display: 'inline-block',
+                  padding: '12px 22px',
+                  borderRadius: '10px',
+                  border: '1px solid #dce7df',
+                  background: '#ffffff',
+                  color: '#5e726e',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  textDecoration: 'none'
+                }}
+              >
+                Ir para o Site
               </a>
             </div>
           </div>
