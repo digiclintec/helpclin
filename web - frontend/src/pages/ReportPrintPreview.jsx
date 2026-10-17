@@ -82,11 +82,11 @@ export default function ReportPrintPreview() {
   const statusParam = searchParams.get('status') || '';
   const dateFromParam = searchParams.get('dataInicio') || '';
   const dateToParam = searchParams.get('dataFim') || '';
-  const orientParam = searchParams.get('orientacao') || 'landscape';
+  const orientParam = searchParams.get('orientacao') || 'portrait';
   const autoPrintParam = searchParams.get('autoprint') === '1' || searchParams.get('autoPrint') === 'true';
 
   const [reportType, setReportType] = useState(tipoParam);
-  const [orientation, setOrientation] = useState(orientParam === 'portrait' ? 'portrait' : 'landscape');
+  const [orientation, setOrientation] = useState(orientParam === 'landscape' ? 'landscape' : 'portrait');
   const [printScale, setPrintScale] = useState('100%'); // '100%' | '90%' | '80%'
   const [orders, setOrders] = useState([]);
   const [tickets, setTickets] = useState([]);
@@ -429,7 +429,7 @@ export default function ReportPrintPreview() {
 
           <span className="action-bar-badge">
             <span className="pulse-dot" />
-            Padrão Folha A4 Oficial ({orientation === 'landscape' ? '297 × 210 mm • Paisagem' : '210 × 297 mm • Retrato'})
+            Padrão Folha A4 Oficial ({orientation === 'portrait' ? '210 × 297 mm • Vertical' : '297 × 210 mm • Horizontal'})
           </span>
         </div>
 
@@ -439,10 +439,10 @@ export default function ReportPrintPreview() {
             type="button"
             className="btn-action btn-toggle-orient"
             onClick={toggleOrientation}
-            title="Alternar entre Paisagem (297mm) e Retrato (210mm)"
+            title="Alternar entre Retrato Vertical (210mm) e Paisagem Horizontal (297mm)"
           >
             <Maximize2 size={14} />
-            <span>{orientation === 'landscape' ? 'Mudar para A4 Retrato' : 'Mudar para A4 Paisagem'}</span>
+            <span>{orientation === 'portrait' ? 'Mudar para A4 Paisagem (Horizontal)' : 'Mudar para A4 Retrato (Vertical)'}</span>
           </button>
 
           {/* Scale Selector */}
@@ -519,7 +519,7 @@ export default function ReportPrintPreview() {
               Registros: <strong>{reportType === 'chamados' ? tickets.length : reportType === 'inventario' ? inventory.length : orders.length} item(ns)</strong>
             </p>
             <p>
-              Formato: <strong>A4 ({orientation === 'landscape' ? '297 × 210 mm' : '210 × 297 mm'})</strong>
+              Formato: <strong>A4 ({orientation === 'portrait' ? '210 × 297 mm • Vertical' : '297 × 210 mm • Horizontal'})</strong>
             </p>
             <p>
               Status: <strong className="status-autenticado"><ShieldCheck size={12} /> Autenticado</strong>
@@ -672,16 +672,16 @@ export default function ReportPrintPreview() {
             <table className="report-table">
               <thead>
                 <tr>
-                  <th style={{ width: orientation === 'landscape' ? '7%' : '9%' }}>Nº OS</th>
-                  <th style={{ width: orientation === 'landscape' ? '7%' : '8%' }}>Prioridade</th>
-                  <th style={{ width: orientation === 'landscape' ? '8%' : '10%' }}>Estado</th>
-                  <th style={{ width: orientation === 'landscape' ? '15%' : '18%' }}>Solicitante / Setor</th>
-                  <th style={{ width: orientation === 'landscape' ? '16%' : '19%' }}>Equipamento / Ativo</th>
-                  <th style={{ width: orientation === 'landscape' ? '13%' : '14%' }}>Responsável</th>
-                  {orientation === 'landscape' && <th style={{ width: '9%' }}>Serviço</th>}
-                  <th style={{ width: orientation === 'landscape' ? '7%' : '10%' }}>Criação</th>
-                  {orientation === 'landscape' && <th style={{ width: '7%' }}>Conclusão</th>}
-                  <th style={{ width: orientation === 'landscape' ? '11%' : '12%' }} className="th-billing">
+                  <th style={{ width: orientation === 'portrait' ? '7.5%' : '7%' }}>Nº OS</th>
+                  <th style={{ width: orientation === 'portrait' ? '7.5%' : '7%' }}>Prioridade</th>
+                  <th style={{ width: orientation === 'portrait' ? '8.5%' : '8%' }}>Estado</th>
+                  <th style={{ width: orientation === 'portrait' ? '14%' : '15%' }}>Solicitante / Setor</th>
+                  <th style={{ width: orientation === 'portrait' ? '15%' : '16%' }}>Equipamento / Ativo</th>
+                  <th style={{ width: orientation === 'portrait' ? '12%' : '13%' }}>Responsável</th>
+                  <th style={{ width: orientation === 'portrait' ? '11%' : '9%' }}>Serviço</th>
+                  <th style={{ width: orientation === 'portrait' ? '8%' : '7.5%' }}>Criação</th>
+                  <th style={{ width: orientation === 'portrait' ? '8%' : '7.5%' }}>Conclusão</th>
+                  <th style={{ width: orientation === 'portrait' ? '8.5%' : '10%' }} className="th-billing">
                     Faturamento
                   </th>
                 </tr>
@@ -689,7 +689,7 @@ export default function ReportPrintPreview() {
               <tbody>
                 {orders.length === 0 ? (
                   <tr>
-                    <td colSpan={orientation === 'landscape' ? 10 : 8} className="table-empty-cell">
+                    <td colSpan={10} className="table-empty-cell">
                       {isLoading ? 'Carregando registros do servidor...' : 'Nenhuma ordem de serviço encontrada.'}
                     </td>
                   </tr>
@@ -738,23 +738,19 @@ export default function ReportPrintPreview() {
                             {o.technician_name || 'Não atribuído'}
                           </div>
                         </td>
-                        {orientation === 'landscape' && (
-                          <td>
-                            <div className="cell-service-type" title={o.service_type || 'Manutenção'}>
-                              {o.service_type || 'Manutenção'}
-                            </div>
-                          </td>
-                        )}
+                        <td>
+                          <div className="cell-service-type" title={o.service_type || 'Manutenção'}>
+                            {o.service_type || 'Manutenção'}
+                          </div>
+                        </td>
                         <td className="cell-date">
                           <span className="date-dmy">{createdParts.date}</span>
                           {createdParts.time && <span className="date-time">{createdParts.time}</span>}
                         </td>
-                        {orientation === 'landscape' && (
-                          <td className="cell-date">
-                            <span className="date-dmy">{completedParts.date}</span>
-                            {completedParts.time && <span className="date-time">{completedParts.time}</span>}
-                          </td>
-                        )}
+                        <td className="cell-date">
+                          <span className="date-dmy">{completedParts.date}</span>
+                          {completedParts.time && <span className="date-time">{completedParts.time}</span>}
+                        </td>
                         <td className="cell-billing">
                           {o.status === 'billed' || eff === 'billed' ? (
                             <div className="billing-paid">
@@ -1193,6 +1189,33 @@ export default function ReportPrintPreview() {
           min-height: 297mm;
           max-width: 100%;
           padding: 8mm 9mm;
+        }
+
+        .doc--portrait .document-summary-grid {
+          grid-template-columns: repeat(4, 1fr) !important;
+          gap: 6px !important;
+        }
+
+        .doc--portrait .summary-box {
+          padding: 5px 6px !important;
+        }
+
+        .doc--portrait .summary-box span {
+          font-size: 7pt !important;
+        }
+
+        .doc--portrait .summary-box strong {
+          font-size: 13pt !important;
+        }
+
+        .doc--portrait .report-table th {
+          padding: 5px 3.5px !important;
+          font-size: 6.8pt !important;
+        }
+
+        .doc--portrait .report-table td {
+          padding: 4.5px 3.5px !important;
+          font-size: 7.2pt !important;
         }
 
         /* Header */

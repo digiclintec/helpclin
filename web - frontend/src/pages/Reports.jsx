@@ -136,8 +136,8 @@ function Reports() {
   const [activeTab, setActiveTab] = useState('orders');
 
   // 3. CONFIGURAÇÃO DE IMPRESSÃO A4
-  // 'landscape' (297x210mm) | 'portrait' (210x297mm)
-  const [printOrientation, setPrintOrientation] = useState('landscape');
+  // 'portrait' (210x297mm - Vertical Padrão) | 'landscape' (297x210mm - Horizontal)
+  const [printOrientation, setPrintOrientation] = useState('portrait');
 
   // 4. FILTROS DE PERÍODO & DATA
   const [datePreset, setDatePreset] = useState('30days');
@@ -901,7 +901,7 @@ function Reports() {
       <section className="reports-print-bar">
         <div className="reports-print-bar-left">
           <span className="reports-print-format-tag">
-            <Printer size={14} /> Padrão de Impressão: Folha A4 ({printOrientation === 'landscape' ? '297 × 210 mm • Paisagem' : '210 × 297 mm • Retrato'})
+            <Printer size={14} /> Padrão de Impressão: Folha A4 ({printOrientation === 'portrait' ? '210 × 297 mm • Vertical' : '297 × 210 mm • Horizontal'})
           </span>
           <span style={{ fontSize: '13px', color: '#64748b' }}>
             Período Selecionado: <b>{periodDescription}</b>
@@ -913,19 +913,19 @@ function Reports() {
           <div className="reports-orientation-selector">
             <button
               type="button"
-              className={`reports-orientation-btn ${printOrientation === 'landscape' ? 'reports-orientation-btn--active' : ''}`}
-              onClick={() => setPrintOrientation('landscape')}
-              title="A4 Paisagem (297x210mm) - Formato recomendado para relatórios e tabelas completas"
+              className={`reports-orientation-btn ${printOrientation === 'portrait' ? 'reports-orientation-btn--active' : ''}`}
+              onClick={() => setPrintOrientation('portrait')}
+              title="A4 Retrato (210x297mm) - Formato vertical padrão oficial de folha A4"
             >
-              <Maximize2 size={13} /> Paisagem (297mm)
+              <FileText size={13} /> Vertical / Retrato (210mm)
             </button>
             <button
               type="button"
-              className={`reports-orientation-btn ${printOrientation === 'portrait' ? 'reports-orientation-btn--active' : ''}`}
-              onClick={() => setPrintOrientation('portrait')}
-              title="A4 Retrato (210x297mm) - Formato vertical para fichas ou resumos"
+              className={`reports-orientation-btn ${printOrientation === 'landscape' ? 'reports-orientation-btn--active' : ''}`}
+              onClick={() => setPrintOrientation('landscape')}
+              title="A4 Paisagem (297x210mm) - Formato horizontal"
             >
-              <FileText size={13} /> Retrato (210mm)
+              <Maximize2 size={13} /> Horizontal / Paisagem (297mm)
             </button>
           </div>
         </div>

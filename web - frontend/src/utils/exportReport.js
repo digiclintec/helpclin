@@ -72,7 +72,7 @@ export function exportToPdf({
   data,
   summary = [],
   tipo,
-  orientation = 'landscape',
+  orientation = 'portrait',
   autoPrint = false,
   filterStatus,
   dateFrom,
@@ -95,7 +95,7 @@ export function exportToPdf({
       data: Array.isArray(data) ? data : [],
       summary: Array.isArray(summary) ? summary : [],
       tipo: detectedTipo,
-      orientation: orientation || 'landscape',
+      orientation: orientation || 'portrait',
       filterStatus: filterStatus || '',
       dateFrom: dateFrom || '',
       dateTo: dateTo || '',
@@ -109,7 +109,7 @@ export function exportToPdf({
 
   const query = new URLSearchParams({
     tipo: detectedTipo,
-    orientacao: orientation || 'landscape'
+    orientacao: orientation || 'portrait'
   });
   if (filterStatus) query.set('status', filterStatus);
   if (dateFrom) query.set('dataInicio', dateFrom);
