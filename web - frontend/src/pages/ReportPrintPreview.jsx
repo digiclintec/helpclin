@@ -686,16 +686,16 @@ export default function ReportPrintPreview() {
             <table className="report-table">
               <thead>
                 <tr>
-                  <th style={{ width: orientation === 'portrait' ? '7.5%' : '7%' }}>Nº OS</th>
+                  <th style={{ width: orientation === 'portrait' ? '6.5%' : '6.5%' }}>Nº OS</th>
                   <th style={{ width: orientation === 'portrait' ? '7.5%' : '7%' }}>Prioridade</th>
-                  <th style={{ width: orientation === 'portrait' ? '8.5%' : '8%' }}>Estado</th>
-                  <th style={{ width: orientation === 'portrait' ? '14%' : '15%' }}>Solicitante / Setor</th>
-                  <th style={{ width: orientation === 'portrait' ? '15%' : '16%' }}>Equipamento / Ativo</th>
-                  <th style={{ width: orientation === 'portrait' ? '12%' : '13%' }}>Responsável</th>
-                  <th style={{ width: orientation === 'portrait' ? '11%' : '9%' }}>Serviço</th>
-                  <th style={{ width: orientation === 'portrait' ? '8%' : '7.5%' }}>Criação</th>
-                  <th style={{ width: orientation === 'portrait' ? '8%' : '7.5%' }}>Conclusão</th>
-                  <th style={{ width: orientation === 'portrait' ? '8.5%' : '10%' }} className="th-billing">
+                  <th style={{ width: orientation === 'portrait' ? '7.5%' : '7.5%' }}>Estado</th>
+                  <th style={{ width: orientation === 'portrait' ? '13%' : '14.5%' }}>Solicitante / Setor</th>
+                  <th style={{ width: orientation === 'portrait' ? '14%' : '15%' }}>Equipamento / Ativo</th>
+                  <th style={{ width: orientation === 'portrait' ? '11.5%' : '12.5%' }}>Responsável</th>
+                  <th style={{ width: orientation === 'portrait' ? '10%' : '9%' }}>Serviço</th>
+                  <th style={{ width: orientation === 'portrait' ? '9%' : '8%' }}>Criação</th>
+                  <th style={{ width: orientation === 'portrait' ? '9%' : '8%' }}>Conclusão</th>
+                  <th style={{ width: orientation === 'portrait' ? '12%' : '12%' }} className="th-billing">
                     Faturamento
                   </th>
                 </tr>
@@ -757,39 +757,45 @@ export default function ReportPrintPreview() {
                             {o.service_type || 'Manutenção'}
                           </div>
                         </td>
-                        <td className="cell-date">
-                          <span className="date-dmy">{createdParts.date}</span>
-                          {createdParts.time && <span className="date-time">{createdParts.time}</span>}
-                        </td>
-                        <td className="cell-date">
-                          <span className="date-dmy">{completedParts.date}</span>
-                          {completedParts.time && <span className="date-time">{completedParts.time}</span>}
-                        </td>
-                        <td className="cell-billing">
-                          {o.status === 'billed' || eff === 'billed' ? (
-                            <div className="billing-paid">
-                              <span className="billing-tag billing-tag--paid">
-                                <CheckCircle2 size={9} /> Faturada
-                              </span>
-                              <span className="billing-date">
-                                {billedParts.date}
-                              </span>
-                            </div>
-                          ) : isBillingPending(o) ? (
-                            <div className="billing-pending">
-                              <span className="billing-tag billing-tag--pending">
-                                <Clock size={9} /> Aguardando Fat.
-                              </span>
-                              <span className="billing-sub">
-                                ({getDaysSinceCompletion(o)}/30d)
-                              </span>
-                            </div>
+                        <td className="cell-date-inline">
+                          {createdParts.date && createdParts.date !== '—' ? (
+                            <span className="date-single-line">
+                              <span className="date-dmy-inline">{createdParts.date}</span>
+                              {createdParts.time && <span className="date-time-inline">{createdParts.time}</span>}
+                            </span>
                           ) : (
-                            <div className="billing-open">
-                              <span className="billing-tag billing-tag--open">
-                                Em atendimento
-                              </span>
-                            </div>
+                            <span className="date-empty">—</span>
+                          )}
+                        </td>
+                        <td className="cell-date-inline">
+                          {completedParts.date && completedParts.date !== '—' ? (
+                            <span className="date-single-line">
+                              <span className="date-dmy-inline">{completedParts.date}</span>
+                              {completedParts.time && <span className="date-time-inline">{completedParts.time}</span>}
+                            </span>
+                          ) : (
+                            <span className="date-empty">—</span>
+                          )}
+                        </td>
+                        <td className="cell-billing-inline">
+                          {o.status === 'billed' || eff === 'billed' ? (
+                            <span className="billing-badge-inline billing-badge-inline--paid" title={`Faturada em ${billedParts.date}`}>
+                              <CheckCircle2 size={8.5} className="billing-badge-icon" />
+                              <span className="billing-badge-status">Faturada</span>
+                              {billedParts.date && billedParts.date !== '—' && (
+                                <span className="billing-badge-date">{billedParts.date}</span>
+                              )}
+                            </span>
+                          ) : isBillingPending(o) ? (
+                            <span className="billing-badge-inline billing-badge-inline--pending" title={`Aguardando faturamento (${getDaysSinceCompletion(o)}/30 dias)`}>
+                              <Clock size={8.5} className="billing-badge-icon" />
+                              <span className="billing-badge-status">Aguardando</span>
+                              <span className="billing-badge-sub">({getDaysSinceCompletion(o)}/30d)</span>
+                            </span>
+                          ) : (
+                            <span className="billing-badge-inline billing-badge-inline--open">
+                              <span className="billing-badge-status">Em atendimento</span>
+                            </span>
                           )}
                         </td>
                       </tr>
@@ -804,14 +810,14 @@ export default function ReportPrintPreview() {
             <table className="report-table">
               <thead>
                 <tr>
-                  <th style={{ width: '8%' }}>Nº OS</th>
-                  <th style={{ width: '9%' }}>Estado OS</th>
-                  <th style={{ width: '16%' }}>Solicitante / Setor</th>
-                  <th style={{ width: '16%' }}>Equipamento / Ativo</th>
-                  <th style={{ width: '9%' }}>Criada em</th>
-                  <th style={{ width: '9%' }}>Concluída em</th>
-                  <th style={{ width: '12%' }}>Situação Faturamento</th>
-                  <th style={{ width: '9%' }}>Data Pagamento</th>
+                  <th style={{ width: '7%' }}>Nº OS</th>
+                  <th style={{ width: '8%' }}>Estado OS</th>
+                  <th style={{ width: '15%' }}>Solicitante / Setor</th>
+                  <th style={{ width: '15%' }}>Equipamento / Ativo</th>
+                  <th style={{ width: '10%' }}>Criada em</th>
+                  <th style={{ width: '10%' }}>Concluída em</th>
+                  <th style={{ width: '13%' }}>Situação Faturamento</th>
+                  <th style={{ width: '10%' }}>Data Pagamento</th>
                   <th style={{ width: '12%' }} className="th-billing">Ciclo Criação ➔ Pgto</th>
                 </tr>
               </thead>
@@ -844,33 +850,44 @@ export default function ReportPrintPreview() {
                         </td>
                         <td><div className="cell-main-text">{o.patient_name || 'Recepção'}</div></td>
                         <td><div className="cell-main-text">{o.equipment_name || 'Serviço Geral'}</div></td>
-                        <td className="cell-date"><span className="date-dmy">{createdParts.date}</span></td>
-                        <td className="cell-date"><span className="date-dmy">{completedParts.date}</span></td>
-                        <td>
+                        <td className="cell-date-inline">
+                          <span className="date-single-line">
+                            <span className="date-dmy-inline">{createdParts.date}</span>
+                          </span>
+                        </td>
+                        <td className="cell-date-inline">
+                          <span className="date-single-line">
+                            <span className="date-dmy-inline">{completedParts.date}</span>
+                          </span>
+                        </td>
+                        <td className="cell-billing-inline">
                           {rel.isBilled ? (
-                            <span className="billing-tag billing-tag--paid">
-                              <CheckCircle2 size={9} /> Faturada (Paga)
+                            <span className="billing-badge-inline billing-badge-inline--paid">
+                              <CheckCircle2 size={8.5} className="billing-badge-icon" />
+                              <span className="billing-badge-status">Faturada (Paga)</span>
                             </span>
                           ) : isBillingPending(o) ? (
-                            <span className="billing-tag billing-tag--pending">
-                              <Clock size={9} /> Aguardando Fat. ({getDaysSinceCompletion(o)}/30d)
+                            <span className="billing-badge-inline billing-badge-inline--pending">
+                              <Clock size={8.5} className="billing-badge-icon" />
+                              <span className="billing-badge-status">Aguardando</span>
+                              <span className="billing-badge-sub">({getDaysSinceCompletion(o)}/30d)</span>
                             </span>
                           ) : (
-                            <span className="billing-tag billing-tag--open">
-                              Em atendimento
+                            <span className="billing-badge-inline billing-badge-inline--open">
+                              <span className="billing-badge-status">Em atendimento</span>
                             </span>
                           )}
                         </td>
-                        <td className="cell-date">
+                        <td className="cell-date-inline">
                           {rel.billedDate ? (
-                            <span className="billing-date">{billedParts.date}</span>
+                            <span className="billing-badge-date" style={{ fontWeight: 700, color: '#047857', fontSize: '6.5pt' }}>{billedParts.date}</span>
                           ) : (
-                            <span style={{ color: '#94a3b8' }}>—</span>
+                            <span className="date-empty">—</span>
                           )}
                         </td>
                         <td>
-                          <div className={`report-relation-pill ${rel.isBilled ? 'report-relation-pill--billed' : 'report-relation-pill--pending'}`} style={{ fontSize: '7pt', padding: '1px 5px' }}>
-                            <Clock size={9} /> {rel.elapsedText}
+                          <div className={`report-relation-pill ${rel.isBilled ? 'report-relation-pill--billed' : 'report-relation-pill--pending'}`} style={{ fontSize: '6.6pt', padding: '1px 5px', whiteSpace: 'nowrap' }}>
+                            <Clock size={8.5} /> {rel.elapsedText}
                           </div>
                         </td>
                       </tr>
@@ -928,9 +945,11 @@ export default function ReportPrintPreview() {
                         <td><div className="cell-main-text">{t.assigned_to_name || 'Sem responsável'}</div></td>
                         <td><div className="cell-service-type">{t.related_problem || t.observations || '—'}</div></td>
                         <td><div className="cell-main-text">{t.requester || '—'}</div></td>
-                        <td className="cell-date">
-                          <span className="date-dmy">{createdParts.date}</span>
-                          {createdParts.time && <span className="date-time">{createdParts.time}</span>}
+                        <td className="cell-date-inline">
+                          <span className="date-single-line">
+                            <span className="date-dmy-inline">{createdParts.date}</span>
+                            {createdParts.time && <span className="date-time-inline">{createdParts.time}</span>}
+                          </span>
                         </td>
                       </tr>
                     );
@@ -975,8 +994,10 @@ export default function ReportPrintPreview() {
                         <td><div className="cell-main-text">{item.location || item.sector || '—'}</div></td>
                         <td><div className="cell-service-type">{item.manufacturer ? `${item.manufacturer} ${item.model || ''}` : item.model || '—'}</div></td>
                         <td><div className="cell-service-type">{item.serial_number || '—'}</div></td>
-                        <td className="cell-date">
-                          <span className="date-dmy">{upParts.date}</span>
+                        <td className="cell-date-inline">
+                          <span className="date-single-line">
+                            <span className="date-dmy-inline">{upParts.date}</span>
+                          </span>
                         </td>
                       </tr>
                     );
@@ -1234,13 +1255,15 @@ export default function ReportPrintPreview() {
         }
 
         .doc--portrait .report-table th {
-          padding: 5px 3.5px !important;
-          font-size: 6.8pt !important;
+          padding: 5px 2px !important;
+          font-size: 6.5pt !important;
+          white-space: nowrap !important;
+          letter-spacing: 0px !important;
         }
 
         .doc--portrait .report-table td {
-          padding: 4.5px 3.5px !important;
-          font-size: 7.2pt !important;
+          padding: 4px 2.5px !important;
+          font-size: 6.9pt !important;
         }
 
         /* Header */
@@ -1418,33 +1441,31 @@ export default function ReportPrintPreview() {
         }
 
         .report-table th {
-          padding: 5px 5px;
+          padding: 5px 4px;
           font-weight: 700;
-          font-size: 7.2pt;
+          font-size: 6.8pt;
           text-transform: uppercase;
-          letter-spacing: 0.2px;
+          letter-spacing: 0.1px;
           border-bottom: 1.5px solid #0d2a2b;
-          line-height: 1.2;
-          white-space: normal;
-          overflow-wrap: break-word;
-          word-break: break-word;
+          line-height: 1.15;
+          white-space: nowrap !important;
+          vertical-align: middle;
         }
 
         .th-billing {
           background: #0f3234;
           color: #a7f3d0;
           text-align: center;
+          white-space: nowrap !important;
         }
 
         .report-table td {
-          padding: 4.5px 5px;
+          padding: 4.5px 4px;
           border-bottom: 1px solid #e7efe9;
           color: #223532;
           vertical-align: middle;
-          font-size: 7.8pt;
-          line-height: 1.25;
-          overflow-wrap: break-word;
-          word-break: break-word;
+          font-size: 7.2pt;
+          line-height: 1.2;
         }
 
         .report-table tbody tr:nth-child(even) {
@@ -1514,73 +1535,116 @@ export default function ReportPrintPreview() {
           line-height: 1.15;
         }
 
-        .cell-date {
-          white-space: nowrap;
+        /* Single-line Date formatting */
+        .cell-date, .cell-date-inline {
+          white-space: nowrap !important;
+          vertical-align: middle;
           line-height: 1.15;
         }
 
-        .date-dmy {
-          display: block;
-          font-size: 7.2pt;
+        .date-single-line {
+          display: inline-flex;
+          align-items: center;
+          gap: 2.5px;
+          white-space: nowrap !important;
+          line-height: 1.1;
+        }
+
+        .date-dmy-inline {
           font-weight: 600;
           color: #1e293b;
+          font-size: 6.5pt;
+          letter-spacing: -0.15px;
+          white-space: nowrap !important;
+        }
+
+        .date-time-inline {
+          font-weight: 500;
+          color: #64748b;
+          font-size: 6pt;
+          background: #f1f5f9;
+          padding: 1px 3px;
+          border-radius: 3px;
+          white-space: nowrap !important;
+        }
+
+        .date-empty {
+          color: #94a3b8;
+          font-size: 7.5pt;
+        }
+
+        .date-dmy {
+          font-size: 6.6pt;
+          font-weight: 600;
+          color: #1e293b;
+          white-space: nowrap;
         }
 
         .date-time {
-          display: block;
-          font-size: 6.5pt;
+          font-size: 6pt;
           color: #64748b;
+          white-space: nowrap;
         }
 
-        .cell-billing {
+        /* Single-line Billing Badge */
+        .cell-billing, .cell-billing-inline {
           vertical-align: middle;
           text-align: center;
+          white-space: nowrap !important;
         }
 
-        .billing-paid, .billing-pending, .billing-open {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 1px;
-        }
-
-        .billing-tag {
+        .billing-badge-inline {
           display: inline-flex;
           align-items: center;
+          justify-content: center;
           gap: 3px;
-          padding: 1px 4px;
-          border-radius: 3px;
-          font-size: 6.8pt;
+          padding: 1.5px 4.5px;
+          border-radius: 4px;
+          font-size: 6.3pt;
           font-weight: 700;
-          width: fit-content;
-          white-space: nowrap;
+          white-space: nowrap !important;
+          line-height: 1.15;
+          box-sizing: border-box;
+          max-width: 100%;
         }
 
-        .billing-tag--paid {
-          background: #d1fae5;
+        .billing-badge-inline--paid {
+          background: #ecfdf5;
           color: #065f46;
+          border: 1px solid #a7f3d0;
         }
 
-        .billing-tag--pending {
-          background: #ffedd5;
+        .billing-badge-inline--paid .billing-badge-date {
+          color: #047857;
+          font-weight: 700;
+          font-size: 6.2pt;
+          letter-spacing: -0.15px;
+          white-space: nowrap !important;
+        }
+
+        .billing-badge-inline--pending {
+          background: #fff7ed;
           color: #9a3412;
+          border: 1px solid #fed7aa;
         }
 
-        .billing-tag--open {
+        .billing-badge-inline--pending .billing-badge-sub {
+          color: #c2410c;
+          font-size: 5.8pt;
+          font-weight: 600;
+          white-space: nowrap !important;
+        }
+
+        .billing-badge-inline--open {
           background: #f1f5f9;
           color: #475569;
+          border: 1px solid #e2e8f0;
+          font-size: 6.1pt;
+          white-space: nowrap !important;
         }
 
-        .billing-date {
-          font-size: 6.8pt;
-          font-weight: 700;
-          color: #047857;
-          white-space: nowrap;
-        }
-
-        .billing-sub {
-          font-size: 6.5pt;
-          color: #c2410c;
+        .billing-badge-icon {
+          flex-shrink: 0;
         }
 
         /* Footer */
