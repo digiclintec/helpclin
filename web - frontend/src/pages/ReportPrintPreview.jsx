@@ -226,8 +226,11 @@ export default function ReportPrintPreview() {
 
       if (eff === 'open') open++;
       else if (eff === 'in_progress') inProgress++;
-      else if (eff === 'completed') completed++;
-      else if (eff === 'billing_pending') billingPending++;
+
+      const isConcluded = Boolean(o.completed_at) || ['completed', 'billed', 'payment_informed', 'billing_pending'].includes(eff) || ['completed', 'billed', 'payment_informed', 'billing_pending'].includes(o.status);
+      if (isConcluded) completed++;
+
+      if (eff === 'billing_pending') billingPending++;
 
       if (rel.isBilled) {
         billed++;
@@ -686,16 +689,16 @@ export default function ReportPrintPreview() {
             <table className="report-table">
               <thead>
                 <tr>
-                  <th style={{ width: orientation === 'portrait' ? '6.5%' : '6.5%' }}>Nº OS</th>
-                  <th style={{ width: orientation === 'portrait' ? '7.5%' : '7%' }}>Prioridade</th>
+                  <th style={{ width: orientation === 'portrait' ? '8.5%' : '8%' }}>Nº OS</th>
+                  <th style={{ width: orientation === 'portrait' ? '7%' : '7%' }}>Prioridade</th>
                   <th style={{ width: orientation === 'portrait' ? '7.5%' : '7.5%' }}>Estado</th>
-                  <th style={{ width: orientation === 'portrait' ? '13%' : '14.5%' }}>Solicitante / Setor</th>
-                  <th style={{ width: orientation === 'portrait' ? '14%' : '15%' }}>Equipamento / Ativo</th>
-                  <th style={{ width: orientation === 'portrait' ? '11.5%' : '12.5%' }}>Responsável</th>
-                  <th style={{ width: orientation === 'portrait' ? '10%' : '9%' }}>Serviço</th>
-                  <th style={{ width: orientation === 'portrait' ? '9%' : '8%' }}>Criação</th>
-                  <th style={{ width: orientation === 'portrait' ? '9%' : '8%' }}>Conclusão</th>
-                  <th style={{ width: orientation === 'portrait' ? '12%' : '12%' }} className="th-billing">
+                  <th style={{ width: orientation === 'portrait' ? '12%' : '14%' }}>Solicitante / Setor</th>
+                  <th style={{ width: orientation === 'portrait' ? '12.5%' : '14.5%' }}>Equipamento / Ativo</th>
+                  <th style={{ width: orientation === 'portrait' ? '10.5%' : '11.5%' }}>Responsável</th>
+                  <th style={{ width: orientation === 'portrait' ? '9%' : '9%' }}>Serviço</th>
+                  <th style={{ width: orientation === 'portrait' ? '9%' : '7.5%', textAlign: 'center' }}>Criação</th>
+                  <th style={{ width: orientation === 'portrait' ? '9%' : '7.5%', textAlign: 'center' }}>Conclusão</th>
+                  <th style={{ width: orientation === 'portrait' ? '15%' : '13.5%', textAlign: 'center' }} className="th-billing">
                     Faturamento
                   </th>
                 </tr>
@@ -757,22 +760,16 @@ export default function ReportPrintPreview() {
                             {o.service_type || 'Manutenção'}
                           </div>
                         </td>
-                        <td className="cell-date-inline">
+                        <td className="cell-date-inline" title={createdParts.time ? `Criada em ${createdParts.date} às ${createdParts.time}` : createdParts.date}>
                           {createdParts.date && createdParts.date !== '—' ? (
-                            <span className="date-single-line">
-                              <span className="date-dmy-inline">{createdParts.date}</span>
-                              {createdParts.time && <span className="date-time-inline">{createdParts.time}</span>}
-                            </span>
+                            <span className="date-dmy-inline">{createdParts.date}</span>
                           ) : (
                             <span className="date-empty">—</span>
                           )}
                         </td>
-                        <td className="cell-date-inline">
+                        <td className="cell-date-inline" title={completedParts.time ? `Concluída em ${completedParts.date} às ${completedParts.time}` : completedParts.date}>
                           {completedParts.date && completedParts.date !== '—' ? (
-                            <span className="date-single-line">
-                              <span className="date-dmy-inline">{completedParts.date}</span>
-                              {completedParts.time && <span className="date-time-inline">{completedParts.time}</span>}
-                            </span>
+                            <span className="date-dmy-inline">{completedParts.date}</span>
                           ) : (
                             <span className="date-empty">—</span>
                           )}
@@ -945,11 +942,8 @@ export default function ReportPrintPreview() {
                         <td><div className="cell-main-text">{t.assigned_to_name || 'Sem responsável'}</div></td>
                         <td><div className="cell-service-type">{t.related_problem || t.observations || '—'}</div></td>
                         <td><div className="cell-main-text">{t.requester || '—'}</div></td>
-                        <td className="cell-date-inline">
-                          <span className="date-single-line">
-                            <span className="date-dmy-inline">{createdParts.date}</span>
-                            {createdParts.time && <span className="date-time-inline">{createdParts.time}</span>}
-                          </span>
+                        <td className="cell-date-inline" title={createdParts.time ? `Aberta em ${createdParts.date} às ${createdParts.time}` : createdParts.date}>
+                          <span className="date-dmy-inline">{createdParts.date}</span>
                         </td>
                       </tr>
                     );
@@ -1460,12 +1454,14 @@ export default function ReportPrintPreview() {
         }
 
         .report-table td {
-          padding: 4.5px 4px;
+          padding: 4.5px 3.5px;
           border-bottom: 1px solid #e7efe9;
           color: #223532;
           vertical-align: middle;
           font-size: 7.2pt;
           line-height: 1.2;
+          overflow: hidden;
+          box-sizing: border-box;
         }
 
         .report-table tbody tr:nth-child(even) {
@@ -1504,9 +1500,11 @@ export default function ReportPrintPreview() {
 
         .os-number {
           color: #123b3d;
-          font-size: 8pt;
+          font-size: 7.2pt;
           font-weight: 800;
           white-space: nowrap;
+          letter-spacing: -0.2px;
+          display: inline-block;
         }
 
         .cell-main-text {
@@ -1540,12 +1538,15 @@ export default function ReportPrintPreview() {
           white-space: nowrap !important;
           vertical-align: middle;
           line-height: 1.15;
+          text-align: center;
+          overflow: hidden;
         }
 
         .date-single-line {
           display: inline-flex;
           align-items: center;
-          gap: 2.5px;
+          justify-content: center;
+          gap: 2px;
           white-space: nowrap !important;
           line-height: 1.1;
         }
@@ -1553,19 +1554,13 @@ export default function ReportPrintPreview() {
         .date-dmy-inline {
           font-weight: 600;
           color: #1e293b;
-          font-size: 6.5pt;
+          font-size: 6.8pt;
           letter-spacing: -0.15px;
           white-space: nowrap !important;
         }
 
         .date-time-inline {
-          font-weight: 500;
-          color: #64748b;
-          font-size: 6pt;
-          background: #f1f5f9;
-          padding: 1px 3px;
-          border-radius: 3px;
-          white-space: nowrap !important;
+          display: none;
         }
 
         .date-empty {
@@ -1574,16 +1569,14 @@ export default function ReportPrintPreview() {
         }
 
         .date-dmy {
-          font-size: 6.6pt;
+          font-size: 6.8pt;
           font-weight: 600;
           color: #1e293b;
           white-space: nowrap;
         }
 
         .date-time {
-          font-size: 6pt;
-          color: #64748b;
-          white-space: nowrap;
+          display: none;
         }
 
         /* Single-line Billing Badge */
@@ -1591,6 +1584,7 @@ export default function ReportPrintPreview() {
           vertical-align: middle;
           text-align: center;
           white-space: nowrap !important;
+          overflow: hidden;
         }
 
         .billing-badge-inline {
@@ -1598,9 +1592,9 @@ export default function ReportPrintPreview() {
           align-items: center;
           justify-content: center;
           gap: 3px;
-          padding: 1.5px 4.5px;
+          padding: 1.5px 5px;
           border-radius: 4px;
-          font-size: 6.3pt;
+          font-size: 6.4pt;
           font-weight: 700;
           white-space: nowrap !important;
           line-height: 1.15;

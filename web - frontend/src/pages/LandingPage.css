@@ -83,57 +83,194 @@
   display: inline-block;
 }
 
-/* ── Header ── */
+/* ── Apple-Style Top Announcement Banner with LED ── */
+.blessed-top-banner {
+  background: linear-gradient(90deg, #f0fdf4 0%, #eff6ff 40%, #f5f3ff 75%, #f0fdf4 100%);
+  background-size: 200% 100%;
+  animation: banner-subtle-shift 12s ease infinite;
+  border-bottom: 1px solid rgba(99, 102, 241, 0.12);
+  padding: 8px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-size: 13px;
+  color: #334155;
+  position: relative;
+  z-index: 1001;
+  letter-spacing: -0.01em;
+  flex-wrap: wrap;
+}
+
+@keyframes banner-subtle-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+.top-banner-led-pulse {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 10px;
+  height: 10px;
+  flex-shrink: 0;
+}
+
+.top-banner-led-pulse .led-ping {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background-color: #10b981;
+  opacity: 0.85;
+  animation: apple-ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+.top-banner-led-pulse .led-core {
+  position: relative;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #059669;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.85);
+}
+
+.top-banner-text {
+  color: #1e293b;
+  font-weight: 500;
+}
+
+.top-banner-text b {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.blessed-top-banner-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 14px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(99, 102, 241, 0.22);
+  color: #2563eb;
+  font-weight: 700;
+  font-size: 12px;
+  text-decoration: none;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.08);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
+}
+
+.blessed-top-banner-link:hover {
+  background: #ffffff;
+  color: #1d4ed8;
+  border-color: #3b82f6;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.22);
+  transform: translateY(-1px);
+}
+
+/* ── Apple-Grade Translucent Frosted Glass Header ── */
 .blessed-header {
   position: sticky;
   top: 0;
   z-index: 1000;
-  background: rgba(248, 250, 252, 0.88);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-bottom: 1px solid rgba(226, 232, 240, 0.8);
-  transition: all 0.25s ease;
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(24px) saturate(190%);
+  -webkit-backdrop-filter: blur(24px) saturate(190%);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 2px 14px rgba(15, 23, 42, 0.03);
+}
+
+/* Infiltrated ambient LED hairline along the header */
+.blessed-header::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 1.5px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(59, 130, 246, 0.25) 20%,
+    rgba(99, 102, 241, 0.45) 50%,
+    rgba(6, 182, 212, 0.4) 80%,
+    transparent 100%
+  );
+  opacity: 0.85;
+  pointer-events: none;
 }
 
 .blessed-header--scrolled {
-  background: rgba(255, 255, 255, 0.96);
-  border-bottom-color: var(--blessed-card-border);
-  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.06);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 6px 28px -4px rgba(15, 23, 42, 0.08), 0 1px 0 rgba(255, 255, 255, 0.8) inset;
 }
 
 .blessed-header__container {
   max-width: 1240px;
   margin: 0 auto;
-  padding: 0 24px;
-  height: 78px;
+  padding: 0 28px;
+  height: 72px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 20px;
 }
 
-/* Brand Logo */
+/* Brand Logo with Ambient LED Breathing Aura */
 .blessed-brand {
   display: flex;
   align-items: center;
   gap: 12px;
   text-decoration: none;
+  cursor: pointer;
+}
+
+.blessed-brand__icon-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .blessed-brand__icon {
-  width: 42px;
-  height: 42px;
+  width: 40px;
+  height: 40px;
   border-radius: 12px;
   background: linear-gradient(135deg, #1e3a7a 0%, #2563eb 50%, #06b6d4 100%);
   color: #fff;
   display: grid;
   place-items: center;
   box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
-  transition: transform 0.25s ease;
+  position: relative;
+  z-index: 2;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
+}
+
+/* Ambient LED breathing aura behind brand icon */
+.brand-led-aura {
+  position: absolute;
+  inset: -3px;
+  border-radius: 14px;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.5) 0%, rgba(99, 102, 241, 0.3) 50%, transparent 75%);
+  filter: blur(6px);
+  z-index: 1;
+  opacity: 0.7;
+  animation: led-ambient-breathe 4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes led-ambient-breathe {
+  0%, 100% { opacity: 0.55; transform: scale(0.96); }
+  50% { opacity: 0.9; transform: scale(1.08); }
 }
 
 .blessed-brand:hover .blessed-brand__icon {
-  transform: rotate(-4deg) scale(1.05);
+  transform: translateY(-1px) scale(1.04);
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.5), 0 0 25px rgba(6, 182, 212, 0.4);
 }
 
 .blessed-brand__text {
@@ -142,52 +279,80 @@
 }
 
 .blessed-brand__name {
-  font-family: 'Manrope', sans-serif;
-  font-size: 20px;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Manrope', sans-serif;
+  font-size: 19px;
   font-weight: 800;
-  letter-spacing: -0.03em;
-  color: var(--blessed-navy-900);
-  line-height: 1.1;
+  letter-spacing: -0.025em;
+  color: #0b1329;
+  line-height: 1.15;
 }
 
 .blessed-brand__name span {
-  color: var(--blessed-blue-500);
+  background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.blessed-brand__badge {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 2px;
+}
+
+.mini-led-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.9);
 }
 
 .blessed-brand__sub {
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: #64748b;
-  margin-top: 1px;
 }
 
-/* Nav Links */
+/* ── Apple-Style Simplified Navigation Links ── */
 .blessed-nav {
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 16px;
 }
 
-.blessed-nav a {
-  color: var(--blessed-text-muted);
-  font-size: 14.5px;
+.blessed-nav__links {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.nav-item {
+  color: #334155;
+  font-size: 13.5px;
   font-weight: 600;
   text-decoration: none;
-  transition: color 0.18s ease;
+  padding: 7px 13px;
+  border-radius: 20px;
+  transition: all 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+  letter-spacing: -0.01em;
   position: relative;
+  white-space: nowrap;
 }
 
-.blessed-nav a:hover {
-  color: var(--blessed-blue-500);
+.nav-item:hover {
+  color: #0f172a;
+  background: rgba(15, 23, 42, 0.05);
+  backdrop-filter: blur(10px);
 }
 
 .blessed-nav__actions {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-left: 8px;
+  margin-left: 10px;
 }
 
 .blessed-menu-toggle {
@@ -198,6 +363,139 @@
   cursor: pointer;
   padding: 8px;
   border-radius: 8px;
+}
+
+/* ── Botões Brilhantes em Degradê Estilo Apple com LEDs e Sheen Reflex ── */
+.btn-apple-shiny {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 42px;
+  padding: 0 18px;
+  border-radius: 22px;
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  text-decoration: none;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+/* Efeito de Reflexo de Vidro Dinâmico (Specular Sheen) */
+.btn-apple-shiny .btn-sheen {
+  position: absolute;
+  top: 0;
+  left: -130%;
+  width: 75%;
+  height: 100%;
+  background: linear-gradient(
+    115deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.08) 25%,
+    rgba(255, 255, 255, 0.55) 50%,
+    rgba(255, 255, 255, 0.08) 75%,
+    transparent 100%
+  );
+  transform: skewX(-24deg);
+  transition: left 0.85s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+}
+
+.btn-apple-shiny:hover .btn-sheen {
+  left: 140%;
+}
+
+/* Botão 1: Portal SaaS / Acessar Painel - Degradê Azul Elétrico, Índigo e Ciano */
+.btn-apple-shiny--portal {
+  background: linear-gradient(135deg, #1d4ed8 0%, #3b82f6 30%, #4f46e5 70%, #06b6d4 100%);
+  background-size: 200% 200%;
+  color: #ffffff;
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    0 4px 16px rgba(37, 99, 235, 0.38),
+    0 0 20px rgba(99, 102, 241, 0.22);
+}
+
+.btn-apple-shiny--portal:hover {
+  background-position: 100% 50%;
+  transform: translateY(-2px) scale(1.02);
+  border-color: rgba(255, 255, 255, 0.7);
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.75),
+    0 8px 25px rgba(37, 99, 235, 0.5),
+    0 0 32px rgba(6, 182, 212, 0.35);
+}
+
+.btn-apple-shiny--portal:active {
+  transform: translateY(0) scale(0.98);
+}
+
+/* Botão 2: WhatsApp - Degradê Esmeralda, Menta e Ciano com LED vivo pulsando */
+.btn-apple-shiny--whatsapp {
+  background: linear-gradient(135deg, #047857 0%, #10b981 40%, #059669 75%, #06b6d4 100%);
+  background-size: 200% 200%;
+  color: #ffffff;
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    0 4px 16px rgba(16, 185, 129, 0.4),
+    0 0 20px rgba(6, 182, 212, 0.22);
+}
+
+.btn-apple-shiny--whatsapp:hover {
+  background-position: 100% 50%;
+  transform: translateY(-2px) scale(1.02);
+  border-color: rgba(255, 255, 255, 0.7);
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.75),
+    0 8px 25px rgba(16, 185, 129, 0.55),
+    0 0 32px rgba(6, 182, 212, 0.4);
+}
+
+.btn-apple-shiny--whatsapp:active {
+  transform: translateY(0) scale(0.98);
+}
+
+/* LED Dot Vivo Pulsante dentro do Botão do WhatsApp */
+.live-led-dot {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 9px;
+  height: 9px;
+  flex-shrink: 0;
+}
+
+.live-led-dot__ping {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background-color: #a7f3d0;
+  opacity: 0.85;
+  animation: apple-ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+.live-led-dot__core {
+  position: relative;
+  width: 6.5px;
+  height: 6.5px;
+  border-radius: 50%;
+  background-color: #ffffff;
+  box-shadow: 0 0 8px #ffffff;
+}
+
+@keyframes apple-ping {
+  75%, 100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
 }
 
 /* ── Botões Universais ── */
@@ -267,14 +565,98 @@
   box-shadow: 0 8px 24px rgba(5, 150, 105, 0.35);
 }
 
-.btn-blessed--large {
-  padding: 13px 24px;
-  font-size: 15px;
-  border-radius: var(--blessed-radius-md);
+.btn-blessed--login {
+  background: #0f172a;
+  color: #ffffff;
+  border: 1.5px solid #334155;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  font-weight: 800;
 }
 
-.btn-blessed--full {
-  width: 100%;
+.btn-blessed--login:hover {
+  background: #1e293b;
+  border-color: #38bdf8;
+  color: #38bdf8;
+  transform: translateY(-1px);
+}
+
+.btn-blessed--os-direct {
+  background: linear-gradient(135deg, #1e3a7a 0%, #2563eb 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+  font-weight: 800;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.btn-blessed--os-direct:hover {
+  background: linear-gradient(135deg, #152754 0%, #1d4ed8 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 22px rgba(37, 99, 235, 0.45);
+}
+
+.btn-blessed--os-hero {
+  background: linear-gradient(135deg, #1e3a7a 0%, #2563eb 50%, #0284c7 100%);
+  color: #ffffff;
+  font-weight: 800;
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  letter-spacing: -0.01em;
+}
+
+.btn-blessed--os-hero:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 28px rgba(37, 99, 235, 0.5);
+}
+
+.btn-blessed--login-hero {
+  background: #ffffff;
+  color: #0f172a;
+  border: 2px solid #2563eb;
+  font-weight: 800;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+}
+
+.btn-blessed--login-hero:hover {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: #1d4ed8;
+  transform: translateY(-2px);
+}
+
+/* ── Top Alert Banner ── */
+.blessed-top-banner {
+  background: linear-gradient(90deg, #060b18 0%, #172554 50%, #060b18 100%);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 16px;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  flex-wrap: wrap;
+}
+
+.blessed-top-banner-link {
+  color: #38bdf8;
+  text-decoration: underline;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+  background: rgba(56, 189, 248, 0.12);
+  padding: 2px 10px;
+  border-radius: 20px;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.blessed-top-banner-link:hover {
+  background: #38bdf8;
+  color: #0b1329;
+  text-decoration: none;
 }
 
 /* ── Hero Section ── */
@@ -1437,7 +1819,8 @@
     width: 100%;
     margin: 12px 0 0 0;
   }
-  .blessed-nav__actions .btn-blessed {
+  .blessed-nav__actions .btn-blessed,
+  .blessed-nav__actions .btn-apple-shiny {
     width: 100%;
   }
   .blessed-stats-bar__container {

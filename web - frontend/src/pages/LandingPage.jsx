@@ -17,6 +17,7 @@ import {
   Headset,
   Laptop,
   Layers,
+  LogIn,
   Mail,
   Menu,
   MessageSquare,
@@ -191,18 +192,40 @@ export default function LandingPage() {
 
   return (
     <div className="blessed-landing">
-      {/* ── 1. HEADER MODERNO B2B ── */}
+      {/* ── Top Alert Banner: Estilo Apple com LED e link rápido ── */}
+      <div className="blessed-top-banner">
+        <div className="top-banner-led-pulse">
+          <span className="led-ping" />
+          <span className="led-core" />
+        </div>
+        <span className="top-banner-text">
+          <b>Plataforma Blessed Soluções Tec</b> • Sistemas SaaS & Software House de Alta Performance
+        </span>
+        <a href="/login" className="blessed-top-banner-link" title="Ir para a tela de login do SaaS">
+          <LogIn size={13} />
+          <span>Acessar Painel de O.S.</span>
+          <ArrowRight size={13} />
+        </a>
+      </div>
+
+      {/* ── 1. HEADER MODERNO B2B ESTILO APPLE.COM ── */}
       <header className={`blessed-header ${isScrolled ? 'blessed-header--scrolled' : ''}`}>
         <div className="blessed-header__container">
           <a className="blessed-brand" href="#top" aria-label="Blessed Soluções Tec">
-            <div className="blessed-brand__icon">
-              <Zap size={22} strokeWidth={2.6} />
+            <div className="blessed-brand__icon-wrap">
+              <div className="blessed-brand__icon">
+                <Zap size={21} strokeWidth={2.5} />
+              </div>
+              <span className="brand-led-aura" />
             </div>
             <div className="blessed-brand__text">
               <span className="blessed-brand__name">
                 Blessed <span>Soluções Tec</span>
               </span>
-              <span className="blessed-brand__sub">Sistemas SaaS & Software House</span>
+              <div className="blessed-brand__badge">
+                <span className="mini-led-dot" />
+                <span className="blessed-brand__sub">Sistemas SaaS & Tech</span>
+              </div>
             </div>
           </a>
 
@@ -215,31 +238,52 @@ export default function LandingPage() {
           </button>
 
           <nav className={`blessed-nav ${isMenuOpen ? 'blessed-nav--open' : ''}`}>
-            <a href="#sistemas" onClick={() => setIsMenuOpen(false)}>Sistemas Criados</a>
-            <a href="#simulador" onClick={() => setIsMenuOpen(false)}>Simulador SaaS</a>
-            <a href="#case" onClick={() => setIsMenuOpen(false)}>Case O.S. HelpClin</a>
-            <a href="#diferenciais" onClick={() => setIsMenuOpen(false)}>Diferenciais</a>
-            <a href="#contato" onClick={() => setIsMenuOpen(false)}>Contato</a>
+            <div className="blessed-nav__links">
+              <a href="#sistemas" onClick={() => setIsMenuOpen(false)} className="nav-item">
+                <span>Sistemas</span>
+              </a>
+              <a href="#simulador" onClick={() => setIsMenuOpen(false)} className="nav-item">
+                <span>Simulador</span>
+              </a>
+              <a href="#case" onClick={() => setIsMenuOpen(false)} className="nav-item">
+                <span>Case O.S.</span>
+              </a>
+              <a href="#diferenciais" onClick={() => setIsMenuOpen(false)} className="nav-item">
+                <span>Diferenciais</span>
+              </a>
+              <a href="#contato" onClick={() => setIsMenuOpen(false)} className="nav-item">
+                <span>Contato</span>
+              </a>
+            </div>
 
             <div className="blessed-nav__actions">
               <a
-                className="btn-blessed btn-blessed--subtle"
-                href={user ? '/dashboard' : '/login'}
+                className="btn-apple-shiny btn-apple-shiny--portal"
+                href="/login"
                 onClick={() => setIsMenuOpen(false)}
+                title="Acessar o Painel e Tela de Login do SaaS"
               >
-                <Laptop size={15} />
-                <span>{user ? 'Acessar Painel' : 'Área do Cliente'}</span>
+                <span className="btn-sheen" />
+                <Laptop size={15} className="btn-icon" />
+                <span className="btn-text">Acessar Painel</span>
               </a>
 
               <button
-                className="btn-blessed btn-blessed--whatsapp"
+                type="button"
+                className="btn-apple-shiny btn-apple-shiny--whatsapp"
                 onClick={() => {
                   setIsMenuOpen(false);
                   handleWhatsAppRedirect();
                 }}
+                title="Falar agora com a equipe no WhatsApp"
               >
-                <MessageSquare size={15} />
-                <span>Falar no WhatsApp</span>
+                <span className="btn-sheen" />
+                <span className="live-led-dot">
+                  <span className="live-led-dot__ping" />
+                  <span className="live-led-dot__core" />
+                </span>
+                <MessageSquare size={15} className="btn-icon" />
+                <span className="btn-text">Falar no WhatsApp</span>
               </button>
             </div>
           </nav>
@@ -267,14 +311,27 @@ export default function LandingPage() {
               </p>
 
               <div className="blessed-hero__actions">
-                <a className="btn-blessed btn-blessed--primary btn-blessed--large" href="#contato">
-                  <span>Solicitar Projeto / Orçamento</span>
+                <a
+                  className="btn-blessed btn-blessed--os-hero btn-blessed--large"
+                  href="/login"
+                  title="Acessar o SaaS de Ordens de Serviço"
+                >
+                  <Wrench size={18} />
+                  <span>Acessar SaaS de Ordens de Serviço</span>
                   <ArrowRight size={16} />
                 </a>
 
-                <a className="btn-blessed btn-blessed--secondary btn-blessed--large" href="#sistemas">
-                  <Boxes size={16} />
-                  <span>Conhecer Nossos Sistemas</span>
+                <a
+                  className="btn-blessed btn-blessed--login-hero btn-blessed--large"
+                  href="/login"
+                  title="Fazer Login no Sistema"
+                >
+                  <LogIn size={18} />
+                  <span>Entrar / Tela de Login</span>
+                </a>
+
+                <a className="btn-blessed btn-blessed--secondary btn-blessed--large" href="#contato">
+                  <span>Solicitar Orçamento</span>
                 </a>
               </div>
 
@@ -318,17 +375,24 @@ export default function LandingPage() {
                 </div>
 
                 <div className="console-body">
-                  <div className="console-item">
+                  <div
+                    className="console-item"
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => window.location.href = '/login'}
+                    title="Clique para acessar o sistema de O.S."
+                  >
                     <div className="console-item-left">
                       <div className="console-icon os">
                         <Wrench size={16} />
                       </div>
                       <div className="console-item-info">
                         <strong>Sistema de O.S. & Chamados</strong>
-                        <span>SLA Ativo • Relatórios A4 • Auditoria Financeira</span>
+                        <span>Clique para entrar no sistema de ordens de serviço</span>
                       </div>
                     </div>
-                    <span className="console-status-badge online">Em Operação</span>
+                    <span className="console-status-badge online" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      <LogIn size={11} /> Entrar no SaaS
+                    </span>
                   </div>
 
                   <div className="console-item">
@@ -444,6 +508,14 @@ export default function LandingPage() {
                   <span className="tech-chip">PostgreSQL</span>
                   <span className="tech-chip">A4 PDF Engine</span>
                   <span className="tech-chip">SLA em Tempo Real</span>
+                </div>
+
+                <div style={{ marginTop: '18px', paddingTop: '16px', borderTop: '1px solid #e2e8f0' }}>
+                  <a href="/login" className="btn-blessed btn-blessed--os-direct btn-blessed--full" title="Ir para o SaaS de Ordens de Serviço">
+                    <Wrench size={16} />
+                    <span>Acessar SaaS de Ordens de Serviço (Login)</span>
+                    <ArrowRight size={15} />
+                  </a>
                 </div>
               </div>
 
@@ -813,13 +885,14 @@ export default function LandingPage() {
               </div>
 
               <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap' }}>
-                <a className="btn-blessed btn-blessed--primary" href="/login">
-                  <Laptop size={16} />
-                  <span>Acessar Demonstração do Sistema</span>
+                <a className="btn-blessed btn-blessed--os-hero btn-blessed--large" href="/login">
+                  <LogIn size={17} />
+                  <span>Entrar no SaaS de Ordens de Serviço (Login)</span>
+                  <ArrowRight size={16} />
                 </a>
 
                 <button
-                  className="btn-blessed btn-blessed--secondary"
+                  className="btn-blessed btn-blessed--secondary btn-blessed--large"
                   onClick={() => handleWhatsAppRedirect(encodeURIComponent('Olá! Vi o case do HelpClinTec e gostaria de um sistema similar para a minha operação.'))}
                 >
                   <MessageSquare size={16} />
@@ -1180,7 +1253,16 @@ export default function LandingPage() {
             <div className="footer-col">
               <h5>Acesso ao Sistema</h5>
               <ul>
-                <li><a href={user ? '/dashboard' : '/login'}>Área do Cliente (Login)</a></li>
+                <li>
+                  <a href="/login" style={{ color: '#38bdf8', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <LogIn size={15} /> <strong>Tela de Login (Entrar)</strong>
+                  </a>
+                </li>
+                <li>
+                  <a href="/login" style={{ color: '#ffffff', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <Wrench size={15} /> <strong>SaaS de Ordens de Serviço</strong>
+                  </a>
+                </li>
                 <li><a href="/ordens">Painel de Ordens de Serviço</a></li>
                 <li><a href="/relatorios">Emissão de Relatórios A4</a></li>
                 <li><a href="/configuracoes">Configurações</a></li>

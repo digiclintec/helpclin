@@ -351,7 +351,10 @@ function Reports() {
 
       if (effective === 'open') openCount++;
       if (effective === 'in_progress') inProgressCount++;
-      if (effective === 'completed') completedCount++;
+
+      const isConcluded = Boolean(order.completed_at) || ['completed', 'billed', 'payment_informed', 'billing_pending'].includes(effective) || ['completed', 'billed', 'payment_informed', 'billing_pending'].includes(order.status);
+      if (isConcluded) completedCount++;
+
       if (effective === 'billing_pending') billingPendingCount++;
 
       if (rel.isBilled) {
@@ -637,12 +640,12 @@ function Reports() {
         dateTo: endDate,
         summary: [
           { label: 'Total Filtrado', value: finalFilteredOrders.length },
+          { label: 'Concluídas', value: orderKpiMetrics.completed },
           { label: 'Faturadas', value: `${orderKpiMetrics.billed} (${orderKpiMetrics.billedPercentage}%)` },
-          { label: 'Não Faturadas', value: orderKpiMetrics.notBilled },
-          { label: 'Ciclo Médio', value: orderKpiMetrics.avgBillingCycle },
+          { label: 'Aguardando Fat.', value: orderKpiMetrics.billingPending },
+          { label: 'Ciclo Fat. (Criação➔Pgto)', value: orderKpiMetrics.avgBillingCycle },
           { label: 'Abertas', value: orderKpiMetrics.open },
           { label: 'Em Andamento', value: orderKpiMetrics.inProgress },
-          { label: 'Concluídas', value: orderKpiMetrics.completed },
           { label: 'Urgentes', value: orderKpiMetrics.urgent }
         ]
       });
