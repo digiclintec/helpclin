@@ -65,16 +65,29 @@ export function exportToXls({ title, columns, data, filename = 'relatorio' }) {
   URL.revokeObjectURL(url);
 }
 
-export function exportToPdf({ title, subtitle = '', columns, data, summary = [], tipo, orientation = 'portrait', filterStatus, dateFrom, dateTo } = {}) {
+export function exportToPdf({
+  title,
+  subtitle = '',
+  columns,
+  data,
+  summary = [],
+  tipo,
+  orientation = 'landscape',
+  autoPrint = false,
+  filterStatus,
+  dateFrom,
+  dateTo
+} = {}) {
   let detectedTipo = tipo;
   if (!detectedTipo) {
     const t = (title || '').toLowerCase();
     if (t.includes('chamado')) detectedTipo = 'chamados';
     else if (t.includes('inventário') || t.includes('equipamento') || t.includes('ativo')) detectedTipo = 'inventario';
+    else if (t.includes('faturamento') || t.includes('financeiro')) detectedTipo = 'faturamento';
     else detectedTipo = 'ordens';
   }
 
-  // Grava o payload exato com os dados filtrados no sessionStorage
+  // Grava o payload com os dados filtrados tanto no localStorage quanto no sessionStorage para máxima compatibilidade entre abas
   try {
     const payload = {
       title,
@@ -82,23 +95,26 @@ export function exportToPdf({ title, subtitle = '', columns, data, summary = [],
       data: Array.isArray(data) ? data : [],
       summary: Array.isArray(summary) ? summary : [],
       tipo: detectedTipo,
+      orientation: orientation || 'landscape',
       filterStatus: filterStatus || '',
       dateFrom: dateFrom || '',
       dateTo: dateTo || '',
       timestamp: Date.now()
     };
+    localStorage.setItem('helpclin_print_report_payload', JSON.stringify(payload));
     sessionStorage.setItem('helpclin_print_report_payload', JSON.stringify(payload));
   } catch (err) {
-    console.warn('Falha ao salvar payload no sessionStorage:', err);
+    console.warn('Falha ao salvar payload no storage:', err);
   }
 
   const query = new URLSearchParams({
     tipo: detectedTipo,
-    orientacao: orientation
+    orientacao: orientation || 'landscape'
   });
   if (filterStatus) query.set('status', filterStatus);
   if (dateFrom) query.set('dataInicio', dateFrom);
   if (dateTo) query.set('dataFim', dateTo);
+  if (autoPrint) query.set('autoprint', '1');
 
   const url = `/relatorio-impressao?${query.toString()}`;
   const win = window.open(url, '_blank');

@@ -2359,6 +2359,209 @@ button { font: inherit; cursor: pointer; }
 }
 
 /* ==========================================================================
+   REPORTS TAB NAVIGATION & A4 PRINT BAR
+   ========================================================================== */
+.reports-tab-nav {
+  display: flex;
+  gap: 8px;
+  border-bottom: 2px solid #e2ece5;
+  margin-bottom: 22px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.reports-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  border-radius: 8px 8px 0 0;
+}
+
+.reports-tab-btn:hover {
+  color: var(--teal);
+  background: #f0f6f3;
+}
+
+.reports-tab-btn--active {
+  color: var(--teal);
+  border-bottom-color: var(--coral);
+  background: #f6faf8;
+  font-weight: 700;
+}
+
+.reports-tab-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 12px;
+  background: #e2ece5;
+  color: #143b3d;
+  font-size: 11px;
+  font-weight: 700;
+  transition: all 0.2s;
+}
+
+.reports-tab-btn--active .reports-tab-badge {
+  background: var(--coral);
+  color: #ffffff;
+}
+
+.reports-print-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: #f8fbf9;
+  border: 1px solid #dce7df;
+  border-radius: 10px;
+  padding: 10px 16px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.reports-print-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.reports-print-format-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: #e6f6ee;
+  border: 1px solid #bbf7d0;
+  border-radius: 6px;
+  font-size: 12px;
+  color: #166534;
+  font-weight: 700;
+}
+
+.reports-print-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.reports-orientation-selector {
+  display: inline-flex;
+  align-items: center;
+  background: #eef4f0;
+  border: 1px solid #d4e2da;
+  border-radius: 8px;
+  padding: 3px;
+  gap: 3px;
+}
+
+.reports-orientation-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.reports-orientation-btn--active {
+  background: #ffffff;
+  color: var(--teal);
+  font-weight: 700;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.report-summary-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 20px;
+  background: #f8faf8;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+  color: #64748b;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.app-shell[data-theme="dark"] .reports-tab-nav {
+  border-bottom-color: #264344;
+}
+
+.app-shell[data-theme="dark"] .reports-tab-btn {
+  color: #94a3b8;
+}
+
+.app-shell[data-theme="dark"] .reports-tab-btn:hover {
+  background: #173b3e;
+  color: #e2ece5;
+}
+
+.app-shell[data-theme="dark"] .reports-tab-btn--active {
+  background: #163638;
+  color: #ffffff;
+}
+
+.app-shell[data-theme="dark"] .reports-tab-badge {
+  background: #23474a;
+  color: #e2ece5;
+}
+
+.app-shell[data-theme="dark"] .reports-tab-btn--active .reports-tab-badge {
+  background: var(--coral);
+  color: #ffffff;
+}
+
+.app-shell[data-theme="dark"] .reports-print-bar {
+  background: #153234;
+  border-color: #24484b;
+}
+
+.app-shell[data-theme="dark"] .reports-print-format-tag {
+  background: #0f3d32;
+  border-color: #1b5e4c;
+  color: #6ee7b7;
+}
+
+.app-shell[data-theme="dark"] .reports-orientation-selector {
+  background: #132d2f;
+  border-color: #24484b;
+}
+
+.app-shell[data-theme="dark"] .reports-orientation-btn {
+  color: #94a3b8;
+}
+
+.app-shell[data-theme="dark"] .reports-orientation-btn--active {
+  background: #1e4749;
+  color: #ffffff;
+}
+
+.app-shell[data-theme="dark"] .report-summary-footer {
+  background: #153234;
+  border-top-color: #24484b;
+  color: #94a3b8;
+}
+
+/* ==========================================================================
    THEME TOGGLE COMPONENT STYLES
    ========================================================================== */
 .theme-toggle-wrapper {

@@ -3,10 +3,16 @@ import {
   ArrowLeft,
   CheckCircle2,
   Clock,
+  DollarSign,
+  Headset,
   Laptop,
+  Maximize2,
   Printer,
+  RotateCcw,
   ShieldCheck,
-  Wrench
+  Wrench,
+  ZoomIn,
+  ZoomOut
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -20,6 +26,7 @@ import {
   getEffectiveOrderStatus,
   getOrderStatusBadgeClass,
   getOrderStatusLabel,
+  getOrderCreationToPaymentRelation,
   isBillingPending,
   isBilled,
   isPaymentInformed
@@ -46,6 +53,12 @@ function formatDate(value) {
   return `${date}, ${time}`;
 }
 
+function formatDateOnly(value) {
+  if (!value) return '—';
+  const { date } = formatDateParts(value);
+  return date;
+}
+
 function getPriorityLabel(priority) {
   const p = (priority || '').toLowerCase();
   if (['low', 'pouco urgente', 'baixa'].includes(p)) return 'Baixa';
@@ -65,17 +78,22 @@ function getPriorityClass(priority) {
 
 export default function ReportPrintPreview() {
   const searchParams = new URLSearchParams(window.location.search);
-  const tipoParam = searchParams.get('tipo') || 'ordens'; // 'ordens' | 'chamados' | 'inventario'
+  const tipoParam = searchParams.get('tipo') || 'ordens'; // 'ordens' | 'chamados' | 'inventario' | 'faturamento'
   const statusParam = searchParams.get('status') || '';
   const dateFromParam = searchParams.get('dataInicio') || '';
   const dateToParam = searchParams.get('dataFim') || '';
+  const orientParam = searchParams.get('orientacao') || 'landscape';
+  const autoPrintParam = searchParams.get('autoprint') === '1' || searchParams.get('autoPrint') === 'true';
 
-  const [reportType] = useState(tipoParam);
+  const [reportType, setReportType] = useState(tipoParam);
+  const [orientation, setOrientation] = useState(orientParam === 'portrait' ? 'portrait' : 'landscape');
+  const [printScale, setPrintScale] = useState('100%'); // '100%' | '90%' | '80%'
   const [orders, setOrders] = useState([]);
   const [tickets, setTickets] = useState([]);
   const [inventory, setInventory] = useState([]);
   const [customTitle, setCustomTitle] = useState('');
   const [customSubtitle, setCustomSubtitle] = useState('');
+  const [customSummary, setCustomSummary] = useState([]);
   const [activeFilterStatus, setActiveFilterStatus] = useState(statusParam);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
@@ -110,25 +128,33 @@ export default function ReportPrintPreview() {
     });
   }
 
-  // Load fresh data directly from backend database API or sessionStorage
+  // Load data from localStorage/sessionStorage payload or backend API
   async function loadData(forceApi = false) {
     setIsLoading(true);
     setErrorMessage('');
 
-    // Se houver dados no sessionStorage salvos pelo exportToPdf da tela de relatórios
     if (!forceApi) {
       try {
-        const rawPayload = sessionStorage.getItem('helpclin_print_report_payload');
+        const rawPayload = localStorage.getItem('helpclin_print_report_payload') || sessionStorage.getItem('helpclin_print_report_payload');
         if (rawPayload) {
           const payload = JSON.parse(rawPayload);
-          const isRecent = Date.now() - (payload.timestamp || 0) < 1000 * 60 * 30; // 30 min
-          if (isRecent && payload.tipo === reportType && Array.isArray(payload.data)) {
-            if (reportType === 'ordens') setOrders(payload.data);
-            else if (reportType === 'chamados') setTickets(payload.data);
-            else if (reportType === 'inventario') setInventory(payload.data);
+          const isRecent = Date.now() - (payload.timestamp || 0) < 1000 * 60 * 60 * 2; // 2 hours
+          if (isRecent && Array.isArray(payload.data)) {
+            const detectedType = payload.tipo || reportType;
+            setReportType(detectedType);
+
+            if (detectedType === 'chamados') setTickets(payload.data);
+            else if (detectedType === 'inventario') setInventory(payload.data);
+            else setOrders(payload.data); // ordens & faturamento
 
             if (payload.title) setCustomTitle(payload.title);
             if (payload.subtitle) setCustomSubtitle(payload.subtitle);
+            if (Array.isArray(payload.summary) && payload.summary.length > 0) {
+              setCustomSummary(payload.summary);
+            }
+            if (payload.orientation) {
+              setOrientation(payload.orientation === 'portrait' ? 'portrait' : 'landscape');
+            }
             if (payload.filterStatus) setActiveFilterStatus(payload.filterStatus);
 
             setLastUpdated(new Date());
@@ -137,22 +163,23 @@ export default function ReportPrintPreview() {
           }
         }
       } catch (err) {
-        console.warn('Erro ao carregar dados do sessionStorage:', err);
+        console.warn('Erro ao carregar dados do storage:', err);
       }
     }
 
     try {
       const currentFilter = activeFilterStatus || statusParam;
-      if (reportType === 'ordens') {
-        const data = await getServiceOrders();
-        const filtered = applyOrderFilters(data || [], currentFilter, dateFromParam, dateToParam);
-        setOrders(filtered);
-      } else if (reportType === 'chamados') {
+      if (reportType === 'chamados') {
         const data = await getSupportTickets();
         setTickets(data || []);
       } else if (reportType === 'inventario') {
         const data = await getInventory();
         setInventory(data || []);
+      } else {
+        // ordens ou faturamento
+        const data = await getServiceOrders();
+        const filtered = applyOrderFilters(data || [], currentFilter, dateFromParam, dateToParam);
+        setOrders(filtered);
       }
       setLastUpdated(new Date());
     } catch (err) {
@@ -167,7 +194,22 @@ export default function ReportPrintPreview() {
     loadData();
   }, [reportType]);
 
-  // Compute KPIs dynamically for Service Orders
+  // Auto-print effect when autoPrintParam is true
+  useEffect(() => {
+    if (!isLoading && autoPrintParam) {
+      const hasData = (reportType === 'chamados' && tickets.length > 0) ||
+                      (reportType === 'inventario' && inventory.length > 0) ||
+                      (orders.length > 0);
+      if (hasData) {
+        const timer = setTimeout(() => {
+          window.print();
+        }, 550);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [isLoading, autoPrintParam, reportType, orders.length, tickets.length, inventory.length]);
+
+  // Compute KPIs dynamically for Service Orders & Billing
   const orderKpis = useMemo(() => {
     let open = 0;
     let inProgress = 0;
@@ -175,18 +217,42 @@ export default function ReportPrintPreview() {
     let billingPending = 0;
     let billed = 0;
     let urgent = 0;
+    let totalCycleHours = 0;
+    let billedWithCycle = 0;
 
     orders.forEach((o) => {
       const eff = getEffectiveOrderStatus(o);
+      const rel = getOrderCreationToPaymentRelation(o);
+
       if (eff === 'open') open++;
       else if (eff === 'in_progress') inProgress++;
       else if (eff === 'completed') completed++;
       else if (eff === 'billing_pending') billingPending++;
-      else if (eff === 'billed') billed++;
+
+      if (rel.isBilled) {
+        billed++;
+        if (rel.cycleHours !== null) {
+          totalCycleHours += rel.cycleHours;
+          billedWithCycle++;
+        }
+      }
 
       const p = (o.priority || '').toLowerCase();
-      if (p === 'urgent' || p === 'urgente') urgent++;
+      if (eff !== 'completed' && eff !== 'billed' && (p === 'urgent' || p === 'urgente' || p === 'high')) {
+        urgent++;
+      }
     });
+
+    let avgCycle = '—';
+    if (billedWithCycle > 0) {
+      const avgHours = totalCycleHours / billedWithCycle;
+      const days = Math.floor(avgHours / 24);
+      if (days <= 0) avgCycle = `${Math.max(1, Math.round(avgHours))}h`;
+      else if (days === 1) avgCycle = '1 dia';
+      else avgCycle = `${days} dias`;
+    }
+
+    const billedPercent = orders.length > 0 ? Math.round((billed / orders.length) * 100) : 0;
 
     return {
       total: orders.length,
@@ -195,7 +261,10 @@ export default function ReportPrintPreview() {
       completed,
       billingPending,
       billed,
-      urgent
+      notBilled: Math.max(0, orders.length - billed),
+      urgent,
+      avgCycle,
+      billedPercent
     };
   }, [orders]);
 
@@ -260,40 +329,48 @@ export default function ReportPrintPreview() {
   }
 
   function handleGoBack() {
-    if (reportType === 'chamados') window.location.href = '/chamados';
-    else if (reportType === 'inventario') window.location.href = '/inventario';
-    else window.location.href = '/ordens';
+    window.location.href = '/relatorios';
+  }
+
+  function toggleOrientation() {
+    setOrientation((prev) => (prev === 'landscape' ? 'portrait' : 'landscape'));
   }
 
   return (
     <div className="report-preview-page">
-      {/* Dynamic Print CSS for Standard A4 (Chamex 210mm x 297mm) */}
+      {/* 
+        CRITICAL: Dynamic Page Setup for Standard ISO A4 (210mm x 297mm)
+        - Landscape: 297mm x 210mm
+        - Portrait: 210mm x 297mm
+        - Safety margin: 8mm
+      */}
       <style>{`
         @page {
-          size: A4 portrait;
-          margin: 6mm 6mm 6mm 6mm;
+          size: A4 ${orientation};
+          margin: 8mm 8mm 8mm 8mm;
         }
 
         @media print {
           html, body {
-            width: 210mm !important;
-            height: auto !important;
-            background: #ffffff !important;
-            padding: 0 !important;
+            width: ${orientation === 'landscape' ? '297mm' : '210mm'} !important;
+            min-height: ${orientation === 'landscape' ? '210mm' : '297mm'} !important;
             margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
+          }
+
+          .report-preview-action-bar,
+          .report-preview-error,
+          .no-print {
+            display: none !important;
           }
 
           .report-preview-page {
             padding: 0 !important;
             margin: 0 !important;
             background: #ffffff !important;
-          }
-
-          .report-preview-action-bar,
-          .report-preview-error {
-            display: none !important;
           }
 
           .report-preview-document {
@@ -305,86 +382,144 @@ export default function ReportPrintPreview() {
             padding: 0 !important;
             margin: 0 !important;
             border-radius: 0 !important;
+            zoom: ${printScale === '90%' ? '0.90' : printScale === '80%' ? '0.80' : '1'} !important;
           }
 
           .report-table {
+            width: 100% !important;
+            table-layout: fixed !important;
             page-break-inside: auto;
           }
 
+          .report-table thead {
+            display: table-header-group !important;
+          }
+
+          .report-table tfoot {
+            display: table-footer-group !important;
+          }
+
           .report-table tr {
-            page-break-inside: avoid;
-            break-inside: avoid;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
           }
 
           .document-header,
           .document-title-banner,
           .document-summary-grid,
           .document-footer {
-            page-break-inside: avoid;
-            break-inside: avoid;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
           }
         }
       `}</style>
 
-      {/* 1. TOP ACTION BAR (Clean: Removed 'Atualizar Dados' and 'Alternar Orientação') */}
-      <header className="report-preview-action-bar">
+      {/* 1. TOP ACTION BAR (Clean, intuitive toolbar with A4 controls) */}
+      <header className="report-preview-action-bar no-print">
         <div className="action-bar-left">
-          <span className="action-bar-badge">
-            <span className="pulse-dot" />
-            Padrão A4 (Chamex) • Folha Única
-          </span>
-          <span className="action-bar-hint">
-            Pressione <strong>F5</strong> no teclado para atualizar dados do banco.
-          </span>
-        </div>
-
-        <div className="action-bar-controls">
           <button
             type="button"
             className="btn-action btn-close"
             onClick={handleGoBack}
-            title="Voltar ao sistema"
+            title="Voltar à Central de Relatórios"
           >
             <ArrowLeft size={15} />
-            <span>Voltar ao Sistema</span>
+            <span>Voltar aos Relatórios</span>
           </button>
 
+          <span className="action-bar-badge">
+            <span className="pulse-dot" />
+            Padrão Folha A4 Oficial ({orientation === 'landscape' ? '297 × 210 mm • Paisagem' : '210 × 297 mm • Retrato'})
+          </span>
+        </div>
+
+        <div className="action-bar-controls">
+          {/* Orientation Toggle */}
+          <button
+            type="button"
+            className="btn-action btn-toggle-orient"
+            onClick={toggleOrientation}
+            title="Alternar entre Paisagem (297mm) e Retrato (210mm)"
+          >
+            <Maximize2 size={14} />
+            <span>{orientation === 'landscape' ? 'Mudar para A4 Retrato' : 'Mudar para A4 Paisagem'}</span>
+          </button>
+
+          {/* Scale Selector */}
+          <div className="scale-control-group" title="Ajuste de escala do documento">
+            <span className="scale-label">Escala:</span>
+            <button
+              type="button"
+              className={`scale-btn ${printScale === '100%' ? 'scale-btn--active' : ''}`}
+              onClick={() => setPrintScale('100%')}
+            >
+              100%
+            </button>
+            <button
+              type="button"
+              className={`scale-btn ${printScale === '90%' ? 'scale-btn--active' : ''}`}
+              onClick={() => setPrintScale('90%')}
+              title="Escala 90% (Mais linhas por folha)"
+            >
+              90%
+            </button>
+            <button
+              type="button"
+              className={`scale-btn ${printScale === '80%' ? 'scale-btn--active' : ''}`}
+              onClick={() => setPrintScale('80%')}
+              title="Escala 80% (Denso)"
+            >
+              80%
+            </button>
+          </div>
+
+          {/* Primary Print Button */}
           <button
             type="button"
             className="btn-action btn-print"
             onClick={handlePrint}
-            title="Abrir diálogo de impressão do navegador ou salvar em PDF"
+            title="Abrir diálogo de impressão do navegador ou salvar em PDF (Ctrl + P)"
           >
             <Printer size={16} />
-            <span>Imprimir / Salvar PDF</span>
+            <span>Imprimir Folha A4 / Salvar PDF</span>
           </button>
         </div>
       </header>
 
       {errorMessage && (
-        <div className="report-preview-error">
+        <div className="report-preview-error no-print">
           <AlertTriangle size={16} />
           <span>{errorMessage}</span>
-          <button type="button" onClick={loadData}>Tentar novamente</button>
+          <button type="button" onClick={() => loadData(true)}>Tentar novamente</button>
         </div>
       )}
 
-      {/* 2. DOCUMENT PAPER (Standard A4 Chamex: 210mm x 297mm) */}
-      <main className="report-preview-document">
+      {/* 
+        2. DOCUMENT PAPER (Standard ISO A4 Representation)
+        - Exact dimensions: 297mm x 210mm (Landscape) or 210mm x 297mm (Portrait)
+        - Authentic desk view with paper shadow
+      */}
+      <main
+        className={`report-preview-document ${orientation === 'landscape' ? 'doc--landscape' : 'doc--portrait'}`}
+        style={printScale !== '100%' ? { zoom: printScale === '90%' ? '0.90' : '0.80' } : undefined}
+      >
         {/* Document Header */}
         <header className="document-header">
           <div className="header-brand">
             <div className="brand-logo-mark">H</div>
             <div className="brand-logo-details">
               <h2>help<span>clin</span>tec</h2>
-              <p>Tecnologia Inteligente para Gestão e Manutenção Clínica</p>
+              <p>Tecnologia Inteligente para Gestão Clínica & Engenharia Biomédica</p>
             </div>
           </div>
 
           <div className="header-meta">
             <p>Emissão: <strong>{emissionString}</strong></p>
             <p>
-              Registros: <strong>{reportType === 'ordens' ? orders.length : reportType === 'chamados' ? tickets.length : inventory.length} item(ns)</strong>
+              Registros: <strong>{reportType === 'chamados' ? tickets.length : reportType === 'inventario' ? inventory.length : orders.length} item(ns)</strong>
+            </p>
+            <p>
+              Formato: <strong>A4 ({orientation === 'landscape' ? '297 × 210 mm' : '210 × 297 mm'})</strong>
             </p>
             <p>
               Status: <strong className="status-autenticado"><ShieldCheck size={12} /> Autenticado</strong>
@@ -396,30 +531,66 @@ export default function ReportPrintPreview() {
         <section className="document-title-banner">
           <h1>
             {customTitle || (
-              reportType === 'ordens'
-                ? ((activeFilterStatus || statusParam) === 'billed'
+              reportType === 'faturamento'
+                ? 'Relatório Oficial de Auditoria Financeira & Faturamento'
+                : reportType === 'chamados'
+                ? 'Relatório Oficial de Chamados Técnicos & Suporte'
+                : reportType === 'inventario'
+                ? 'Relatório Oficial de Inventário & Parque Tecnológico'
+                : ((activeFilterStatus || statusParam) === 'billed'
                     ? 'Relatório Oficial de Ordens Faturadas'
                     : (activeFilterStatus || statusParam) === 'billing_pending'
                     ? 'Relatório Oficial de Ordens Aguardando Faturamento'
                     : 'Relatório Oficial de Ordens de Serviço')
-                : reportType === 'chamados'
-                ? 'Relatório Oficial de Chamados Técnicos'
-                : 'Relatório Oficial de Inventário & Ativos'
             )}
           </h1>
           <p>
             {customSubtitle || (
-              reportType === 'ordens'
-                ? `Listagem consolidada de ${orders.length} ordens de serviço ${(activeFilterStatus || statusParam) === 'billed' ? 'faturadas' : 'filtradas'}`
+              reportType === 'faturamento'
+                ? `Auditoria e controle do ciclo financeiro de ${orders.length} ordens de serviço`
                 : reportType === 'chamados'
-                ? `Listagem consolidada de ${tickets.length} chamados técnicos`
-                : `Listagem consolidada de ${inventory.length} equipamentos e ativos`
+                ? `Listagem consolidada de ${tickets.length} chamados técnicos registrados`
+                : reportType === 'inventario'
+                ? `Listagem consolidada de ${inventory.length} equipamentos e ativos clínicos`
+                : `Listagem consolidada de ${orders.length} ordens de serviço ${(activeFilterStatus || statusParam) === 'billed' ? 'faturadas' : 'filtradas'}`
             )}
           </p>
         </section>
 
         {/* Summary Metric Cards */}
-        {reportType === 'ordens' && (
+        {customSummary && customSummary.length > 0 ? (
+          <section className="document-summary-grid" style={{ gridTemplateColumns: `repeat(${Math.min(customSummary.length, 8)}, 1fr)` }}>
+            {customSummary.map((item, idx) => (
+              <div key={idx} className="summary-box">
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+              </div>
+            ))}
+          </section>
+        ) : reportType === 'faturamento' ? (
+          <section className="document-summary-grid" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
+            <div className="summary-box">
+              <span>Total Auditado</span>
+              <strong>{orderKpis.total}</strong>
+            </div>
+            <div className="summary-box summary-box--billed">
+              <span>Faturadas</span>
+              <strong>{orderKpis.billed} ({orderKpis.billedPercent}%)</strong>
+            </div>
+            <div className="summary-box summary-box--pending">
+              <span>Aguardando Fat.</span>
+              <strong>{orderKpis.billingPending}</strong>
+            </div>
+            <div className="summary-box" style={{ borderTopColor: '#2563eb' }}>
+              <span>Ciclo Médio</span>
+              <strong>{orderKpis.avgCycle}</strong>
+            </div>
+            <div className="summary-box summary-box--urgent">
+              <span>Urgentes / Atrasadas</span>
+              <strong>{orderKpis.urgent}</strong>
+            </div>
+          </section>
+        ) : reportType === 'ordens' ? (
           <section className="document-summary-grid">
             <div className="summary-box">
               <span>Total</span>
@@ -443,16 +614,14 @@ export default function ReportPrintPreview() {
             </div>
             <div className="summary-box summary-box--billed">
               <span>Faturadas</span>
-              <strong>{orderKpis.billed}</strong>
+              <strong>{orderKpis.billed} ({orderKpis.billedPercent}%)</strong>
             </div>
             <div className="summary-box summary-box--urgent">
               <span>Urgentes</span>
               <strong>{orderKpis.urgent}</strong>
             </div>
           </section>
-        )}
-
-        {reportType === 'chamados' && (
+        ) : reportType === 'chamados' ? (
           <section className="document-summary-grid summary-grid--4">
             <div className="summary-box">
               <span>Total de Chamados</span>
@@ -471,9 +640,7 @@ export default function ReportPrintPreview() {
               <strong>{ticketKpis.resolved}</strong>
             </div>
           </section>
-        )}
-
-        {reportType === 'inventario' && (
+        ) : (
           <section className="document-summary-grid summary-grid--4">
             <div className="summary-box">
               <span>Total de Ativos</span>
@@ -494,31 +661,35 @@ export default function ReportPrintPreview() {
           </section>
         )}
 
-        {/* 3. TABLE WITH OPTIMIZED PROPORTIONS FOR STANDARD A4 (210mm) */}
+        {/* 
+          3. TABLE WITH STRICT 100% WIDTH AND EXACT COLUMN PROPORTIONS FOR A4
+          - Never overflows printable boundary
+          - Repeating thead on page breaks
+          - Zero truncated words
+        */}
         <section className="document-table-wrapper">
           {reportType === 'ordens' && (
             <table className="report-table">
               <thead>
                 <tr>
-                  <th style={{ width: '46px' }}>OS</th>
-                  <th style={{ width: '56px' }}>Prioridade</th>
-                  <th style={{ width: '68px' }}>Estado</th>
-                  <th style={{ width: '105px' }}>Solicitante / Setor</th>
-                  <th style={{ width: '115px' }}>Equipamento / Ativo</th>
-                  <th style={{ width: '90px' }}>Responsável</th>
-                  <th style={{ width: '75px' }}>Serviço</th>
-                  <th style={{ width: '62px' }}>Criada em</th>
-                  <th style={{ width: '62px' }}>Concluída em</th>
-                  {/* CRITICAL: Explicit header, proper width, wrapping, never truncated */}
-                  <th style={{ width: '84px' }} className="th-billing">
-                    Data Fat. / Pagamento
+                  <th style={{ width: orientation === 'landscape' ? '7%' : '9%' }}>Nº OS</th>
+                  <th style={{ width: orientation === 'landscape' ? '7%' : '8%' }}>Prioridade</th>
+                  <th style={{ width: orientation === 'landscape' ? '8%' : '10%' }}>Estado</th>
+                  <th style={{ width: orientation === 'landscape' ? '15%' : '18%' }}>Solicitante / Setor</th>
+                  <th style={{ width: orientation === 'landscape' ? '16%' : '19%' }}>Equipamento / Ativo</th>
+                  <th style={{ width: orientation === 'landscape' ? '13%' : '14%' }}>Responsável</th>
+                  {orientation === 'landscape' && <th style={{ width: '9%' }}>Serviço</th>}
+                  <th style={{ width: orientation === 'landscape' ? '7%' : '10%' }}>Criação</th>
+                  {orientation === 'landscape' && <th style={{ width: '7%' }}>Conclusão</th>}
+                  <th style={{ width: orientation === 'landscape' ? '11%' : '12%' }} className="th-billing">
+                    Faturamento
                   </th>
                 </tr>
               </thead>
               <tbody>
                 {orders.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="table-empty-cell">
+                    <td colSpan={orientation === 'landscape' ? 10 : 8} className="table-empty-cell">
                       {isLoading ? 'Carregando registros do servidor...' : 'Nenhuma ordem de serviço encontrada.'}
                     </td>
                   </tr>
@@ -548,8 +719,8 @@ export default function ReportPrintPreview() {
                           </span>
                         </td>
                         <td>
-                          <div className="cell-main-text" title={o.patient_name || 'Setor Não Informado'}>
-                            {o.patient_name || 'Setor Não Informado'}
+                          <div className="cell-main-text" title={o.patient_name || 'Recepção'}>
+                            {o.patient_name || 'Recepção'}
                           </div>
                         </td>
                         <td>
@@ -567,19 +738,23 @@ export default function ReportPrintPreview() {
                             {o.technician_name || 'Não atribuído'}
                           </div>
                         </td>
-                        <td>
-                          <div className="cell-service-type" title={o.service_type || 'Manutenção'}>
-                            {o.service_type || 'Manutenção'}
-                          </div>
-                        </td>
+                        {orientation === 'landscape' && (
+                          <td>
+                            <div className="cell-service-type" title={o.service_type || 'Manutenção'}>
+                              {o.service_type || 'Manutenção'}
+                            </div>
+                          </td>
+                        )}
                         <td className="cell-date">
                           <span className="date-dmy">{createdParts.date}</span>
                           {createdParts.time && <span className="date-time">{createdParts.time}</span>}
                         </td>
-                        <td className="cell-date">
-                          <span className="date-dmy">{completedParts.date}</span>
-                          {completedParts.time && <span className="date-time">{completedParts.time}</span>}
-                        </td>
+                        {orientation === 'landscape' && (
+                          <td className="cell-date">
+                            <span className="date-dmy">{completedParts.date}</span>
+                            {completedParts.time && <span className="date-time">{completedParts.time}</span>}
+                          </td>
+                        )}
                         <td className="cell-billing">
                           {o.status === 'billed' || eff === 'billed' ? (
                             <div className="billing-paid">
@@ -588,7 +763,6 @@ export default function ReportPrintPreview() {
                               </span>
                               <span className="billing-date">
                                 {billedParts.date}
-                                {billedParts.time && <small> {billedParts.time}</small>}
                               </span>
                             </div>
                           ) : isBillingPending(o) ? (
@@ -616,19 +790,100 @@ export default function ReportPrintPreview() {
             </table>
           )}
 
+          {reportType === 'faturamento' && (
+            <table className="report-table">
+              <thead>
+                <tr>
+                  <th style={{ width: '8%' }}>Nº OS</th>
+                  <th style={{ width: '9%' }}>Estado OS</th>
+                  <th style={{ width: '16%' }}>Solicitante / Setor</th>
+                  <th style={{ width: '16%' }}>Equipamento / Ativo</th>
+                  <th style={{ width: '9%' }}>Criada em</th>
+                  <th style={{ width: '9%' }}>Concluída em</th>
+                  <th style={{ width: '12%' }}>Situação Faturamento</th>
+                  <th style={{ width: '9%' }}>Data Pagamento</th>
+                  <th style={{ width: '12%' }} className="th-billing">Ciclo Criação ➔ Pgto</th>
+                </tr>
+              </thead>
+              <tbody>
+                {orders.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="table-empty-cell">
+                      {isLoading ? 'Carregando auditoria de faturamento...' : 'Nenhum registro financeiro encontrado.'}
+                    </td>
+                  </tr>
+                ) : (
+                  orders.map((o) => {
+                    const eff = getEffectiveOrderStatus(o);
+                    const rel = getOrderCreationToPaymentRelation(o);
+                    const createdParts = formatDateParts(o.created_at);
+                    const completedParts = formatDateParts(o.completed_at);
+                    const billedParts = formatDateParts(rel.billedDate);
+
+                    return (
+                      <tr key={o.id}>
+                        <td>
+                          <strong className="os-number">
+                            OS-{String(o.order_number || o.id).padStart(5, '0')}
+                          </strong>
+                        </td>
+                        <td>
+                          <span className={`table-badge badge--${eff}`}>
+                            {getOrderStatusLabel(eff)}
+                          </span>
+                        </td>
+                        <td><div className="cell-main-text">{o.patient_name || 'Recepção'}</div></td>
+                        <td><div className="cell-main-text">{o.equipment_name || 'Serviço Geral'}</div></td>
+                        <td className="cell-date"><span className="date-dmy">{createdParts.date}</span></td>
+                        <td className="cell-date"><span className="date-dmy">{completedParts.date}</span></td>
+                        <td>
+                          {rel.isBilled ? (
+                            <span className="billing-tag billing-tag--paid">
+                              <CheckCircle2 size={9} /> Faturada (Paga)
+                            </span>
+                          ) : isBillingPending(o) ? (
+                            <span className="billing-tag billing-tag--pending">
+                              <Clock size={9} /> Aguardando Fat. ({getDaysSinceCompletion(o)}/30d)
+                            </span>
+                          ) : (
+                            <span className="billing-tag billing-tag--open">
+                              Em atendimento
+                            </span>
+                          )}
+                        </td>
+                        <td className="cell-date">
+                          {rel.billedDate ? (
+                            <span className="billing-date">{billedParts.date}</span>
+                          ) : (
+                            <span style={{ color: '#94a3b8' }}>—</span>
+                          )}
+                        </td>
+                        <td>
+                          <div className={`report-relation-pill ${rel.isBilled ? 'report-relation-pill--billed' : 'report-relation-pill--pending'}`} style={{ fontSize: '7pt', padding: '1px 5px' }}>
+                            <Clock size={9} /> {rel.elapsedText}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          )}
+
           {reportType === 'chamados' && (
             <table className="report-table">
               <thead>
                 <tr>
-                  <th style={{ width: '56px' }}>Prioridade</th>
-                  <th style={{ width: '55px' }}>Nº OS</th>
-                  <th style={{ width: '70px' }}>Estado</th>
-                  <th style={{ width: '110px' }}>Setor / Empresa</th>
-                  <th style={{ width: '115px' }}>Ativo / Serviço</th>
-                  <th style={{ width: '95px' }}>Responsável</th>
-                  <th>Problema Relatado</th>
-                  <th style={{ width: '95px' }}>Solicitante</th>
-                  <th style={{ width: '64px' }}>Data Abertura</th>
+                  <th style={{ width: '8%' }}>Prioridade</th>
+                  <th style={{ width: '8%' }}>Nº Chamado</th>
+                  <th style={{ width: '9%' }}>Estado</th>
+                  <th style={{ width: '15%' }}>Setor / Empresa</th>
+                  <th style={{ width: '16%' }}>Ativo / Serviço</th>
+                  <th style={{ width: '13%' }}>Responsável</th>
+                  <th style={{ width: '17%' }}>Problema Relatado</th>
+                  <th style={{ width: '7%' }}>Solicitante</th>
+                  <th style={{ width: '7%' }}>Data Abertura</th>
                 </tr>
               </thead>
               <tbody>
@@ -650,7 +905,7 @@ export default function ReportPrintPreview() {
                         </td>
                         <td>
                           <strong className="os-number">
-                            OS-{String(t.service_order_number || t.ticket_number || t.id).padStart(5, '0')}
+                            CH-{String(t.service_order_number || t.ticket_number || t.id).padStart(5, '0')}
                           </strong>
                         </td>
                         <td>
@@ -679,13 +934,13 @@ export default function ReportPrintPreview() {
             <table className="report-table">
               <thead>
                 <tr>
-                  <th style={{ width: '60px' }}>Código</th>
-                  <th>Nome do Equipamento</th>
-                  <th style={{ width: '70px' }}>Estado</th>
-                  <th style={{ width: '110px' }}>Setor / Local</th>
-                  <th style={{ width: '120px' }}>Fabricante / Modelo</th>
-                  <th style={{ width: '90px' }}>Nº de Série</th>
-                  <th style={{ width: '65px' }}>Atualizado</th>
+                  <th style={{ width: '10%' }}>Código / Tag</th>
+                  <th style={{ width: '22%' }}>Nome do Equipamento</th>
+                  <th style={{ width: '10%' }}>Estado</th>
+                  <th style={{ width: '16%' }}>Setor / Local</th>
+                  <th style={{ width: '18%' }}>Fabricante / Modelo</th>
+                  <th style={{ width: '14%' }}>Nº de Série</th>
+                  <th style={{ width: '10%' }}>Atualizado em</th>
                 </tr>
               </thead>
               <tbody>
@@ -728,7 +983,7 @@ export default function ReportPrintPreview() {
             <strong>HelpClinTec</strong> • Sistema Integrado de Gestão Clínica e Engenharia Biomédica
           </p>
           <p className="footer-confidential">
-            Documento Oficial Autenticado • Emitido pelo Painel de Controle • Página 1 de 1
+            Documento Oficial Autenticado • Proporção Padrão Folha A4 • Emitido pelo Painel de Controle
           </p>
         </footer>
       </main>
@@ -737,27 +992,28 @@ export default function ReportPrintPreview() {
       <style>{`
         .report-preview-page {
           min-height: 100vh;
-          background: #eef3f0;
-          padding: 18px 12px 40px 12px;
+          background: #e6ece8;
+          padding: 16px 14px 40px 14px;
           font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
           color: #143b3d;
         }
 
         .report-preview-action-bar {
-          width: 210mm;
-          max-width: 100%;
-          margin: 0 auto 14px auto;
+          width: 100%;
+          max-width: ${orientation === 'landscape' ? '297mm' : '210mm'};
+          margin: 0 auto 16px auto;
           display: flex;
           align-items: center;
           justify-content: space-between;
           flex-wrap: wrap;
-          gap: 10px;
-          padding: 10px 16px;
+          gap: 12px;
+          padding: 10px 18px;
           background: #ffffff;
           border: 1px solid #dce7df;
           border-radius: 10px;
-          box-shadow: 0 4px 16px rgba(18, 59, 61, 0.05);
+          box-shadow: 0 4px 16px rgba(18, 59, 61, 0.06);
           box-sizing: border-box;
+          transition: max-width 0.2s ease;
         }
 
         .action-bar-left {
@@ -771,11 +1027,11 @@ export default function ReportPrintPreview() {
           display: inline-flex;
           align-items: center;
           gap: 6px;
-          padding: 4px 9px;
+          padding: 4px 10px;
           border-radius: 20px;
           background: #e6f6ee;
           color: #0f6244;
-          font-size: 11.5px;
+          font-size: 12px;
           font-weight: 700;
         }
 
@@ -793,15 +1049,11 @@ export default function ReportPrintPreview() {
           100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(5, 150, 105, 0); }
         }
 
-        .action-bar-hint {
-          font-size: 11.5px;
-          color: #5d7570;
-        }
-
         .action-bar-controls {
           display: flex;
           align-items: center;
           gap: 8px;
+          flex-wrap: wrap;
         }
 
         .btn-action {
@@ -821,12 +1073,59 @@ export default function ReportPrintPreview() {
 
         .btn-close {
           background: #ffffff;
-          color: #64748b;
+          color: #475569;
           border-color: #dce7df;
         }
         .btn-close:hover {
           background: #f8fafc;
           color: #1e293b;
+        }
+
+        .btn-toggle-orient {
+          background: #f0f7f3;
+          color: #123b3d;
+          border-color: #c9ded3;
+          font-weight: 700;
+        }
+        .btn-toggle-orient:hover {
+          background: #e2f0e8;
+          border-color: #123b3d;
+        }
+
+        .scale-control-group {
+          display: inline-flex;
+          align-items: center;
+          background: #f1f5f3;
+          border: 1px solid #dce7df;
+          border-radius: 8px;
+          padding: 2px 4px;
+          gap: 2px;
+        }
+        .scale-label {
+          font-size: 11px;
+          font-weight: 700;
+          color: #64748b;
+          padding: 0 4px;
+        }
+        .scale-btn {
+          border: none;
+          background: transparent;
+          color: #475569;
+          font-size: 11px;
+          font-weight: 600;
+          padding: 3px 6px;
+          border-radius: 5px;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+        .scale-btn:hover {
+          background: #e2ece5;
+        }
+        .scale-btn--active {
+          background: #ffffff;
+          color: #123b3d;
+          font-weight: 800;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
 
         .btn-print {
@@ -841,8 +1140,8 @@ export default function ReportPrintPreview() {
         }
 
         .report-preview-error {
-          width: 210mm;
-          max-width: 100%;
+          width: 100%;
+          max-width: ${orientation === 'landscape' ? '297mm' : '210mm'};
           margin: 0 auto 14px auto;
           padding: 10px 14px;
           background: #fee2e2;
@@ -866,19 +1165,34 @@ export default function ReportPrintPreview() {
           font-size: 11.5px;
         }
 
-        /* 2. DOCUMENT PAPER (Standard A4 Chamex: 210mm x 297mm) */
+        /* 
+          2. A4 PAPER SHEET CONTAINER 
+          - Exact ISO A4 dimensions
+          - Realistic sheet shadow & desk feel
+        */
         .report-preview-document {
-          margin: 0 auto;
+          margin: 0 auto 40px auto;
           background: #ffffff;
-          width: 210mm;
-          max-width: 100%;
-          min-height: 297mm;
-          padding: 7mm 7mm;
-          border: 1px solid #dce7df;
+          border: 1px solid #c8d8ce;
           border-radius: 4px;
-          box-shadow: 0 4px 24px rgba(18, 59, 61, 0.08);
+          box-shadow: 0 10px 32px rgba(18, 59, 61, 0.12), 0 2px 6px rgba(0, 0, 0, 0.05);
           box-sizing: border-box;
           font-size: 8pt;
+          transition: width 0.25s ease, min-height 0.25s ease;
+        }
+
+        .doc--landscape {
+          width: 297mm;
+          min-height: 210mm;
+          max-width: 100%;
+          padding: 8mm 10mm;
+        }
+
+        .doc--portrait {
+          width: 210mm;
+          min-height: 297mm;
+          max-width: 100%;
+          padding: 8mm 9mm;
         }
 
         /* Header */
@@ -938,7 +1252,7 @@ export default function ReportPrintPreview() {
           border: 1px solid #e2ece5;
           padding: 5px 10px;
           border-radius: 6px;
-          font-size: 8pt;
+          font-size: 7.8pt;
           color: #64748b;
           line-height: 1.35;
         }
@@ -999,7 +1313,7 @@ export default function ReportPrintPreview() {
           border: 1px solid #dce7df;
           border-top: 2.5px solid #123b3d;
           border-radius: 6px;
-          padding: 4px 2px;
+          padding: 4px 4px;
           text-align: center;
           box-shadow: 0 1px 4px rgba(18, 59, 61, 0.02);
         }
@@ -1047,7 +1361,7 @@ export default function ReportPrintPreview() {
           border-collapse: collapse;
           font-size: 8pt;
           text-align: left;
-          table-layout: auto;
+          table-layout: fixed;
         }
 
         .report-table thead tr {
@@ -1056,16 +1370,16 @@ export default function ReportPrintPreview() {
         }
 
         .report-table th {
-          padding: 5px 4px;
+          padding: 5px 5px;
           font-weight: 700;
           font-size: 7.2pt;
           text-transform: uppercase;
           letter-spacing: 0.2px;
           border-bottom: 1.5px solid #0d2a2b;
           line-height: 1.2;
-          white-space: normal !important;
-          word-wrap: break-word;
+          white-space: normal;
           overflow-wrap: break-word;
+          word-break: break-word;
         }
 
         .th-billing {
@@ -1075,12 +1389,14 @@ export default function ReportPrintPreview() {
         }
 
         .report-table td {
-          padding: 4.5px 4px;
+          padding: 4.5px 5px;
           border-bottom: 1px solid #e7efe9;
           color: #223532;
           vertical-align: middle;
-          font-size: 8pt;
+          font-size: 7.8pt;
           line-height: 1.25;
+          overflow-wrap: break-word;
+          word-break: break-word;
         }
 
         .report-table tbody tr:nth-child(even) {
@@ -1099,7 +1415,7 @@ export default function ReportPrintPreview() {
           display: inline-block;
           padding: 1px 4px;
           border-radius: 3px;
-          font-size: 7pt;
+          font-size: 6.8pt;
           font-weight: 700;
           text-transform: uppercase;
           line-height: 1.15;
@@ -1127,9 +1443,10 @@ export default function ReportPrintPreview() {
         .cell-main-text {
           font-weight: 600;
           color: #143b3d;
-          font-size: 8pt;
+          font-size: 7.8pt;
           line-height: 1.2;
-          word-break: break-word;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
 
         .cell-sub-item {
@@ -1144,10 +1461,9 @@ export default function ReportPrintPreview() {
         }
 
         .cell-service-type {
-          font-size: 7.5pt;
+          font-size: 7.2pt;
           color: #3b504d;
           line-height: 1.15;
-          word-break: break-word;
         }
 
         .cell-date {
@@ -1157,14 +1473,14 @@ export default function ReportPrintPreview() {
 
         .date-dmy {
           display: block;
-          font-size: 7.5pt;
+          font-size: 7.2pt;
           font-weight: 600;
           color: #1e293b;
         }
 
         .date-time {
           display: block;
-          font-size: 6.8pt;
+          font-size: 6.5pt;
           color: #64748b;
         }
 
@@ -1186,7 +1502,7 @@ export default function ReportPrintPreview() {
           gap: 3px;
           padding: 1px 4px;
           border-radius: 3px;
-          font-size: 7pt;
+          font-size: 6.8pt;
           font-weight: 700;
           width: fit-content;
           white-space: nowrap;
@@ -1208,7 +1524,7 @@ export default function ReportPrintPreview() {
         }
 
         .billing-date {
-          font-size: 7pt;
+          font-size: 6.8pt;
           font-weight: 700;
           color: #047857;
           white-space: nowrap;
@@ -1228,7 +1544,7 @@ export default function ReportPrintPreview() {
           gap: 8px;
           border-top: 1px solid #dce7df;
           padding-top: 6px;
-          font-size: 7.5pt;
+          font-size: 7.2pt;
           color: #64748b;
         }
         .document-footer p {
@@ -1237,7 +1553,7 @@ export default function ReportPrintPreview() {
 
         .footer-confidential {
           color: #94a3b8;
-          font-size: 7pt;
+          font-size: 6.8pt;
         }
       `}</style>
     </div>
