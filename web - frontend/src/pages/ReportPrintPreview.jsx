@@ -376,13 +376,20 @@ export default function ReportPrintPreview() {
           .report-preview-document {
             width: 100% !important;
             max-width: 100% !important;
-            min-height: auto !important;
+            min-height: calc(100vh - 16mm) !important;
             box-shadow: none !important;
             border: none !important;
             padding: 0 !important;
             margin: 0 !important;
             border-radius: 0 !important;
+            display: flex !important;
+            flex-direction: column !important;
             zoom: ${printScale === '90%' ? '0.90' : printScale === '80%' ? '0.80' : '1'} !important;
+          }
+
+          .document-table-wrapper {
+            width: 100% !important;
+            flex: 1 0 auto !important;
           }
 
           .report-table {
@@ -406,8 +413,15 @@ export default function ReportPrintPreview() {
 
           .document-header,
           .document-title-banner,
-          .document-summary-grid,
+          .document-summary-grid {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+
           .document-footer {
+            margin-top: auto !important;
+            border-top: 1px solid #dce7df !important;
+            padding-top: 8px !important;
             page-break-inside: avoid !important;
             break-inside: avoid !important;
           }
@@ -975,7 +989,7 @@ export default function ReportPrintPreview() {
 
         {/* Document Footer */}
         <footer className="document-footer">
-          <p>
+          <p className="footer-company">
             <strong>HelpClinTec</strong> • Sistema Integrado de Gestão Clínica e Engenharia Biomédica
           </p>
           <p className="footer-confidential">
@@ -1175,6 +1189,17 @@ export default function ReportPrintPreview() {
           box-sizing: border-box;
           font-size: 8pt;
           transition: width 0.25s ease, min-height 0.25s ease;
+          display: flex;
+          flex-direction: column;
+        }
+
+        .document-table-wrapper {
+          width: 100%;
+          border: 1px solid #dce7df;
+          border-radius: 6px;
+          margin-bottom: 12px;
+          overflow: hidden;
+          flex: 1 0 auto;
         }
 
         .doc--landscape {
@@ -1560,23 +1585,34 @@ export default function ReportPrintPreview() {
 
         /* Footer */
         .document-footer {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          flex-wrap: wrap;
-          gap: 8px;
+          margin-top: auto;
           border-top: 1px solid #dce7df;
-          padding-top: 6px;
-          font-size: 7.2pt;
-          color: #64748b;
+          padding-top: 8px;
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          page-break-inside: avoid;
+          break-inside: avoid;
         }
-        .document-footer p {
+
+        .footer-company {
+          font-size: 7.8pt;
+          color: #143b3d;
+          line-height: 1.35;
           margin: 0;
+          font-weight: 500;
+        }
+
+        .footer-company strong {
+          color: #123b3d;
+          font-weight: 800;
         }
 
         .footer-confidential {
-          color: #94a3b8;
-          font-size: 6.8pt;
+          color: #64748b;
+          font-size: 7.2pt;
+          line-height: 1.35;
+          margin: 0;
         }
       `}</style>
     </div>
