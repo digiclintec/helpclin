@@ -192,22 +192,6 @@ export default function LandingPage() {
 
   return (
     <div className="blessed-landing">
-      {/* ── Top Alert Banner: Estilo Apple com LED e link rápido ── */}
-      <div className="blessed-top-banner">
-        <div className="top-banner-led-pulse">
-          <span className="led-ping" />
-          <span className="led-core" />
-        </div>
-        <span className="top-banner-text">
-          <b>Plataforma Blessed Soluções Tec</b> • Sistemas SaaS & Software House de Alta Performance
-        </span>
-        <a href="/login" className="blessed-top-banner-link" title="Ir para a tela de login do SaaS">
-          <LogIn size={13} />
-          <span>Acessar Painel de O.S.</span>
-          <ArrowRight size={13} />
-        </a>
-      </div>
-
       {/* ── 1. HEADER MODERNO B2B ESTILO APPLE.COM ── */}
       <header className={`blessed-header ${isScrolled ? 'blessed-header--scrolled' : ''}`}>
         <div className="blessed-header__container">
