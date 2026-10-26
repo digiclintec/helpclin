@@ -1,0 +1,63 @@
+{
+  "name": "helpclin-desktop",
+  "version": "1.0.0",
+  "description": "HelpClin - Sistema Completo de Gestão Clínica, Ordens de Serviço & Suporte",
+  "main": "main.js",
+  "author": "Daniel Knaip e Rodrigo Santos <Blessed Soluções Tec>",
+  "license": "UNLICENSED",
+  "scripts": {
+    "start": "electron .",
+    "pack:dir": "electron-builder --dir",
+    "dist": "electron-builder --win nsis",
+    "dist:portable": "electron-builder --win portable",
+    "build:all": "electron-builder --win nsis portable"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8",
+    "electron-packager": "^17.1.2"
+  },
+  "build": {
+    "appId": "br.com.helpclintec.desktop",
+    "productName": "HelpClin",
+    "copyright": "Copyright © 2026 Blessed Soluções Tec",
+    "directories": {
+      "output": "dist-instalador"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "offline.html",
+      "assets/**/*"
+    ],
+    "win": {
+      "signAndEditExecutable": false,
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "HelpClin",
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "installerHeaderIcon": "assets/icon.ico"
+    }
+  }
+}

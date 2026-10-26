@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HelpClin - Sem Conexão</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: linear-gradient(135deg, #f7f9f8 0%, #eef3f0 100%);
+      color: #123b3d;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    .card {
+      background: #ffffff;
+      max-width: 480px;
+      width: 100%;
+      border-radius: 20px;
+      padding: 40px 32px;
+      text-align: center;
+      box-shadow: 0 12px 36px rgba(18, 59, 61, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04);
+      border: 1px solid #dce7df;
+    }
+    .icon-container {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      background: #fdeee9;
+      color: #e78368;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 20px;
+      font-size: 32px;
+    }
+    h1 {
+      font-size: 22px;
+      font-weight: 800;
+      color: #123b3d;
+      margin-bottom: 10px;
+    }
+    p {
+      color: #5e726e;
+      font-size: 14px;
+      line-height: 1.6;
+      margin-bottom: 24px;
+    }
+    .actions {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .btn-primary {
+      background: #194e50;
+      color: #ffffff;
+      border: none;
+      padding: 14px 24px;
+      border-radius: 12px;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .btn-primary:hover {
+      background: #123b3d;
+      transform: translateY(-1px);
+    }
+    .btn-secondary {
+      background: #f1f8f5;
+      color: #194e50;
+      border: 1px solid #dce7df;
+      padding: 12px 24px;
+      border-radius: 12px;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .btn-secondary:hover {
+      background: #e4efe9;
+    }
+    .footer-note {
+      font-size: 12px;
+      color: #8c9e9b;
+      margin-top: 24px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon-container">📡</div>
+    <h1>Sem conexão com o HelpClin</h1>
+    <p>Não foi possível conectar ao servidor ou a conexão com a internet foi interrompida temporariamente.</p>
+
+    <div class="actions">
+      <button class="btn-primary" id="retryBtn" onclick="tentarReconectar()">
+        <span>🔄 Tentar Novamente</span>
+      </button>
+      <button class="btn-secondary" onclick="window.electronAPI ? window.electronAPI.abrirConfiguracoes() : location.reload()">
+        Verificar Rede / Recarregar
+      </button>
+    </div>
+
+    <div class="footer-note">
+      HelpClin Desktop · Gestão Clínica & Manutenção
+    </div>
+  </div>
+
+  <script>
+    function tentarReconectar() {
+      const btn = document.getElementById('retryBtn');
+      btn.innerHTML = '<span>⏳ Conectando...</span>';
+      btn.disabled = true;
+
+      if (window.electronAPI && window.electronAPI.reconectar) {
+        window.electronAPI.reconectar();
+      } else {
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
+      }
+    }
+
+    // Auto-reconnect when browser detects internet back
+    window.addEventListener('online', () => {
+      tentarReconectar();
+    });
+  </script>
+</body>
+</html>
