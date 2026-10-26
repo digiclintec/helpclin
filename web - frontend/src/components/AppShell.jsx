@@ -1,4 +1,4 @@
-import { BarChart3, FilePlus2, Headset, LayoutDashboard, LogOut, Menu, UserCheck, X, Monitor, Settings as SettingsIcon, ShieldCheck } from 'lucide-react';
+import { BarChart3, FilePlus2, Headset, LayoutDashboard, LogOut, Menu, UserCheck, X, Monitor, Settings as SettingsIcon, ShieldCheck, Layers } from 'lucide-react';
 import { useState } from 'react';
 import NotificationCenter from './NotificationCenter.jsx';
 import ThemeToggle from './ThemeToggle.jsx';
@@ -7,6 +7,7 @@ import { ThemeProvider, useTheme } from '../utils/themeContext.jsx';
 import { getStoredUser } from '../services/api.js';
 
 const navigation = [
+  { label: 'Portal de Sistemas', icon: Layers, href: '/portal' },
   { label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
   { label: 'Chamados', icon: Headset, href: '/chamados' },
   { label: 'Ordens de serviço', icon: FilePlus2, href: '/ordens' },

@@ -8,6 +8,7 @@ import Tickets from './pages/Tickets.jsx';
 import AdminUsers from './pages/AdminUsers.jsx';
 import Inventory from './pages/Inventory.jsx';
 import LandingPage from './pages/LandingPage.jsx';
+import Portal from './pages/Portal.jsx';
 import Settings from './pages/Settings.jsx';
 import ReportPrintPreview from './pages/ReportPrintPreview.jsx';
 import { getStoredUser } from './services/api.js';
@@ -16,7 +17,7 @@ function App() {
   const user = getStoredUser();
 
   // Protected route guard: redirect unauthenticated visitors to /login
-  const protectedRoutes = ['/dashboard', '/ordens', '/chamados', '/relatorios', '/usuarios', '/inventario', '/configuracoes', '/gestao', '/relatorio-impressao'];
+  const protectedRoutes = ['/dashboard', '/ordens', '/chamados', '/relatorios', '/usuarios', '/inventario', '/configuracoes', '/gestao', '/relatorio-impressao', '/portal'];
   if (protectedRoutes.includes(window.location.pathname) && !user) {
     window.location.replace('/login');
     return (
@@ -74,6 +75,10 @@ function App() {
 
   if (window.location.pathname === '/configuracoes' || window.location.pathname === '/gestao') {
     return <AppShell><Settings /></AppShell>;
+  }
+
+  if (window.location.pathname === '/portal') {
+    return <Portal />;
   }
 
   if (window.location.pathname === '/relatorio-impressao') {

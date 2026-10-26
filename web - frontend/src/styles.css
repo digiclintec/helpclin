@@ -4949,6 +4949,126 @@ button { font: inherit; cursor: pointer; }
   color: #6ee7b7 !important;
 }
 
+/* ==========================================================================
+   Gestão de Revenda & Licenças de Usuários (Modais e Caixas de Licenciamento)
+   Compatível com Modo Claro e Modo Escuro
+   ========================================================================== */
+
+.dash-license-box {
+  background: #f8faf9;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid #dce7df;
+  margin-top: 8px;
+  transition: all 0.2s ease;
+}
+
+.dash-license-title {
+  font-weight: 800;
+  font-size: 13px;
+  color: #123b3d;
+  display: block;
+  margin-bottom: 10px;
+}
+
+.dash-license-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dash-license-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 13.5px;
+  color: #143b3d;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #ffffff;
+  border: 1px solid #e2e8e5;
+  transition: all 0.15s ease;
+}
+
+.dash-license-item:hover {
+  border-color: #cbdad5;
+  background: #fdfefe;
+}
+
+.dash-license-item strong {
+  color: #123b3d;
+}
+
+.dash-whatsapp-box {
+  background: #f8faf9;
+  border: 1px solid #d4e7de;
+  border-radius: 10px;
+  padding: 14px;
+  font-family: monospace;
+  font-size: 12px;
+  color: #123b3d;
+  white-space: pre-wrap;
+  max-height: 180px;
+  overflow-y: auto;
+  margin-bottom: 16px;
+}
+
+/* Modo Escuro (Dark Mode) */
+.app-shell[data-theme="dark"] .dash-license-box {
+  background: #0d171e !important;
+  border-color: #1e3243 !important;
+}
+
+.app-shell[data-theme="dark"] .dash-license-title {
+  color: #5eead4 !important;
+}
+
+.app-shell[data-theme="dark"] .dash-license-item {
+  background: #14222d !important;
+  border-color: #1e3243 !important;
+  color: #e2e8f0 !important;
+}
+
+.app-shell[data-theme="dark"] .dash-license-item:hover {
+  background: #1b2e3c !important;
+  border-color: #2b455c !important;
+}
+
+.app-shell[data-theme="dark"] .dash-license-item strong {
+  color: #ffffff !important;
+}
+
+.app-shell[data-theme="dark"] .dash-whatsapp-box {
+  background: #09131a !important;
+  border-color: #1e3243 !important;
+  color: #93c5fd !important;
+}
+
+/* Empty States & Data States no Tema Escuro (evita caixa branca) */
+.app-shell[data-theme="dark"] .user-empty-state,
+.app-shell[data-theme="dark"] .data-state {
+  background: #14222d !important;
+  border-color: #1e3243 !important;
+  color: #94a3b8 !important;
+}
+
+.app-shell[data-theme="dark"] .user-empty-state strong,
+.app-shell[data-theme="dark"] .data-state strong {
+  color: #f8fafc !important;
+}
+
+.app-shell[data-theme="dark"] .user-empty-state span {
+  color: #64748b !important;
+}
+
+.app-shell[data-theme="dark"] .user-empty-state svg,
+.app-shell[data-theme="dark"] .data-state svg {
+  color: #34d399 !important;
+}
+
+
+
 
 
 

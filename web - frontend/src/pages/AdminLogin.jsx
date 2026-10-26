@@ -21,7 +21,7 @@ function AdminLogin() {
       role: 'admin'
     };
     localStorage.setItem('helpclin_user', JSON.stringify(demoUser));
-    window.location.href = '/dashboard';
+    window.location.href = '/portal';
   }
 
   async function handleSubmit(event) {
@@ -32,7 +32,7 @@ function AdminLogin() {
     try {
       const user = await loginUser(form);
       localStorage.setItem('helpclin_user', JSON.stringify(user));
-      window.location.href = '/dashboard';
+      window.location.href = '/portal';
     } catch (error) {
       setFeedback(error.message);
     } finally {
