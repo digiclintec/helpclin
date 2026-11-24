@@ -1,35 +1,74 @@
 #!/bin/bash
 set -e
 
-echo "=========================================="
-echo "🚀 Atualizando HelpClin na VPS"
-echo "=========================================="
+echo "=========================================================="
+echo "🚀 Atualizando HelpClin Completo na VPS (Git Pull)"
+echo "=========================================================="
 
-# Garantir que estamos na raiz do projeto
+# 1. Garantir que estamos na raiz do projeto
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$PROJECT_DIR"
 
+echo ""
 echo "📥 1. Puxando as últimas alterações do GitHub..."
 git pull origin main
 
-echo "📦 2. Verificando dependências do frontend..."
+echo ""
+echo "⚙️ 2. Atualizando Backend (API & Banco de Dados)..."
+cd "$PROJECT_DIR/api - backend"
+
+# Instalar dependências da API caso necessário
+if [ ! -d "node_modules" ] || [ package.json -nt node_modules ]; then
+  echo "📦 Instalando/atualizando dependências do Backend..."
+  npm install --production=false
+fi
+
+# Rodar migrations no banco PostgreSQL
+echo "🗄️ Executando migrations do Banco de Dados..."
+if [ -f "scripts/migrate.js" ]; then
+  node scripts/migrate.js || echo "⚠️ Aviso: Verifique as credenciais do banco no .env caso a migration tenha falhado."
+fi
+
+# Reiniciar o serviço do Backend na VPS
+echo "🔄 Reiniciando serviço da API..."
+if command -v pm2 >/dev/null 2>&1; then
+  pm2 reload all || pm2 restart all || echo "⚠️ PM2 não conseguiu reiniciar automaticamente."
+elif systemctl is-active --quiet helpclin-api 2>/dev/null; then
+  sudo systemctl restart helpclin-api
+elif systemctl is-active --quiet helpclin 2>/dev/null; then
+  sudo systemctl restart helpclin
+fi
+
+echo ""
+echo "📦 3. Compilando o Frontend Web..."
 cd "$PROJECT_DIR/web - frontend"
 
-# Se o vite não estiver instalado, roda npm install
-if [ ! -f "node_modules/.bin/vite" ]; then
-  echo "Instalando dependências (npm install)... isso pode levar 1 minuto..."
+if [ ! -d "node_modules" ] || [ package.json -nt node_modules ]; then
+  echo "📦 Instalando/atualizando dependências do Frontend..."
   npm install
 fi
 
-echo "⚙️  3. Compilando o Frontend (npm run build)..."
+echo "🏗️ Gerando build de produção..."
 npm run build
 
-echo "🌐 4. Publicando no Nginx do iContainer..."
+echo ""
+echo "🌐 4. Publicando arquivos no Nginx..."
 NGINX_TARGET="/etc/icontainer/apps/nginx/nginx/www/sites/helpclintec.com.br/index"
 mkdir -p "$NGINX_TARGET"
 cp -r dist/* "$NGINX_TARGET/"
 
-echo "=========================================="
-echo "✅ Atualização concluída com sucesso!"
-echo "Pressione Ctrl + Shift + R no navegador para ver as alterações."
-echo "=========================================="
+echo ""
+echo "🔍 5. Testando integridade dos serviços..."
+sleep 2
+if curl -s -o /dev/null -w "%{http_code}" https://api.helpclintec.com.br/api/health | grep -q "200"; then
+  echo "✅ API Online!"
+else
+  echo "⚠️ Verifique se o backend está ativo na porta correspondente."
+fi
+
+echo ""
+echo "=========================================================="
+echo "✅ Atualização concluída com sucesso via Git!"
+echo "Pressione Ctrl + Shift + R no navegador para limpar o cache."
+echo "=========================================================="
+
