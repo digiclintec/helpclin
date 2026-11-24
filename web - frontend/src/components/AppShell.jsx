@@ -7,7 +7,6 @@ import { ThemeProvider, useTheme } from '../utils/themeContext.jsx';
 import { getStoredUser } from '../services/api.js';
 
 const navigation = [
-  { label: 'Portal de Sistemas', icon: Layers, href: '/portal' },
   { label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
   { label: 'Chamados', icon: Headset, href: '/chamados' },
   { label: 'Ordens de serviço', icon: FilePlus2, href: '/ordens' },

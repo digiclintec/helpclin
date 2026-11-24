@@ -409,14 +409,6 @@ function AdminUsers() {
             <Plus size={16} />
             <span>Novo Cliente / Revenda</span>
           </button>
-          <a
-            href="/portal"
-            className="clean-btn clean-btn--subtle"
-            style={{ padding: '9px 16px', fontSize: '13px' }}
-          >
-            <Layers size={16} />
-            <span>Ver Portal</span>
-          </a>
         </div>
       </section>
 

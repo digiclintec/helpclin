@@ -21,7 +21,7 @@ function AdminLogin() {
     try {
       const user = await loginUser(form);
       localStorage.setItem('helpclin_user', JSON.stringify(user));
-      window.location.href = '/portal';
+      window.location.href = '/chamados';
     } catch (error) {
       setFeedback(error.message);
     } finally {
@@ -32,12 +32,11 @@ function AdminLogin() {
   return (
     <main className="admin-login-page">
       <div className="admin-login-aside">
-        <a className="logo logo--login" href="/"><span className="logo-mark"><Stethoscope size={20} /></span><span>help<span>clin</span>tec</span></a>
-        <div className="login-aside-copy"><p className="eyebrow eyebrow--light">Área administrativa</p><h1>Gestão inteligente para quem <em>cuida de verdade.</em></h1><p>Tenha sua clínica inteira sob controle, com segurança e simplicidade.</p></div>
+        <div className="logo logo--login"><span className="logo-mark"><Stethoscope size={20} /></span><span>help<span>clin</span>tec</span></div>
+        <div className="login-aside-copy"><p className="eyebrow eyebrow--light">Área de Atendimento</p><h1>Gestão inteligente para quem <em>cuida de verdade.</em></h1><p>Tenha seus chamados e ordens sob controle, com segurança e simplicidade.</p></div>
         <span className="login-aside-footer">Tecnologia para cuidar melhor.</span>
       </div>
       <div className="admin-login-content">
-        <a className="back-link" href="/"><ArrowLeft size={16} /> Voltar para o site</a>
         <section className="login-card" aria-labelledby="login-title">
           <div className="login-card-icon"><LockKeyhole size={20} /></div>
           <p className="eyebrow">Acesso seguro</p>

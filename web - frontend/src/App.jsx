@@ -16,6 +16,12 @@ import { getStoredUser } from './services/api.js';
 function App() {
   const user = getStoredUser();
 
+  // Usuário logado: não permite retornar à landing page pública nem ao portal SaaS. Mantém no sistema de chamados.
+  if (user && (window.location.pathname === '/' || window.location.pathname === '/login' || window.location.pathname === '/admin' || window.location.pathname === '/portal')) {
+    window.location.replace('/chamados');
+    return null;
+  }
+
   // Protected route guard: redirect unauthenticated visitors to /login
   const protectedRoutes = ['/dashboard', '/ordens', '/chamados', '/relatorios', '/usuarios', '/inventario', '/configuracoes', '/gestao', '/relatorio-impressao', '/portal'];
   if (protectedRoutes.includes(window.location.pathname) && !user) {
