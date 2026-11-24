@@ -10,7 +10,8 @@ PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$PROJECT_DIR"
 
 echo ""
-echo "📥 1. Puxando as últimas alterações do GitHub..."
+echo "📥 1. Sincronizando com as últimas alterações do GitHub..."
+git reset --hard HEAD
 git pull origin main
 
 echo ""
