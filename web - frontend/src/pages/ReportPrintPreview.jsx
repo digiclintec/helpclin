@@ -28,6 +28,8 @@ import {
   getOrderStatusLabel,
   getOrderCreationToPaymentRelation,
   isBillingPending,
+  isAwaitingBilling,
+  isBillingOverdue,
   isBilled,
   isPaymentInformed
 } from '../utils/billingUtils.js';
@@ -103,10 +105,16 @@ export default function ReportPrintPreview() {
     if (!filterStatus && !dateFrom && !dateTo) return rawOrders;
     return rawOrders.filter((o) => {
       const eff = getEffectiveOrderStatus(o);
-      const billed = isBilled(o) || o.status === 'billed';
+      const rel = getOrderCreationToPaymentRelation(o);
+      const billed = isBilled(o) || o.status === 'billed' || rel.isBilled;
+      const isAwaiting = isAwaitingBilling(o);
+      const isOverdue = isBillingOverdue(o);
 
       if (filterStatus === 'billed' && !billed) return false;
-      if (filterStatus === 'billing_pending' && eff !== 'billing_pending') return false;
+      if (filterStatus === 'not_billed' && billed) return false;
+      if (filterStatus === 'billing_pending' && !isAwaiting) return false;
+      if (filterStatus === 'billing_overdue' && !isOverdue) return false;
+      if (filterStatus === 'billing_on_time' && (!isAwaiting || isOverdue)) return false;
       if (filterStatus === 'open' && eff !== 'open') return false;
       if (filterStatus === 'in_progress' && eff !== 'in_progress') return false;
       if (filterStatus === 'completed' && eff !== 'completed') return false;
@@ -215,6 +223,8 @@ export default function ReportPrintPreview() {
     let inProgress = 0;
     let completed = 0;
     let billingPending = 0;
+    let billingOverdue = 0;
+    let billingOnTime = 0;
     let billed = 0;
     let urgent = 0;
     let totalCycleHours = 0;
@@ -223,6 +233,9 @@ export default function ReportPrintPreview() {
     orders.forEach((o) => {
       const eff = getEffectiveOrderStatus(o);
       const rel = getOrderCreationToPaymentRelation(o);
+      const isOrderBilled = isBilled(o) || o.status === 'billed' || rel.isBilled;
+      const isAwaiting = isAwaitingBilling(o);
+      const isOverdue = isBillingOverdue(o);
 
       if (eff === 'open') open++;
       else if (eff === 'in_progress') inProgress++;
@@ -230,9 +243,13 @@ export default function ReportPrintPreview() {
       const isConcluded = Boolean(o.completed_at) || ['completed', 'billed', 'payment_informed', 'billing_pending'].includes(eff) || ['completed', 'billed', 'payment_informed', 'billing_pending'].includes(o.status);
       if (isConcluded) completed++;
 
-      if (eff === 'billing_pending') billingPending++;
+      if (isAwaiting) {
+        billingPending++;
+        if (isOverdue) billingOverdue++;
+        else billingOnTime++;
+      }
 
-      if (rel.isBilled) {
+      if (isOrderBilled) {
         billed++;
         if (rel.cycleHours !== null) {
           totalCycleHours += rel.cycleHours;
@@ -241,7 +258,7 @@ export default function ReportPrintPreview() {
       }
 
       const p = (o.priority || '').toLowerCase();
-      if (eff !== 'completed' && eff !== 'billed' && (p === 'urgent' || p === 'urgente' || p === 'high')) {
+      if (eff !== 'completed' && !isOrderBilled && (p === 'urgent' || p === 'urgente' || p === 'high')) {
         urgent++;
       }
     });
@@ -263,6 +280,8 @@ export default function ReportPrintPreview() {
       inProgress,
       completed,
       billingPending,
+      billingOverdue,
+      billingOnTime,
       billed,
       notBilled: Math.max(0, orders.length - billed),
       urgent,
@@ -556,8 +575,12 @@ export default function ReportPrintPreview() {
                 ? 'Relatório Oficial de Inventário & Parque Tecnológico'
                 : ((activeFilterStatus || statusParam) === 'billed'
                     ? 'Relatório Oficial de Ordens Faturadas'
+                    : (activeFilterStatus || statusParam) === 'not_billed'
+                    ? 'Relatório Oficial de Ordens Não Faturadas'
                     : (activeFilterStatus || statusParam) === 'billing_pending'
                     ? 'Relatório Oficial de Ordens Aguardando Faturamento'
+                    : (activeFilterStatus || statusParam) === 'billing_overdue'
+                    ? 'Relatório Oficial de Ordens com Faturamento Atrasado'
                     : 'Relatório Oficial de Ordens de Serviço')
             )}
           </h1>
@@ -569,7 +592,7 @@ export default function ReportPrintPreview() {
                 ? `Listagem consolidada de ${tickets.length} chamados técnicos registrados`
                 : reportType === 'inventario'
                 ? `Listagem consolidada de ${inventory.length} equipamentos e ativos clínicos`
-                : `Listagem consolidada de ${orders.length} ordens de serviço ${(activeFilterStatus || statusParam) === 'billed' ? 'faturadas' : 'filtradas'}`
+                : `Listagem consolidada de ${orders.length} ordens de serviço ${(activeFilterStatus || statusParam) === 'billed' ? 'faturadas' : (activeFilterStatus || statusParam) === 'not_billed' ? 'não faturadas' : 'filtradas'}`
             )}
           </p>
         </section>
@@ -585,10 +608,14 @@ export default function ReportPrintPreview() {
             ))}
           </section>
         ) : reportType === 'faturamento' ? (
-          <section className="document-summary-grid" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
+          <section className="document-summary-grid" style={{ gridTemplateColumns: 'repeat(6, 1fr)' }}>
             <div className="summary-box">
               <span>Total Auditado</span>
               <strong>{orderKpis.total}</strong>
+            </div>
+            <div className="summary-box summary-box--not_billed">
+              <span>Não Faturadas</span>
+              <strong>{orderKpis.notBilled}</strong>
             </div>
             <div className="summary-box summary-box--billed">
               <span>Faturadas</span>
@@ -608,10 +635,26 @@ export default function ReportPrintPreview() {
             </div>
           </section>
         ) : reportType === 'ordens' ? (
-          <section className="document-summary-grid">
+          <section className="document-summary-grid" style={{ gridTemplateColumns: 'repeat(8, 1fr)' }}>
             <div className="summary-box">
               <span>Total</span>
               <strong>{orderKpis.total}</strong>
+            </div>
+            <div className="summary-box summary-box--not_billed">
+              <span>Não Faturadas</span>
+              <strong>{orderKpis.notBilled}</strong>
+            </div>
+            <div className="summary-box summary-box--billed">
+              <span>Faturadas</span>
+              <strong>{orderKpis.billed} ({orderKpis.billedPercent}%)</strong>
+            </div>
+            <div className="summary-box summary-box--pending">
+              <span>Aguardando Fat.</span>
+              <strong>{orderKpis.billingPending}</strong>
+            </div>
+            <div className="summary-box summary-box--completed">
+              <span>Concluídas</span>
+              <strong>{orderKpis.completed}</strong>
             </div>
             <div className="summary-box summary-box--open">
               <span>Abertas</span>
@@ -620,18 +663,6 @@ export default function ReportPrintPreview() {
             <div className="summary-box summary-box--progress">
               <span>Andamento</span>
               <strong>{orderKpis.inProgress}</strong>
-            </div>
-            <div className="summary-box summary-box--completed">
-              <span>Concluídas</span>
-              <strong>{orderKpis.completed}</strong>
-            </div>
-            <div className="summary-box summary-box--pending">
-              <span>Aguardando Fat.</span>
-              <strong>{orderKpis.billingPending}</strong>
-            </div>
-            <div className="summary-box summary-box--billed">
-              <span>Faturadas</span>
-              <strong>{orderKpis.billed} ({orderKpis.billedPercent}%)</strong>
             </div>
             <div className="summary-box summary-box--urgent">
               <span>Urgentes</span>
@@ -1386,8 +1417,9 @@ export default function ReportPrintPreview() {
         .summary-box--open { border-top-color: #059669; }
         .summary-box--progress { border-top-color: #d97706; }
         .summary-box--completed { border-top-color: #2563eb; }
-        .summary-box--pending { border-top-color: #ea580c; }
-        .summary-box--billed { border-top-color: #0d9488; }
+        .summary-box--pending { border-top-color: #d97706; }
+        .summary-box--not_billed { border-top-color: #c2410c; }
+        .summary-box--billed { border-top-color: #059669; }
         .summary-box--urgent { border-top-color: #dc2626; }
 
         .summary-box span {

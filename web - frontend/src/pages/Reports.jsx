@@ -50,6 +50,8 @@ import {
   getOrderBilledDate,
   getOrderCreationToPaymentRelation,
   isBillingPending,
+  isAwaitingBilling,
+  isBillingOverdue,
   isBilled,
   isPaymentInformed,
   isBillingModuleEnabled
@@ -340,6 +342,8 @@ function Reports() {
     let inProgressCount = 0;
     let completedCount = 0;
     let billingPendingCount = 0;
+    let billingOverdueCount = 0;
+    let billingOnTimeCount = 0;
     let billedCount = 0;
     let urgentCount = 0;
     let totalBilledHours = 0;
@@ -348,6 +352,9 @@ function Reports() {
     dateFilteredOrders.forEach((order) => {
       const effective = getEffectiveOrderStatus(order);
       const rel = getOrderCreationToPaymentRelation(order);
+      const isOrderBilled = rel.isBilled || isBilled(order) || order.status === 'billed';
+      const isAwaiting = isAwaitingBilling(order);
+      const isOverdue = isBillingOverdue(order);
 
       if (effective === 'open') openCount++;
       if (effective === 'in_progress') inProgressCount++;
@@ -355,9 +362,16 @@ function Reports() {
       const isConcluded = Boolean(order.completed_at) || ['completed', 'billed', 'payment_informed', 'billing_pending'].includes(effective) || ['completed', 'billed', 'payment_informed', 'billing_pending'].includes(order.status);
       if (isConcluded) completedCount++;
 
-      if (effective === 'billing_pending') billingPendingCount++;
+      if (isAwaiting) {
+        billingPendingCount++;
+        if (isOverdue) {
+          billingOverdueCount++;
+        } else {
+          billingOnTimeCount++;
+        }
+      }
 
-      if (rel.isBilled) {
+      if (isOrderBilled) {
         billedCount++;
         if (rel.cycleHours !== null) {
           totalBilledHours += rel.cycleHours;
@@ -368,7 +382,7 @@ function Reports() {
       const p = (order.priority || '').toLowerCase();
       const createdAt = new Date(order.created_at);
       const hoursOld = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60);
-      if (effective !== 'completed' && effective !== 'billed' && (p === 'urgent' || p === 'high' || hoursOld > 24)) {
+      if (effective !== 'completed' && !isOrderBilled && (p === 'urgent' || p === 'high' || hoursOld > 24)) {
         urgentCount++;
       }
     });
@@ -398,6 +412,8 @@ function Reports() {
       inProgress: inProgressCount,
       completed: completedCount,
       billingPending: billingPendingCount,
+      billingOverdue: billingOverdueCount,
+      billingOnTime: billingOnTimeCount,
       billed: billedCount,
       notBilled: notBilledCount,
       urgent: urgentCount,
@@ -411,11 +427,14 @@ function Reports() {
     return dateFilteredOrders.filter((order) => {
       const effective = getEffectiveOrderStatus(order);
       const rel = getOrderCreationToPaymentRelation(order);
+      const isOrderBilled = rel.isBilled || isBilled(order) || order.status === 'billed';
 
       // Status filter
-      if (statusFilter === 'billed' && !rel.isBilled) return false;
-      if (statusFilter === 'not_billed' && rel.isBilled) return false;
-      if (statusFilter === 'billing_pending' && effective !== 'billing_pending') return false;
+      if (statusFilter === 'billed' && !isOrderBilled) return false;
+      if (statusFilter === 'not_billed' && isOrderBilled) return false;
+      if (statusFilter === 'billing_pending' && !isAwaitingBilling(order)) return false;
+      if (statusFilter === 'billing_overdue' && !isBillingOverdue(order)) return false;
+      if (statusFilter === 'billing_on_time' && (!isAwaitingBilling(order) || isBillingOverdue(order))) return false;
       if (statusFilter === 'open' && effective !== 'open') return false;
       if (statusFilter === 'in_progress' && effective !== 'in_progress') return false;
       if (statusFilter === 'completed' && effective !== 'completed') return false;
@@ -423,7 +442,7 @@ function Reports() {
         const p = (order.priority || '').toLowerCase();
         const createdAt = new Date(order.created_at);
         const hoursOld = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60);
-        const isUrgent = effective !== 'completed' && effective !== 'billed' && (p === 'urgent' || p === 'high' || hoursOld > 24);
+        const isUrgent = effective !== 'completed' && !isOrderBilled && (p === 'urgent' || p === 'high' || hoursOld > 24);
         if (!isUrgent) return false;
       }
 
@@ -465,15 +484,18 @@ function Reports() {
   // Auditoria de Faturamento Filtrada
   const finalFilteredBilling = useMemo(() => {
     return dateFilteredOrders.filter((order) => {
-      const effective = getEffectiveOrderStatus(order);
       const rel = getOrderCreationToPaymentRelation(order);
+      const isOrderBilled = rel.isBilled || isBilled(order) || order.status === 'billed';
 
       // Na aba faturamento, consideramos ordens com conclusão ou faturamento
-      if (statusFilter === 'billed' && !rel.isBilled) return false;
-      if (statusFilter === 'billing_pending' && effective !== 'billing_pending') return false;
+      if (statusFilter === 'billed' && !isOrderBilled) return false;
+      if (statusFilter === 'not_billed' && isOrderBilled) return false;
+      if (statusFilter === 'billing_pending' && !isAwaitingBilling(order)) return false;
+      if (statusFilter === 'billing_overdue' && !isBillingOverdue(order)) return false;
+      if (statusFilter === 'billing_on_time' && (!isAwaitingBilling(order) || isBillingOverdue(order))) return false;
       if (statusFilter === 'critical') {
         const days = getDaysSinceCompletion(order);
-        if (days < 20 || rel.isBilled) return false;
+        if (days < 20 || isOrderBilled) return false;
       }
 
       if (searchQuery.trim() && !matchOrderSearch(order, searchQuery)) {
@@ -622,8 +644,12 @@ function Reports() {
       const isBilledOnly = statusFilter === 'billed';
       const customTitle = isBilledOnly
         ? 'Relatório Oficial de Ordens Faturadas'
+        : statusFilter === 'not_billed'
+        ? 'Relatório Oficial de Ordens Não Faturadas'
         : statusFilter === 'billing_pending'
         ? 'Relatório Oficial de Ordens Aguardando Faturamento'
+        : statusFilter === 'billing_overdue'
+        ? 'Relatório Oficial de Ordens com Faturamento Atrasado'
         : statusFilter === 'completed'
         ? 'Relatório Oficial de Ordens Concluídas'
         : 'Relatório Oficial de Ordens de Serviço';
@@ -640,18 +666,28 @@ function Reports() {
         dateTo: endDate,
         summary: [
           { label: 'Total Filtrado', value: finalFilteredOrders.length },
-          { label: 'Concluídas', value: orderKpiMetrics.completed },
+          { label: 'Não Faturadas', value: orderKpiMetrics.notBilled },
           { label: 'Faturadas', value: `${orderKpiMetrics.billed} (${orderKpiMetrics.billedPercentage}%)` },
           { label: 'Aguardando Fat.', value: orderKpiMetrics.billingPending },
-          { label: 'Ciclo Fat. (Criação➔Pgto)', value: orderKpiMetrics.avgBillingCycle },
-          { label: 'Abertas', value: orderKpiMetrics.open },
-          { label: 'Em Andamento', value: orderKpiMetrics.inProgress },
-          { label: 'Urgentes', value: orderKpiMetrics.urgent }
+          { label: 'Fat. Atrasadas (>30d)', value: orderKpiMetrics.billingOverdue },
+          { label: 'Concluídas', value: orderKpiMetrics.completed },
+          { label: 'Ciclo Fat.', value: orderKpiMetrics.avgBillingCycle },
+          { label: 'Abertas', value: orderKpiMetrics.open }
         ]
       });
     } else if (activeTab === 'billing') {
+      const customBillingTitle = statusFilter === 'not_billed'
+        ? 'Relatório Oficial de Ordens Não Faturadas (Auditoria Financeira)'
+        : statusFilter === 'billing_pending'
+        ? 'Relatório Oficial de Ordens Aguardando Faturamento'
+        : statusFilter === 'billing_overdue'
+        ? 'Relatório de Ordens com Faturamento Atrasado (>30 dias)'
+        : statusFilter === 'billed'
+        ? 'Relatório Oficial de Ordens Faturadas Confirmadas'
+        : 'Relatório Oficial de Auditoria Financeira & Faturamento';
+
       exportToPdf({
-        title: 'Relatório Oficial de Auditoria Financeira & Faturamento',
+        title: customBillingTitle,
         subtitle: `Ciclo e prazos de faturamento de ${finalFilteredBilling.length} ordens • ${periodDescription}`,
         data: finalFilteredBilling,
         tipo: 'faturamento',
@@ -662,10 +698,11 @@ function Reports() {
         dateTo: endDate,
         summary: [
           { label: 'Total Auditado', value: finalFilteredBilling.length },
-          { label: 'Faturadas Confirmadas', value: `${orderKpiMetrics.billed} (${orderKpiMetrics.billedPercentage}%)` },
-          { label: 'Aguardando Faturamento', value: orderKpiMetrics.billingPending },
-          { label: 'Ciclo Médio (Criação ➔ Pgto)', value: orderKpiMetrics.avgBillingCycle },
-          { label: 'Urgentes / Atrasadas', value: orderKpiMetrics.urgent }
+          { label: 'Não Faturadas', value: orderKpiMetrics.notBilled },
+          { label: 'Faturadas', value: `${orderKpiMetrics.billed} (${orderKpiMetrics.billedPercentage}%)` },
+          { label: 'Aguardando Fat.', value: orderKpiMetrics.billingPending },
+          { label: 'Atrasadas (>30d)', value: orderKpiMetrics.billingOverdue },
+          { label: 'Ciclo Médio', value: orderKpiMetrics.avgBillingCycle }
         ]
       });
     } else if (activeTab === 'tickets') {
@@ -1035,6 +1072,17 @@ function Reports() {
                 {billingEnabled && (
                   <button
                     type="button"
+                    className={`report-preset-pill ${statusFilter === 'not_billed' ? 'report-preset-pill--active' : ''}`}
+                    onClick={() => setStatusFilter('not_billed')}
+                    style={statusFilter === 'not_billed' ? { background: '#c2410c', borderColor: '#c2410c', color: '#fff', fontWeight: 700 } : {}}
+                    title="Todas as ordens de serviço não faturadas (em dia e atrasadas)"
+                  >
+                    🟠 Não Faturadas ({orderKpiMetrics.notBilled})
+                  </button>
+                )}
+                {billingEnabled && (
+                  <button
+                    type="button"
                     className={`report-preset-pill ${statusFilter === 'billed' ? 'report-preset-pill--active' : ''}`}
                     onClick={() => setStatusFilter('billed')}
                     style={statusFilter === 'billed' ? { background: '#059669', borderColor: '#059669', color: '#fff', fontWeight: 700 } : {}}
@@ -1047,9 +1095,21 @@ function Reports() {
                     type="button"
                     className={`report-preset-pill ${statusFilter === 'billing_pending' ? 'report-preset-pill--active' : ''}`}
                     onClick={() => setStatusFilter('billing_pending')}
-                    style={statusFilter === 'billing_pending' ? { background: '#ea580c', borderColor: '#ea580c', color: '#fff', fontWeight: 700 } : {}}
+                    style={statusFilter === 'billing_pending' ? { background: '#d97706', borderColor: '#d97706', color: '#fff', fontWeight: 700 } : {}}
+                    title="Ordens concluídas aguardando faturamento (em dia e atrasadas)"
                   >
-                    🟠 Aguardando Fat. ({orderKpiMetrics.billingPending})
+                    ⏳ Aguardando Fat. ({orderKpiMetrics.billingPending})
+                  </button>
+                )}
+                {billingEnabled && orderKpiMetrics.billingOverdue > 0 && (
+                  <button
+                    type="button"
+                    className={`report-preset-pill ${statusFilter === 'billing_overdue' ? 'report-preset-pill--active' : ''}`}
+                    onClick={() => setStatusFilter('billing_overdue')}
+                    style={statusFilter === 'billing_overdue' ? { background: '#dc2626', borderColor: '#dc2626', color: '#fff', fontWeight: 700 } : {}}
+                    title="Ordens concluídas com prazo de 30 dias expirado"
+                  >
+                    🔴 Fat. Atrasadas &gt;30d ({orderKpiMetrics.billingOverdue})
                   </button>
                 )}
                 <button
@@ -1094,6 +1154,15 @@ function Reports() {
                 </button>
                 <button
                   type="button"
+                  className={`report-preset-pill ${statusFilter === 'not_billed' ? 'report-preset-pill--active' : ''}`}
+                  onClick={() => setStatusFilter('not_billed')}
+                  style={statusFilter === 'not_billed' ? { background: '#c2410c', borderColor: '#c2410c', color: '#fff', fontWeight: 700 } : {}}
+                  title="Todas as ordens de serviço ainda não faturadas (em dia e atrasadas)"
+                >
+                  🟠 Não Faturadas ({orderKpiMetrics.notBilled})
+                </button>
+                <button
+                  type="button"
                   className={`report-preset-pill ${statusFilter === 'billed' ? 'report-preset-pill--active' : ''}`}
                   onClick={() => setStatusFilter('billed')}
                   style={statusFilter === 'billed' ? { background: '#059669', borderColor: '#059669', color: '#fff', fontWeight: 700 } : {}}
@@ -1104,15 +1173,27 @@ function Reports() {
                   type="button"
                   className={`report-preset-pill ${statusFilter === 'billing_pending' ? 'report-preset-pill--active' : ''}`}
                   onClick={() => setStatusFilter('billing_pending')}
-                  style={statusFilter === 'billing_pending' ? { background: '#ea580c', borderColor: '#ea580c', color: '#fff', fontWeight: 700 } : {}}
+                  style={statusFilter === 'billing_pending' ? { background: '#d97706', borderColor: '#d97706', color: '#fff', fontWeight: 700 } : {}}
+                  title="Ordens concluídas aguardando faturamento (em dia e atrasadas)"
                 >
-                  🟠 Aguardando Faturamento ({orderKpiMetrics.billingPending})
+                  ⏳ Aguardando Faturamento ({orderKpiMetrics.billingPending})
                 </button>
+                {orderKpiMetrics.billingOverdue > 0 && (
+                  <button
+                    type="button"
+                    className={`report-preset-pill ${statusFilter === 'billing_overdue' ? 'report-preset-pill--active' : ''}`}
+                    onClick={() => setStatusFilter('billing_overdue')}
+                    style={statusFilter === 'billing_overdue' ? { background: '#dc2626', borderColor: '#dc2626', color: '#fff', fontWeight: 700 } : {}}
+                    title="Ordens com prazo de faturamento excedido (>30 dias)"
+                  >
+                    🔴 Atrasadas &gt;30d ({orderKpiMetrics.billingOverdue})
+                  </button>
+                )}
                 <button
                   type="button"
                   className={`report-preset-pill ${statusFilter === 'critical' ? 'report-preset-pill--active' : ''}`}
                   onClick={() => setStatusFilter('critical')}
-                  style={statusFilter === 'critical' ? { background: '#dc2626', borderColor: '#dc2626', color: '#fff', fontWeight: 700 } : {}}
+                  style={statusFilter === 'critical' ? { background: '#991b1b', borderColor: '#991b1b', color: '#fff', fontWeight: 700 } : {}}
                 >
                   🚨 Prazo Crítico (&gt;20 dias)
                 </button>
@@ -1403,6 +1484,16 @@ function Reports() {
           {billingEnabled && (
             <>
               <article
+                className={`report-summary-card report-summary-card--not_billed ${statusFilter === 'not_billed' ? 'report-summary-card--active' : ''}`}
+                onClick={() => setStatusFilter(statusFilter === 'not_billed' ? 'all' : 'not_billed')}
+                title="Clique para filtrar todas as ordens ainda não faturadas (em dia e atrasadas)"
+              >
+                <span className="report-summary-label" style={{ color: '#c2410c' }}>Não Faturadas</span>
+                <strong className="report-summary-value" style={{ color: '#c2410c' }}>{orderKpiMetrics.notBilled}</strong>
+                <small className="report-summary-hint">todas pendentes</small>
+              </article>
+
+              <article
                 className={`report-summary-card report-summary-card--billed ${statusFilter === 'billed' ? 'report-summary-card--active' : ''}`}
                 onClick={() => setStatusFilter(statusFilter === 'billed' ? 'all' : 'billed')}
                 title="Clique para filtrar apenas faturadas"
@@ -1413,13 +1504,15 @@ function Reports() {
               </article>
 
               <article
-                className={`report-summary-card report-summary-card--not_billed ${statusFilter === 'billing_pending' ? 'report-summary-card--active' : ''}`}
+                className={`report-summary-card report-summary-card--pending ${statusFilter === 'billing_pending' ? 'report-summary-card--active' : ''}`}
                 onClick={() => setStatusFilter(statusFilter === 'billing_pending' ? 'all' : 'billing_pending')}
-                title="Clique para filtrar ordens aguardando faturamento"
+                title="Clique para filtrar ordens concluídas aguardando faturamento (em dia e atrasadas)"
               >
                 <span className="report-summary-label" style={{ color: '#b45309' }}>Aguardando Fat.</span>
                 <strong className="report-summary-value" style={{ color: '#b45309' }}>{orderKpiMetrics.billingPending}</strong>
-                <small className="report-summary-hint">prazo 30 dias</small>
+                <small className="report-summary-hint">
+                  {orderKpiMetrics.billingOverdue > 0 ? `${orderKpiMetrics.billingOnTime} em dia • ${orderKpiMetrics.billingOverdue} atrasadas` : 'prazo 30 dias'}
+                </small>
               </article>
 
               <article
@@ -1446,7 +1539,7 @@ function Reports() {
       )}
 
       {activeTab === 'billing' && (
-        <section className="report-summary-cards" style={{ marginBottom: '24px', gridTemplateColumns: 'repeat(5, 1fr)' }}>
+        <section className="report-summary-cards" style={{ marginBottom: '24px', gridTemplateColumns: 'repeat(6, 1fr)' }}>
           <article
             className={`report-summary-card ${statusFilter === 'all' ? 'report-summary-card--active' : ''}`}
             onClick={() => setStatusFilter('all')}
@@ -1458,8 +1551,18 @@ function Reports() {
           </article>
 
           <article
+            className={`report-summary-card report-summary-card--not_billed ${statusFilter === 'not_billed' ? 'report-summary-card--active' : ''}`}
+            onClick={() => setStatusFilter(statusFilter === 'not_billed' ? 'all' : 'not_billed')}
+            title="Clique para filtrar todas as ordens ainda não faturadas"
+          >
+            <span className="report-summary-label" style={{ color: '#c2410c' }}>Não Faturadas</span>
+            <strong className="report-summary-value" style={{ color: '#c2410c' }}>{orderKpiMetrics.notBilled}</strong>
+            <small className="report-summary-hint">todas pendentes</small>
+          </article>
+
+          <article
             className={`report-summary-card report-summary-card--billed ${statusFilter === 'billed' ? 'report-summary-card--active' : ''}`}
-            onClick={() => setStatusFilter('billed')}
+            onClick={() => setStatusFilter(statusFilter === 'billed' ? 'all' : 'billed')}
             title="Clique para filtrar ordens faturadas"
           >
             <span className="report-summary-label" style={{ color: '#059669' }}>Faturadas Confirmadas</span>
@@ -1468,13 +1571,15 @@ function Reports() {
           </article>
 
           <article
-            className={`report-summary-card report-summary-card--not_billed ${statusFilter === 'billing_pending' ? 'report-summary-card--active' : ''}`}
-            onClick={() => setStatusFilter('billing_pending')}
-            title="Clique para filtrar ordens aguardando faturamento"
+            className={`report-summary-card report-summary-card--pending ${statusFilter === 'billing_pending' ? 'report-summary-card--active' : ''}`}
+            onClick={() => setStatusFilter(statusFilter === 'billing_pending' ? 'all' : 'billing_pending')}
+            title="Clique para filtrar ordens aguardando faturamento (em dia e atrasadas)"
           >
-            <span className="report-summary-label" style={{ color: '#b45309' }}>Aguardando Faturamento</span>
+            <span className="report-summary-label" style={{ color: '#b45309' }}>Aguardando Fat.</span>
             <strong className="report-summary-value" style={{ color: '#b45309' }}>{orderKpiMetrics.billingPending}</strong>
-            <small className="report-summary-hint">prazo de até 30 dias</small>
+            <small className="report-summary-hint">
+              {orderKpiMetrics.billingOverdue > 0 ? `${orderKpiMetrics.billingOnTime} em dia • ${orderKpiMetrics.billingOverdue} atrasadas` : 'prazo 30 dias'}
+            </small>
           </article>
 
           <article className="report-summary-card report-summary-card--cycle">
@@ -1485,7 +1590,7 @@ function Reports() {
 
           <article
             className={`report-summary-card report-summary-card--urgent ${statusFilter === 'critical' ? 'report-summary-card--active' : ''}`}
-            onClick={() => setStatusFilter('critical')}
+            onClick={() => setStatusFilter(statusFilter === 'critical' ? 'all' : 'critical')}
             title="Ordens com mais de 20 dias após conclusão sem faturamento"
           >
             <span className="report-summary-label">Prazo Crítico</span>
