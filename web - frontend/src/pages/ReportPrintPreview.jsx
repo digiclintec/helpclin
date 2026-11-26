@@ -55,6 +55,27 @@ function formatDate(value) {
   return `${date}, ${time}`;
 }
 
+function getCompactOrderStatusLabel(status) {
+  switch (status) {
+    case 'open':
+      return 'Aberta';
+    case 'in_progress':
+      return 'Em andam.';
+    case 'completed':
+      return 'Concluída';
+    case 'billing_pending':
+      return 'Atrasada';
+    case 'payment_informed':
+      return 'Pgto Inf.';
+    case 'billed':
+      return 'Faturada';
+    case 'cancelled':
+      return 'Cancelada';
+    default:
+      return status || 'Aberta';
+  }
+}
+
 function formatDateOnly(value) {
   if (!value) return '—';
   const { date } = formatDateParts(value);
@@ -84,11 +105,11 @@ export default function ReportPrintPreview() {
   const statusParam = searchParams.get('status') || '';
   const dateFromParam = searchParams.get('dataInicio') || '';
   const dateToParam = searchParams.get('dataFim') || '';
-  const orientParam = searchParams.get('orientacao') || 'portrait';
+  const orientParam = searchParams.get('orientacao') || 'landscape';
   const autoPrintParam = searchParams.get('autoprint') === '1' || searchParams.get('autoPrint') === 'true';
 
   const [reportType, setReportType] = useState(tipoParam);
-  const [orientation, setOrientation] = useState(orientParam === 'landscape' ? 'landscape' : 'portrait');
+  const [orientation, setOrientation] = useState(orientParam === 'portrait' ? 'portrait' : 'landscape');
   const [printScale, setPrintScale] = useState('100%'); // '100%' | '90%' | '80%'
   const [orders, setOrders] = useState([]);
   const [tickets, setTickets] = useState([]);
@@ -720,16 +741,16 @@ export default function ReportPrintPreview() {
             <table className="report-table">
               <thead>
                 <tr>
-                  <th style={{ width: orientation === 'portrait' ? '8.5%' : '8%' }}>Nº OS</th>
-                  <th style={{ width: orientation === 'portrait' ? '7%' : '7%' }}>Prioridade</th>
-                  <th style={{ width: orientation === 'portrait' ? '7.5%' : '7.5%' }}>Estado</th>
-                  <th style={{ width: orientation === 'portrait' ? '12%' : '14%' }}>Solicitante / Setor</th>
-                  <th style={{ width: orientation === 'portrait' ? '12.5%' : '14.5%' }}>Equipamento / Ativo</th>
-                  <th style={{ width: orientation === 'portrait' ? '10.5%' : '11.5%' }}>Responsável</th>
-                  <th style={{ width: orientation === 'portrait' ? '9%' : '9%' }}>Serviço</th>
-                  <th style={{ width: orientation === 'portrait' ? '9%' : '7.5%', textAlign: 'center' }}>Criação</th>
-                  <th style={{ width: orientation === 'portrait' ? '9%' : '7.5%', textAlign: 'center' }}>Conclusão</th>
-                  <th style={{ width: orientation === 'portrait' ? '15%' : '13.5%', textAlign: 'center' }} className="th-billing">
+                  <th style={{ width: orientation === 'portrait' ? '8%' : '7.5%' }}>Nº OS</th>
+                  <th style={{ width: orientation === 'portrait' ? '7.5%' : '6.5%' }}>Prioridade</th>
+                  <th style={{ width: orientation === 'portrait' ? '9%' : '8%' }}>Estado</th>
+                  <th style={{ width: orientation === 'portrait' ? '13%' : '14%' }}>Solicitante / Setor</th>
+                  <th style={{ width: orientation === 'portrait' ? '14%' : '16%' }}>Equipamento / Ativo</th>
+                  <th style={{ width: orientation === 'portrait' ? '11%' : '11.5%' }}>Responsável</th>
+                  <th style={{ width: orientation === 'portrait' ? '11%' : '12%' }}>Serviço</th>
+                  <th style={{ width: orientation === 'portrait' ? '7%' : '6.5%', textAlign: 'center' }}>Criação</th>
+                  <th style={{ width: orientation === 'portrait' ? '7%' : '6.5%', textAlign: 'center' }}>Conclusão</th>
+                  <th style={{ width: orientation === 'portrait' ? '12.5%' : '11.5%', textAlign: 'center' }} className="th-billing">
                     Faturamento
                   </th>
                 </tr>
@@ -763,7 +784,7 @@ export default function ReportPrintPreview() {
                         </td>
                         <td>
                           <span className={`table-badge badge--${eff}`}>
-                            {getOrderStatusLabel(eff)}
+                            {getCompactOrderStatusLabel(eff)}
                           </span>
                         </td>
                         <td>
@@ -873,7 +894,7 @@ export default function ReportPrintPreview() {
                         </td>
                         <td>
                           <span className={`table-badge badge--${eff}`}>
-                            {getOrderStatusLabel(eff)}
+                            {getCompactOrderStatusLabel(eff)}
                           </span>
                         </td>
                         <td><div className="cell-main-text">{o.patient_name || 'Recepção'}</div></td>
@@ -1280,15 +1301,20 @@ export default function ReportPrintPreview() {
         }
 
         .doc--portrait .report-table th {
-          padding: 5px 2px !important;
-          font-size: 6.5pt !important;
-          white-space: nowrap !important;
+          padding: 6px 3px !important;
+          font-size: 6.2pt !important;
+          white-space: normal !important;
+          word-break: normal !important;
+          overflow-wrap: break-word !important;
           letter-spacing: 0px !important;
+          line-height: 1.15 !important;
+          text-align: left;
         }
 
         .doc--portrait .report-table td {
-          padding: 4px 2.5px !important;
-          font-size: 6.9pt !important;
+          padding: 4px 3px !important;
+          font-size: 6.8pt !important;
+          line-height: 1.25 !important;
         }
 
         /* Header */
@@ -1467,14 +1493,16 @@ export default function ReportPrintPreview() {
         }
 
         .report-table th {
-          padding: 5px 4px;
+          padding: 6px 4px;
           font-weight: 700;
-          font-size: 6.8pt;
+          font-size: 6.7pt;
           text-transform: uppercase;
-          letter-spacing: 0.1px;
+          letter-spacing: 0px;
           border-bottom: 1.5px solid #0d2a2b;
-          line-height: 1.15;
-          white-space: nowrap !important;
+          line-height: 1.2;
+          white-space: normal !important;
+          word-break: normal;
+          overflow-wrap: break-word;
           vertical-align: middle;
         }
 
@@ -1482,7 +1510,7 @@ export default function ReportPrintPreview() {
           background: #0f3234;
           color: #a7f3d0;
           text-align: center;
-          white-space: nowrap !important;
+          white-space: normal !important;
         }
 
         .report-table td {
@@ -1491,8 +1519,7 @@ export default function ReportPrintPreview() {
           color: #223532;
           vertical-align: middle;
           font-size: 7.2pt;
-          line-height: 1.2;
-          overflow: hidden;
+          line-height: 1.25;
           box-sizing: border-box;
         }
 
@@ -1510,13 +1537,16 @@ export default function ReportPrintPreview() {
         /* Table Badges */
         .table-badge {
           display: inline-block;
-          padding: 1px 4px;
+          padding: 2px 4px;
           border-radius: 3px;
-          font-size: 6.8pt;
+          font-size: 6.2pt;
           font-weight: 700;
           text-transform: uppercase;
-          line-height: 1.15;
-          white-space: nowrap;
+          line-height: 1.1;
+          white-space: normal;
+          word-break: normal;
+          text-align: center;
+          max-width: 100%;
         }
 
         .badge--urgent { background: #fee2e2; color: #dc2626; }
@@ -1542,27 +1572,33 @@ export default function ReportPrintPreview() {
         .cell-main-text {
           font-weight: 600;
           color: #143b3d;
-          font-size: 7.8pt;
-          line-height: 1.2;
-          overflow: hidden;
-          text-overflow: ellipsis;
+          font-size: 7.2pt;
+          line-height: 1.25;
+          white-space: normal;
+          word-break: normal;
+          overflow-wrap: break-word;
         }
 
         .cell-sub-item {
           display: flex;
-          align-items: center;
-          gap: 4px;
+          align-items: flex-start;
+          gap: 3px;
         }
         .cell-icon {
           color: #4b8391;
           display: inline-flex;
           flex-shrink: 0;
+          margin-top: 1px;
         }
 
         .cell-service-type {
-          font-size: 7.2pt;
+          font-size: 6.8pt;
           color: #3b504d;
-          line-height: 1.15;
+          line-height: 1.2;
+          white-space: normal;
+          word-break: normal;
+          overflow-wrap: break-word;
+        }
         }
 
         /* Single-line Date formatting */
@@ -1615,20 +1651,20 @@ export default function ReportPrintPreview() {
         .cell-billing, .cell-billing-inline {
           vertical-align: middle;
           text-align: center;
-          white-space: nowrap !important;
-          overflow: hidden;
+          white-space: normal !important;
         }
 
         .billing-badge-inline {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          gap: 3px;
-          padding: 1.5px 5px;
+          flex-wrap: wrap;
+          gap: 2px;
+          padding: 2px 4px;
           border-radius: 4px;
-          font-size: 6.4pt;
+          font-size: 6.3pt;
           font-weight: 700;
-          white-space: nowrap !important;
+          white-space: normal !important;
           line-height: 1.15;
           box-sizing: border-box;
           max-width: 100%;
@@ -1645,7 +1681,6 @@ export default function ReportPrintPreview() {
           font-weight: 700;
           font-size: 6.2pt;
           letter-spacing: -0.15px;
-          white-space: nowrap !important;
         }
 
         .billing-badge-inline--pending {
@@ -1658,7 +1693,6 @@ export default function ReportPrintPreview() {
           color: #c2410c;
           font-size: 5.8pt;
           font-weight: 600;
-          white-space: nowrap !important;
         }
 
         .billing-badge-inline--open {
@@ -1666,7 +1700,6 @@ export default function ReportPrintPreview() {
           color: #475569;
           border: 1px solid #e2e8f0;
           font-size: 6.1pt;
-          white-space: nowrap !important;
         }
 
         .billing-badge-icon {

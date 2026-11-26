@@ -138,8 +138,8 @@ function Reports() {
   const [activeTab, setActiveTab] = useState('orders');
 
   // 3. CONFIGURAÇÃO DE IMPRESSÃO A4
-  // 'portrait' (210x297mm - Vertical Padrão) | 'landscape' (297x210mm - Horizontal)
-  const [printOrientation, setPrintOrientation] = useState('portrait');
+  // 'portrait' (210x297mm - Vertical) | 'landscape' (297x210mm - Horizontal Padrão para Tabelas Amplas)
+  const [printOrientation, setPrintOrientation] = useState('landscape');
 
   // 4. FILTROS DE PERÍODO & DATA
   const [datePreset, setDatePreset] = useState('30days');
