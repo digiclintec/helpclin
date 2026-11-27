@@ -555,7 +555,9 @@ function Dashboard() {
         requestedDescription: editingOrder.service_requested_description ?? editingOrder.description,
         performedDescription: editingOrder.service_performed_description,
         status: editingOrder.status,
-        technicianId: editingOrder.technician_id
+        technicianId: editingOrder.technician_id,
+        serviceValue: editingOrder.service_value !== undefined && editingOrder.service_value !== null ? editingOrder.service_value : 0,
+        visitFee: editingOrder.visit_fee !== undefined && editingOrder.visit_fee !== null ? editingOrder.visit_fee : 0
       });
 
       setOrders(
@@ -1948,6 +1950,65 @@ function Dashboard() {
                 placeholder="Descreva as peças trocadas, procedimentos executados e testes realizados..."
               />
             </label>
+
+            {/* Pricing / Valores da OS */}
+            <div className="os-pricing-card" style={{ gridColumn: '1 / -1' }}>
+              <div className="os-pricing-card-header">
+                <span className="os-pricing-icon-badge">
+                  <DollarSign size={16} />
+                </span>
+                <strong className="os-pricing-title">
+                  Valores &amp; Cobrança da Ordem
+                </strong>
+              </div>
+
+              <div className="dash-form-row">
+                <div className="dash-form-field">
+                  <label>Valor do Serviço / Peças (R$)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={editingOrder.service_value ?? ''}
+                    onChange={(e) =>
+                      setEditingOrder({
+                        ...editingOrder,
+                        service_value: e.target.value,
+                        total_value: Number(e.target.value || 0) + Number(editingOrder.visit_fee || 0)
+                      })
+                    }
+                    placeholder="0,00"
+                  />
+                </div>
+
+                <div className="dash-form-field">
+                  <label>Valor da Visita Adicional (R$)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={editingOrder.visit_fee ?? ''}
+                    onChange={(e) =>
+                      setEditingOrder({
+                        ...editingOrder,
+                        visit_fee: e.target.value,
+                        total_value: Number(editingOrder.service_value || 0) + Number(e.target.value || 0)
+                      })
+                    }
+                    placeholder="0,00 (opcional)"
+                  />
+                </div>
+              </div>
+
+              <div className="os-pricing-total-row">
+                <span className="os-pricing-total-label">Valor Total da Ordem:</span>
+                <strong className="os-pricing-total-value">
+                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+                    Number(editingOrder.service_value || 0) + Number(editingOrder.visit_fee || 0)
+                  )}
+                </strong>
+              </div>
+            </div>
 
             <div className="order-editor-actions">
               <button type="button" className="secondary-button" onClick={() => setEditingOrder(null)}>

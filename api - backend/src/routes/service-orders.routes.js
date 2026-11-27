@@ -5,6 +5,22 @@ import pool from '../database.js';
 const router = Router();
 const priorityMap = { 'Pouco urgente': 'low', Baixa: 'low', low: 'low', Normal: 'normal', normal: 'normal', Alta: 'high', high: 'high', Urgente: 'urgent', urgent: 'urgent' };
 
+function parseMoney(val) {
+  if (val === undefined || val === null || val === '') return null;
+  if (typeof val === 'number') return isNaN(val) ? null : val;
+  const str = String(val).trim().replace('R$', '').trim();
+  if (str.includes(',') && str.includes('.')) {
+    const num = Number(str.replace(/\./g, '').replace(',', '.'));
+    return isNaN(num) ? null : num;
+  }
+  if (str.includes(',')) {
+    const num = Number(str.replace(',', '.'));
+    return isNaN(num) ? null : num;
+  }
+  const num = Number(str);
+  return isNaN(num) ? null : num;
+}
+
 router.get('/', async (_request, response) => {
   try {
     const result = await pool.query(
@@ -31,8 +47,8 @@ router.patch('/:id', async (request, response) => {
     return response.status(400).json({ message: 'Prioridade inválida.' });
   }
 
-  const parsedServiceValue = serviceValue !== undefined && serviceValue !== null && serviceValue !== '' ? Number(serviceValue) : null;
-  const parsedVisitFee = visitFee !== undefined && visitFee !== null && visitFee !== '' ? Number(visitFee) : null;
+  const parsedServiceValue = parseMoney(serviceValue);
+  const parsedVisitFee = parseMoney(visitFee);
 
   try {
     const client = await pool.connect();
@@ -235,8 +251,8 @@ router.post('/', async (request, response) => {
     return response.status(400).json({ message: 'Prioridade inválida.' });
   }
 
-  const numServiceValue = Number(serviceValue) || 0;
-  const numVisitFee = Number(visitFee) || 0;
+  const numServiceValue = parseMoney(serviceValue) || 0;
+  const numVisitFee = parseMoney(visitFee) || 0;
   const numTotalValue = numServiceValue + numVisitFee;
 
   try {
