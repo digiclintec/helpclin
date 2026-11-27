@@ -1132,8 +1132,8 @@ function ServiceOrders() {
                   <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', flex: 1 }}>
                     <Lock size={20} style={{ flexShrink: 0, marginTop: '2px' }} />
                     <div>
-                      <strong>⚠️ Acesso Técnico Bloqueado: Faturamento Atrasado (&gt; 30 dias)</strong>
-                      <span>Esta ordem de serviço foi concluída há {daysSinceCompletion} dias e ultrapassou o prazo de 30 dias para faturamento. O acesso a modificações está bloqueado até a confirmação de quitação pelo administrador.</span>
+                      <strong>Acesso Técnico: Faturamento Vencido (&gt; 30 dias)</strong>
+                      <span>Os dados operacionais da ordem estão congelados pelo prazo de faturamento. <strong>A alteração e lançamento de valores e visita estão liberados</strong> para você preencher e salvar normalmente.</span>
                     </div>
                   </div>
                   <button
@@ -1358,7 +1358,6 @@ function ServiceOrders() {
                             total_value: Number(e.target.value || 0) + Number(editingOrder.visit_fee || 0)
                           })
                         }
-                        disabled={isTechnicianLocked}
                         placeholder="0,00"
                       />
                     </div>
@@ -1377,7 +1376,6 @@ function ServiceOrders() {
                             total_value: Number(editingOrder.service_value || 0) + Number(e.target.value || 0)
                           })
                         }
-                        disabled={isTechnicianLocked}
                         placeholder="0,00 (opcional)"
                       />
                     </div>
@@ -1406,7 +1404,7 @@ function ServiceOrders() {
                   <button
                     type="submit"
                     className="primary-button"
-                    disabled={isSaving || isTechnicianLocked}
+                    disabled={isSaving}
                   >
                     {isSaving ? 'Salvando...' : 'Salvar Alterações'}
                   </button>

@@ -5373,6 +5373,24 @@ button { font: inherit; cursor: pointer; }
   color: #94a3b8 !important;
 }
 
+/* 6. Overdue Lock Banners in Dark Mode */
+.app-shell[data-theme="dark"] .billing-technician-lock {
+  background: rgba(239, 68, 68, 0.15) !important;
+  border-color: rgba(239, 68, 68, 0.35) !important;
+  color: #fca5a5 !important;
+}
+
+.app-shell[data-theme="dark"] .billing-technician-lock strong {
+  color: #fecaca !important;
+}
+
+.app-shell[data-theme="dark"] .billing-client-alert {
+  background: rgba(249, 115, 22, 0.15) !important;
+  border-color: rgba(249, 115, 22, 0.35) !important;
+  color: #fdba74 !important;
+}
+
+
 
 
 
