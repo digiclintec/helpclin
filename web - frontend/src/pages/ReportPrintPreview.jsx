@@ -115,6 +115,7 @@ export default function ReportPrintPreview() {
 
   const [reportType, setReportType] = useState(tipoParam);
   const [orientation, setOrientation] = useState(orientParam === 'portrait' ? 'portrait' : 'landscape');
+  const isPortrait = orientation === 'portrait';
   const [printScale, setPrintScale] = useState('100%'); // '100%' | '90%' | '80%'
   const [orders, setOrders] = useState([]);
   const [tickets, setTickets] = useState([]);
@@ -644,7 +645,7 @@ export default function ReportPrintPreview() {
 
         {/* Summary Metric Cards */}
         {customSummary && customSummary.length > 0 ? (
-          <section className="document-summary-grid" style={{ gridTemplateColumns: `repeat(${Math.min(customSummary.length, 9)}, 1fr)` }}>
+          <section className="document-summary-grid" style={{ gridTemplateColumns: isPortrait ? 'repeat(4, 1fr)' : `repeat(${Math.min(customSummary.length, 9)}, 1fr)` }}>
             {customSummary.map((item, idx) => (
               <div key={idx} className="summary-box" style={item.label?.toLowerCase().includes('valor') ? { borderTopColor: '#059669', background: '#f0fdf4' } : {}}>
                 <span style={item.label?.toLowerCase().includes('valor') ? { color: '#047857', fontWeight: 700 } : {}}>{item.label}</span>
@@ -653,7 +654,7 @@ export default function ReportPrintPreview() {
             ))}
           </section>
         ) : reportType === 'faturamento' ? (
-          <section className="document-summary-grid" style={{ gridTemplateColumns: 'repeat(7, 1fr)' }}>
+          <section className="document-summary-grid" style={{ gridTemplateColumns: isPortrait ? 'repeat(4, 1fr)' : 'repeat(7, 1fr)' }}>
             <div className="summary-box">
               <span>Total Auditado</span>
               <strong>{orderKpis.total}</strong>
@@ -684,7 +685,7 @@ export default function ReportPrintPreview() {
             </div>
           </section>
         ) : reportType === 'ordens' ? (
-          <section className="document-summary-grid" style={{ gridTemplateColumns: 'repeat(9, 1fr)' }}>
+          <section className="document-summary-grid" style={{ gridTemplateColumns: isPortrait ? 'repeat(4, 1fr)' : 'repeat(9, 1fr)' }}>
             <div className="summary-box">
               <span>Total</span>
               <strong>{orderKpis.total}</strong>
@@ -772,26 +773,41 @@ export default function ReportPrintPreview() {
           {reportType === 'ordens' && (
             <table className="report-table">
               <thead>
-                <tr>
-                  <th style={{ width: orientation === 'portrait' ? '7.5%' : '7%' }}>Nº OS</th>
-                  <th style={{ width: orientation === 'portrait' ? '7%' : '6%' }}>Prioridade</th>
-                  <th style={{ width: orientation === 'portrait' ? '8.5%' : '7.5%' }}>Estado</th>
-                  <th style={{ width: orientation === 'portrait' ? '12.5%' : '13.5%' }}>Solicitante / Setor</th>
-                  <th style={{ width: orientation === 'portrait' ? '13.5%' : '15%' }}>Equipamento / Ativo</th>
-                  <th style={{ width: orientation === 'portrait' ? '10.5%' : '11%' }}>Responsável</th>
-                  <th style={{ width: orientation === 'portrait' ? '10.5%' : '11%' }}>Serviço</th>
-                  <th style={{ width: orientation === 'portrait' ? '10%' : '9.5%', textAlign: 'right' }}>Valor (R$)</th>
-                  <th style={{ width: orientation === 'portrait' ? '6.5%' : '6%', textAlign: 'center' }}>Criação</th>
-                  <th style={{ width: orientation === 'portrait' ? '6.5%' : '6%', textAlign: 'center' }}>Conclusão</th>
-                  <th style={{ width: orientation === 'portrait' ? '11.5%' : '10.5%', textAlign: 'center' }} className="th-billing">
-                    Faturamento
-                  </th>
-                </tr>
+                {isPortrait ? (
+                  <tr>
+                    <th style={{ width: '9%' }}>Nº OS</th>
+                    <th style={{ width: '10%' }}>Estado</th>
+                    <th style={{ width: '16%' }}>Solicitante / Setor</th>
+                    <th style={{ width: '18%' }}>Equipamento / Ativo</th>
+                    <th style={{ width: '17%' }}>Serviço</th>
+                    <th style={{ width: '10.5%' }}>Datas (Cri/Con)</th>
+                    <th style={{ width: '9.5%', textAlign: 'right' }}>Valor (R$)</th>
+                    <th style={{ width: '10%', textAlign: 'center' }} className="th-billing">
+                      Faturamento
+                    </th>
+                  </tr>
+                ) : (
+                  <tr>
+                    <th style={{ width: '7%' }}>Nº OS</th>
+                    <th style={{ width: '6%' }}>Prioridade</th>
+                    <th style={{ width: '7.5%' }}>Estado</th>
+                    <th style={{ width: '13.5%' }}>Solicitante / Setor</th>
+                    <th style={{ width: '15%' }}>Equipamento / Ativo</th>
+                    <th style={{ width: '11%' }}>Responsável</th>
+                    <th style={{ width: '11%' }}>Serviço</th>
+                    <th style={{ width: '9.5%', textAlign: 'right' }}>Valor (R$)</th>
+                    <th style={{ width: '6%', textAlign: 'center' }}>Criação</th>
+                    <th style={{ width: '6%', textAlign: 'center' }}>Conclusão</th>
+                    <th style={{ width: '10.5%', textAlign: 'center' }} className="th-billing">
+                      Faturamento
+                    </th>
+                  </tr>
+                )}
               </thead>
               <tbody>
                 {orders.length === 0 ? (
                   <tr>
-                    <td colSpan={11} className="table-empty-cell">
+                    <td colSpan={isPortrait ? 8 : 11} className="table-empty-cell">
                       {isLoading ? 'Carregando registros do servidor...' : 'Nenhuma ordem de serviço encontrada.'}
                     </td>
                   </tr>
@@ -809,22 +825,35 @@ export default function ReportPrintPreview() {
                           <strong className="os-number">
                             OS-{String(o.order_number || o.id).padStart(5, '0')}
                           </strong>
+                          {isPortrait && ['high', 'alta', 'urgent', 'urgente'].includes((o.priority || '').toLowerCase()) && (
+                            <div style={{ marginTop: '2px' }}>
+                              <span className={`table-badge ${getPriorityClass(o.priority)}`} style={{ fontSize: '5.5pt', padding: '1px 3px' }}>
+                                {getPriorityLabel(o.priority)}
+                              </span>
+                            </div>
+                          )}
                         </td>
-                        <td>
-                          <span className={`table-badge ${getPriorityClass(o.priority)}`}>
-                            {getPriorityLabel(o.priority)}
-                          </span>
-                        </td>
+
+                        {!isPortrait && (
+                          <td>
+                            <span className={`table-badge ${getPriorityClass(o.priority)}`}>
+                              {getPriorityLabel(o.priority)}
+                            </span>
+                          </td>
+                        )}
+
                         <td>
                           <span className={`table-badge badge--${eff}`}>
                             {getCompactOrderStatusLabel(eff)}
                           </span>
                         </td>
+
                         <td>
                           <div className="cell-main-text" title={o.patient_name || 'Recepção'}>
                             {o.patient_name || 'Recepção'}
                           </div>
                         </td>
+
                         <td>
                           <div className="cell-sub-item">
                             <span className="cell-icon">
@@ -835,16 +864,56 @@ export default function ReportPrintPreview() {
                             </span>
                           </div>
                         </td>
-                        <td>
-                          <div className="cell-main-text" title={o.technician_name || 'Não atribuído'}>
-                            {o.technician_name || 'Não atribuído'}
-                          </div>
-                        </td>
+
+                        {!isPortrait && (
+                          <td>
+                            <div className="cell-main-text" title={o.technician_name || 'Não atribuído'}>
+                              {o.technician_name || 'Não atribuído'}
+                            </div>
+                          </td>
+                        )}
+
                         <td>
                           <div className="cell-service-type" title={o.service_type || 'Manutenção'}>
                             {o.service_type || 'Manutenção'}
                           </div>
+                          {isPortrait && o.technician_name && (
+                            <div style={{ fontSize: '6.2pt', color: '#64748b', marginTop: '2px' }}>
+                              Resp: {o.technician_name}
+                            </div>
+                          )}
                         </td>
+
+                        {isPortrait ? (
+                          <td>
+                            <div className="cell-dates-stacked">
+                              {createdParts.date && createdParts.date !== '—' && (
+                                <span>Cri: <strong>{createdParts.date}</strong></span>
+                              )}
+                              {completedParts.date && completedParts.date !== '—' && (
+                                <span>Con: <strong style={{ color: '#047857' }}>{completedParts.date}</strong></span>
+                              )}
+                            </div>
+                          </td>
+                        ) : (
+                          <>
+                            <td className="cell-date-inline" title={createdParts.time ? `Criada em ${createdParts.date} às ${createdParts.time}` : createdParts.date}>
+                              {createdParts.date && createdParts.date !== '—' ? (
+                                <span className="date-dmy-inline">{createdParts.date}</span>
+                              ) : (
+                                <span className="date-empty">—</span>
+                              )}
+                            </td>
+                            <td className="cell-date-inline" title={completedParts.time ? `Concluída em ${completedParts.date} às ${completedParts.time}` : completedParts.date}>
+                              {completedParts.date && completedParts.date !== '—' ? (
+                                <span className="date-dmy-inline">{completedParts.date}</span>
+                              ) : (
+                                <span className="date-empty">—</span>
+                              )}
+                            </td>
+                          </>
+                        )}
+
                         <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                           <strong style={{ fontSize: '10.5px', color: '#047857' }}>
                             {formatCurrency(Number(o.total_value) || (Number(o.service_value || 0) + Number(o.visit_fee || 0)))}
@@ -855,20 +924,7 @@ export default function ReportPrintPreview() {
                             </div>
                           )}
                         </td>
-                        <td className="cell-date-inline" title={createdParts.time ? `Criada em ${createdParts.date} às ${createdParts.time}` : createdParts.date}>
-                          {createdParts.date && createdParts.date !== '—' ? (
-                            <span className="date-dmy-inline">{createdParts.date}</span>
-                          ) : (
-                            <span className="date-empty">—</span>
-                          )}
-                        </td>
-                        <td className="cell-date-inline" title={completedParts.time ? `Concluída em ${completedParts.date} às ${completedParts.time}` : completedParts.date}>
-                          {completedParts.date && completedParts.date !== '—' ? (
-                            <span className="date-dmy-inline">{completedParts.date}</span>
-                          ) : (
-                            <span className="date-empty">—</span>
-                          )}
-                        </td>
+
                         <td className="cell-billing-inline">
                           {o.status === 'billed' || eff === 'billed' ? (
                             <span className="billing-badge-inline billing-badge-inline--paid" title={`Faturada em ${billedParts.date}`}>
@@ -898,16 +954,17 @@ export default function ReportPrintPreview() {
               {orders.length > 0 && (
                 <tfoot>
                   <tr style={{ background: '#f8faf9', borderTop: '2px solid #123b3d' }}>
-                    <td colSpan={7} style={{ padding: '7px 8px', fontSize: '10px', fontWeight: 800, color: '#123b3d' }}>
+                    <td colSpan={isPortrait ? 5 : 7} style={{ padding: '7px 8px', fontSize: '10px', fontWeight: 800, color: '#123b3d' }}>
                       VALOR TOTAL DAS ORDENS LISTADAS ({orders.length} ordens):
                       <span style={{ fontWeight: 500, color: '#64748b', marginLeft: '6px', fontSize: '9px' }}>
                         (Serviços: {formatCurrency(orderKpis.serviceTotal)} | Visitas Adicionais: {formatCurrency(orderKpis.visitFeeTotal)})
                       </span>
                     </td>
+                    {isPortrait && <td></td>}
                     <td style={{ padding: '7px 8px', textAlign: 'right', fontSize: '11.5px', fontWeight: 900, color: '#047857', whiteSpace: 'nowrap' }}>
                       {formatCurrency(orderKpis.totalValue)}
                     </td>
-                    <td colSpan={3} style={{ padding: '7px 8px', fontSize: '9px', color: '#64748b', textAlign: 'center' }}>
+                    <td colSpan={isPortrait ? 1 : 3} style={{ padding: '7px 8px', fontSize: '9px', color: '#64748b', textAlign: 'center' }}>
                       Fat: {formatCurrency(orderKpis.billedValue)} | Pend: {formatCurrency(orderKpis.notBilledValue)}
                     </td>
                   </tr>
@@ -919,23 +976,36 @@ export default function ReportPrintPreview() {
           {reportType === 'faturamento' && (
             <table className="report-table">
               <thead>
-                <tr>
-                  <th style={{ width: '7%' }}>Nº OS</th>
-                  <th style={{ width: '7%' }}>Estado OS</th>
-                  <th style={{ width: '14%' }}>Solicitante / Setor</th>
-                  <th style={{ width: '14%' }}>Equipamento / Ativo</th>
-                  <th style={{ width: '10%', textAlign: 'right' }}>Valor (R$)</th>
-                  <th style={{ width: '9%' }}>Criada em</th>
-                  <th style={{ width: '9%' }}>Concluída em</th>
-                  <th style={{ width: '11%' }}>Situação Faturamento</th>
-                  <th style={{ width: '9%' }}>Data Pagamento</th>
-                  <th style={{ width: '10%' }} className="th-billing">Ciclo Criação ➔ Pgto</th>
-                </tr>
+                {isPortrait ? (
+                  <tr>
+                    <th style={{ width: '9%' }}>Nº OS</th>
+                    <th style={{ width: '10%' }}>Estado OS</th>
+                    <th style={{ width: '16%' }}>Solicitante / Setor</th>
+                    <th style={{ width: '18%' }}>Equipamento / Ativo</th>
+                    <th style={{ width: '11.5%', textAlign: 'right' }}>Valor (R$)</th>
+                    <th style={{ width: '11%' }}>Datas (Cri/Con)</th>
+                    <th style={{ width: '12.5%' }}>Situação / Pgto</th>
+                    <th style={{ width: '12%' }} className="th-billing">Ciclo Criação ➔ Pgto</th>
+                  </tr>
+                ) : (
+                  <tr>
+                    <th style={{ width: '7%' }}>Nº OS</th>
+                    <th style={{ width: '7%' }}>Estado OS</th>
+                    <th style={{ width: '14%' }}>Solicitante / Setor</th>
+                    <th style={{ width: '14%' }}>Equipamento / Ativo</th>
+                    <th style={{ width: '10%', textAlign: 'right' }}>Valor (R$)</th>
+                    <th style={{ width: '9%' }}>Criada em</th>
+                    <th style={{ width: '9%' }}>Concluída em</th>
+                    <th style={{ width: '11%' }}>Situação Faturamento</th>
+                    <th style={{ width: '9%' }}>Data Pagamento</th>
+                    <th style={{ width: '10%' }} className="th-billing">Ciclo Criação ➔ Pgto</th>
+                  </tr>
+                )}
               </thead>
               <tbody>
                 {orders.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="table-empty-cell">
+                    <td colSpan={isPortrait ? 8 : 10} className="table-empty-cell">
                       {isLoading ? 'Carregando auditoria de faturamento...' : 'Nenhum registro financeiro encontrado.'}
                     </td>
                   </tr>
@@ -971,22 +1041,46 @@ export default function ReportPrintPreview() {
                             </div>
                           )}
                         </td>
-                        <td className="cell-date-inline">
-                          <span className="date-single-line">
-                            <span className="date-dmy-inline">{createdParts.date}</span>
-                          </span>
-                        </td>
-                        <td className="cell-date-inline">
-                          <span className="date-single-line">
-                            <span className="date-dmy-inline">{completedParts.date}</span>
-                          </span>
-                        </td>
+
+                        {isPortrait ? (
+                          <td>
+                            <div className="cell-dates-stacked">
+                              {createdParts.date && createdParts.date !== '—' && (
+                                <span>Cri: <strong>{createdParts.date}</strong></span>
+                              )}
+                              {completedParts.date && completedParts.date !== '—' && (
+                                <span>Con: <strong style={{ color: '#047857' }}>{completedParts.date}</strong></span>
+                              )}
+                            </div>
+                          </td>
+                        ) : (
+                          <>
+                            <td className="cell-date-inline">
+                              <span className="date-single-line">
+                                <span className="date-dmy-inline">{createdParts.date}</span>
+                              </span>
+                            </td>
+                            <td className="cell-date-inline">
+                              <span className="date-single-line">
+                                <span className="date-dmy-inline">{completedParts.date}</span>
+                              </span>
+                            </td>
+                          </>
+                        )}
+
                         <td className="cell-billing-inline">
                           {rel.isBilled ? (
-                            <span className="billing-badge-inline billing-badge-inline--paid">
-                              <CheckCircle2 size={8.5} className="billing-badge-icon" />
-                              <span className="billing-badge-status">Faturada (Paga)</span>
-                            </span>
+                            <div>
+                              <span className="billing-badge-inline billing-badge-inline--paid">
+                                <CheckCircle2 size={8.5} className="billing-badge-icon" />
+                                <span className="billing-badge-status">Faturada</span>
+                              </span>
+                              {isPortrait && rel.billedDate && (
+                                <div style={{ fontWeight: 700, color: '#047857', fontSize: '6.5pt', marginTop: '2px' }}>
+                                  Pgto: {billedParts.date}
+                                </div>
+                              )}
+                            </div>
                           ) : isBillingPending(o) ? (
                             <span className="billing-badge-inline billing-badge-inline--pending">
                               <Clock size={8.5} className="billing-badge-icon" />
@@ -999,13 +1093,17 @@ export default function ReportPrintPreview() {
                             </span>
                           )}
                         </td>
-                        <td className="cell-date-inline">
-                          {rel.billedDate ? (
-                            <span className="billing-badge-date" style={{ fontWeight: 700, color: '#047857', fontSize: '6.5pt' }}>{billedParts.date}</span>
-                          ) : (
-                            <span className="date-empty">—</span>
-                          )}
-                        </td>
+
+                        {!isPortrait && (
+                          <td className="cell-date-inline">
+                            {rel.billedDate ? (
+                              <span className="billing-badge-date" style={{ fontWeight: 700, color: '#047857', fontSize: '6.5pt' }}>{billedParts.date}</span>
+                            ) : (
+                              <span className="date-empty">—</span>
+                            )}
+                          </td>
+                        )}
+
                         <td>
                           <div className={`report-relation-pill ${rel.isBilled ? 'report-relation-pill--billed' : 'report-relation-pill--pending'}`} style={{ fontSize: '6.6pt', padding: '1px 5px', whiteSpace: 'nowrap' }}>
                             <Clock size={8.5} /> {rel.elapsedText}
@@ -1025,7 +1123,7 @@ export default function ReportPrintPreview() {
                     <td style={{ padding: '7px 8px', textAlign: 'right', fontSize: '11.5px', fontWeight: 900, color: '#047857', whiteSpace: 'nowrap' }}>
                       {formatCurrency(orderKpis.totalValue)}
                     </td>
-                    <td colSpan={5} style={{ padding: '7px 8px', fontSize: '9px', color: '#64748b', textAlign: 'center' }}>
+                    <td colSpan={isPortrait ? 3 : 5} style={{ padding: '7px 8px', fontSize: '9px', color: '#64748b', textAlign: 'center' }}>
                       Faturadas: {formatCurrency(orderKpis.billedValue)} | Não Faturadas: {formatCurrency(orderKpis.notBilledValue)} (Serviços: {formatCurrency(orderKpis.serviceTotal)} | Visitas: {formatCurrency(orderKpis.visitFeeTotal)})
                     </td>
                   </tr>
@@ -1037,22 +1135,34 @@ export default function ReportPrintPreview() {
           {reportType === 'chamados' && (
             <table className="report-table">
               <thead>
-                <tr>
-                  <th style={{ width: '8%' }}>Prioridade</th>
-                  <th style={{ width: '8%' }}>Nº Chamado</th>
-                  <th style={{ width: '9%' }}>Estado</th>
-                  <th style={{ width: '15%' }}>Setor / Empresa</th>
-                  <th style={{ width: '16%' }}>Ativo / Serviço</th>
-                  <th style={{ width: '13%' }}>Responsável</th>
-                  <th style={{ width: '17%' }}>Problema Relatado</th>
-                  <th style={{ width: '7%' }}>Solicitante</th>
-                  <th style={{ width: '7%' }}>Data Abertura</th>
-                </tr>
+                {isPortrait ? (
+                  <tr>
+                    <th style={{ width: '11%' }}>Nº Chamado</th>
+                    <th style={{ width: '11%' }}>Estado</th>
+                    <th style={{ width: '20%' }}>Setor / Solicitante</th>
+                    <th style={{ width: '19%' }}>Ativo / Serviço</th>
+                    <th style={{ width: '14%' }}>Responsável</th>
+                    <th style={{ width: '15%' }}>Problema Relatado</th>
+                    <th style={{ width: '10%' }}>Data Abertura</th>
+                  </tr>
+                ) : (
+                  <tr>
+                    <th style={{ width: '8%' }}>Prioridade</th>
+                    <th style={{ width: '8%' }}>Nº Chamado</th>
+                    <th style={{ width: '9%' }}>Estado</th>
+                    <th style={{ width: '15%' }}>Setor / Empresa</th>
+                    <th style={{ width: '16%' }}>Ativo / Serviço</th>
+                    <th style={{ width: '13%' }}>Responsável</th>
+                    <th style={{ width: '17%' }}>Problema Relatado</th>
+                    <th style={{ width: '7%' }}>Solicitante</th>
+                    <th style={{ width: '7%' }}>Data Abertura</th>
+                  </tr>
+                )}
               </thead>
               <tbody>
                 {tickets.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="table-empty-cell">
+                    <td colSpan={isPortrait ? 7 : 9} className="table-empty-cell">
                       {isLoading ? 'Carregando chamados do servidor...' : 'Nenhum chamado técnico registrado.'}
                     </td>
                   </tr>
@@ -1061,26 +1171,42 @@ export default function ReportPrintPreview() {
                     const createdParts = formatDateParts(t.created_at);
                     return (
                       <tr key={t.id}>
-                        <td>
-                          <span className={`table-badge ${getPriorityClass(t.priority)}`}>
-                            {getPriorityLabel(t.priority)}
-                          </span>
-                        </td>
+                        {!isPortrait && (
+                          <td>
+                            <span className={`table-badge ${getPriorityClass(t.priority)}`}>
+                              {getPriorityLabel(t.priority)}
+                            </span>
+                          </td>
+                        )}
                         <td>
                           <strong className="os-number">
                             CH-{String(t.service_order_number || t.ticket_number || t.id).padStart(5, '0')}
                           </strong>
+                          {isPortrait && ['high', 'alta', 'urgent', 'urgente'].includes((t.priority || '').toLowerCase()) && (
+                            <div style={{ marginTop: '2px' }}>
+                              <span className={`table-badge ${getPriorityClass(t.priority)}`} style={{ fontSize: '5.5pt', padding: '1px 3px' }}>
+                                {getPriorityLabel(t.priority)}
+                              </span>
+                            </div>
+                          )}
                         </td>
                         <td>
                           <span className={`table-badge badge--${t.status === 'resolved' ? 'completed' : t.status}`}>
                             {t.status === 'resolved' ? 'Resolvido' : t.status === 'in_progress' ? 'Em andamento' : 'Aberto'}
                           </span>
                         </td>
-                        <td><div className="cell-main-text">{t.company_sector || '—'}</div></td>
+                        <td>
+                          <div className="cell-main-text">{t.company_sector || '—'}</div>
+                          {isPortrait && t.requester && (
+                            <div style={{ fontSize: '6.2pt', color: '#64748b', marginTop: '2px' }}>
+                              Sol: {t.requester}
+                            </div>
+                          )}
+                        </td>
                         <td><div className="cell-main-text">{t.equipment_name || (t.ticket_type === 'equipment' ? 'Equipamento' : 'Serviço Geral')}</div></td>
                         <td><div className="cell-main-text">{t.assigned_to_name || 'Sem responsável'}</div></td>
                         <td><div className="cell-service-type">{t.related_problem || t.observations || '—'}</div></td>
-                        <td><div className="cell-main-text">{t.requester || '—'}</div></td>
+                        {!isPortrait && <td><div className="cell-main-text">{t.requester || '—'}</div></td>}
                         <td className="cell-date-inline" title={createdParts.time ? `Aberta em ${createdParts.date} às ${createdParts.time}` : createdParts.date}>
                           <span className="date-dmy-inline">{createdParts.date}</span>
                         </td>
@@ -1580,9 +1706,9 @@ export default function ReportPrintPreview() {
         }
 
         .report-table th {
-          padding: 6px 4px;
+          padding: 6px 5px;
           font-weight: 700;
-          font-size: 6.7pt;
+          font-size: 7pt;
           text-transform: uppercase;
           letter-spacing: 0px;
           border-bottom: 1.5px solid #0d2a2b;
@@ -1601,7 +1727,7 @@ export default function ReportPrintPreview() {
         }
 
         .report-table td {
-          padding: 4.5px 3.5px;
+          padding: 5px 5px;
           border-bottom: 1px solid #e7efe9;
           color: #223532;
           vertical-align: middle;
@@ -1686,6 +1812,25 @@ export default function ReportPrintPreview() {
           word-break: normal;
           overflow-wrap: break-word;
         }
+
+        /* Stacked Date formatting (Portrait) */
+        .cell-dates-stacked {
+          display: flex;
+          flex-direction: column;
+          gap: 1.5px;
+          line-height: 1.15;
+          text-align: left;
+        }
+
+        .cell-dates-stacked span {
+          white-space: nowrap !important;
+          font-size: 6.5pt;
+          color: #64748b;
+        }
+
+        .cell-dates-stacked strong {
+          color: #1e293b;
+          font-weight: 600;
         }
 
         /* Single-line Date formatting */
