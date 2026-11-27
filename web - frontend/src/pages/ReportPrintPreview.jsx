@@ -444,20 +444,28 @@ export default function ReportPrintPreview() {
           .report-preview-document {
             width: 100% !important;
             max-width: 100% !important;
-            min-height: calc(100vh - 16mm) !important;
+            min-height: calc(${orientation === 'landscape' ? '210mm - 16mm' : '297mm - 16mm'}) !important;
+            box-sizing: border-box !important;
             box-shadow: none !important;
-            border: none !important;
-            padding: 0 !important;
+            border: 1.5px solid #123b3d !important;
+            border-radius: 6px !important;
+            padding: 7mm 8mm !important;
             margin: 0 !important;
-            border-radius: 0 !important;
             display: flex !important;
             flex-direction: column !important;
+            justify-content: flex-start !important;
+            -webkit-box-decoration-break: clone;
+            box-decoration-break: clone;
             zoom: ${printScale === '90%' ? '0.90' : printScale === '80%' ? '0.80' : '1'} !important;
           }
 
           .document-table-wrapper {
             width: 100% !important;
-            flex: 1 0 auto !important;
+            flex: 0 0 auto !important;
+            border: 1px solid #dce7df !important;
+            border-radius: 6px !important;
+            margin-bottom: 16px !important;
+            overflow: hidden !important;
           }
 
           .report-table {
@@ -486,8 +494,42 @@ export default function ReportPrintPreview() {
             break-inside: avoid !important;
           }
 
-          .document-footer {
+          .document-signature-block {
+            display: flex !important;
+            justify-content: space-around !important;
+            align-items: flex-end !important;
+            gap: 32px !important;
             margin-top: auto !important;
+            padding: 24px 20px 14px 20px !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+
+          .signature-box {
+            flex: 1 !important;
+            max-width: 250px !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            text-align: center !important;
+          }
+
+          .signature-line {
+            width: 100% !important;
+            border-bottom: 1px solid #718096 !important;
+            margin-bottom: 5px !important;
+          }
+
+          .signature-title {
+            font-size: 6.8pt !important;
+            font-weight: 700 !important;
+            color: #334155 !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.3px !important;
+          }
+
+          .document-footer {
+            margin-top: 0 !important;
             border-top: 1px solid #dce7df !important;
             padding-top: 8px !important;
             page-break-inside: avoid !important;
@@ -1267,6 +1309,18 @@ export default function ReportPrintPreview() {
           )}
         </section>
 
+        {/* Document Signatures & Certification Area */}
+        <section className="document-signature-block">
+          <div className="signature-box">
+            <div className="signature-line" />
+            <span className="signature-title">Responsável Técnico / Engenharia Biomédica</span>
+          </div>
+          <div className="signature-box">
+            <div className="signature-line" />
+            <span className="signature-title">Gestão Clínica / Coordenação Hospitalar</span>
+          </div>
+        </section>
+
         {/* Document Footer */}
         <footer className="document-footer">
           <p className="footer-company">
@@ -1463,8 +1517,8 @@ export default function ReportPrintPreview() {
         .report-preview-document {
           margin: 0 auto 40px auto;
           background: #ffffff;
-          border: 1px solid #c8d8ce;
-          border-radius: 4px;
+          border: 1.5px solid #123b3d;
+          border-radius: 6px;
           box-shadow: 0 10px 32px rgba(18, 59, 61, 0.12), 0 2px 6px rgba(0, 0, 0, 0.05);
           box-sizing: border-box;
           font-size: 8pt;
@@ -1477,9 +1531,9 @@ export default function ReportPrintPreview() {
           width: 100%;
           border: 1px solid #dce7df;
           border-radius: 6px;
-          margin-bottom: 12px;
+          margin-bottom: 16px;
           overflow: hidden;
-          flex: 1 0 auto;
+          flex: 0 0 auto;
         }
 
         .doc--landscape {
@@ -1514,20 +1568,30 @@ export default function ReportPrintPreview() {
         }
 
         .doc--portrait .report-table th {
-          padding: 6px 3px !important;
-          font-size: 6.2pt !important;
+          padding: 7px 4px !important;
+          font-size: 6.8pt !important;
           white-space: normal !important;
           word-break: normal !important;
           overflow-wrap: break-word !important;
           letter-spacing: 0px !important;
-          line-height: 1.15 !important;
+          line-height: 1.2 !important;
           text-align: left;
         }
 
         .doc--portrait .report-table td {
-          padding: 4px 3px !important;
-          font-size: 6.8pt !important;
-          line-height: 1.25 !important;
+          padding: 6.5px 4px !important;
+          font-size: 7.2pt !important;
+          line-height: 1.3 !important;
+        }
+
+        .doc--landscape .report-table th {
+          padding: 7px 5px !important;
+          font-size: 7.2pt !important;
+        }
+
+        .doc--landscape .report-table td {
+          padding: 6px 5px !important;
+          font-size: 7.5pt !important;
         }
 
         /* Header */
@@ -1936,6 +2000,41 @@ export default function ReportPrintPreview() {
 
         .billing-badge-icon {
           flex-shrink: 0;
+        }
+
+        /* Signatures Area */
+        .document-signature-block {
+          display: flex;
+          justify-content: space-around;
+          align-items: flex-end;
+          gap: 32px;
+          margin-top: auto;
+          padding: 28px 24px 16px 24px;
+          page-break-inside: avoid;
+          break-inside: avoid;
+        }
+
+        .signature-box {
+          flex: 1;
+          max-width: 250px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          text-align: center;
+        }
+
+        .signature-line {
+          width: 100%;
+          border-bottom: 1px solid #718096;
+          margin-bottom: 6px;
+        }
+
+        .signature-title {
+          font-size: 6.8pt;
+          font-weight: 700;
+          color: #334155;
+          text-transform: uppercase;
+          letter-spacing: 0.3px;
         }
 
         /* Footer */
