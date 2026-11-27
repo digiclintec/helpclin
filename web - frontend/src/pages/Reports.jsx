@@ -1682,39 +1682,39 @@ function Reports() {
       )}
 
       {(activeTab === 'orders' || activeTab === 'billing') && (
-        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px', marginBottom: '24px' }}>
-          <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '12px', padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <span style={{ fontSize: '11px', fontWeight: 700, color: '#166534', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+        <section className="report-fin-grid">
+          <div className="report-fin-card report-fin-card--total">
+            <span className="report-fin-card-label">
               Valor Total ({activeTab === 'billing' ? finalFilteredBilling.length : finalFilteredOrders.length} ordens filtradas)
             </span>
-            <strong style={{ fontSize: '22px', fontWeight: 800, color: '#15803d' }}>
+            <strong className="report-fin-card-value">
               {formatCurrency(activeTab === 'billing' ? filteredBillingFinancialSummary.total : filteredFinancialSummary.total)}
             </strong>
-            <small style={{ fontSize: '11px', color: '#166534' }}>
+            <small className="report-fin-card-sub">
               Serviços: {formatCurrency(activeTab === 'billing' ? filteredBillingFinancialSummary.serviceTotal : filteredFinancialSummary.serviceTotal)} • Visitas: {formatCurrency(activeTab === 'billing' ? filteredBillingFinancialSummary.visitFeeTotal : filteredFinancialSummary.visitFeeTotal)}
             </small>
           </div>
 
-          <div style={{ background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '12px', padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <span style={{ fontSize: '11px', fontWeight: 700, color: '#9a3412', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+          <div className="report-fin-card report-fin-card--pending">
+            <span className="report-fin-card-label">
               Total Não Faturado (Pendente)
             </span>
-            <strong style={{ fontSize: '22px', fontWeight: 800, color: '#c2410c' }}>
+            <strong className="report-fin-card-value">
               {formatCurrency(activeTab === 'billing' ? filteredBillingFinancialSummary.notBilledTotal : filteredFinancialSummary.notBilledTotal)}
             </strong>
-            <small style={{ fontSize: '11px', color: '#9a3412' }}>
+            <small className="report-fin-card-sub">
               Aguardando pagamento / liquidação
             </small>
           </div>
 
-          <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '12px', padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <span style={{ fontSize: '11px', fontWeight: 700, color: '#1e40af', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+          <div className="report-fin-card report-fin-card--billed">
+            <span className="report-fin-card-label">
               Total Faturado (Confirmado)
             </span>
-            <strong style={{ fontSize: '22px', fontWeight: 800, color: '#2563eb' }}>
+            <strong className="report-fin-card-value">
               {formatCurrency(activeTab === 'billing' ? filteredBillingFinancialSummary.billedTotal : filteredFinancialSummary.billedTotal)}
             </strong>
-            <small style={{ fontSize: '11px', color: '#1e40af' }}>
+            <small className="report-fin-card-sub">
               Receitas já recebidas e quitadas
             </small>
           </div>
@@ -1985,11 +1985,11 @@ function Reports() {
                           </div>
                         </td>
                         <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                          <strong style={{ color: '#047857', fontSize: '13px' }}>
+                          <strong className="os-table-price-total" style={{ fontSize: '13px' }}>
                             {formatCurrency(Number(order.total_value) || (Number(order.service_value || 0) + Number(order.visit_fee || 0)))}
                           </strong>
                           {Number(order.visit_fee) > 0 && (
-                            <div style={{ fontSize: '10px', color: '#64748b' }}>
+                            <div className="os-table-price-sub">
                               (Serv: {formatCurrency(order.service_value)} + Vis: {formatCurrency(order.visit_fee)})
                             </div>
                           )}
@@ -2005,17 +2005,17 @@ function Reports() {
                   })}
                 </tbody>
                 <tfoot>
-                  <tr style={{ background: '#f1f5f3', borderTop: '2px solid var(--teal)' }}>
-                    <td colSpan={5} style={{ padding: '12px 14px', color: 'var(--teal)', fontSize: '13px', fontWeight: 800 }}>
+                  <tr className="report-table-footer">
+                    <td colSpan={5} className="report-table-footer-title" style={{ padding: '12px 14px' }}>
                       TOTAL GERAL ({finalFilteredOrders.length} ordens filtradas):
                     </td>
-                    <td colSpan={3} style={{ padding: '12px 14px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>
+                    <td colSpan={3} className="report-table-footer-sub" style={{ padding: '12px 14px' }}>
                       Serviços: {formatCurrency(filteredFinancialSummary.serviceTotal)} • Visitas: {formatCurrency(filteredFinancialSummary.visitFeeTotal)}
                     </td>
-                    <td style={{ padding: '12px 14px', textAlign: 'right', color: '#047857', fontSize: '15px', fontWeight: 800, whiteSpace: 'nowrap' }}>
+                    <td className="report-table-footer-value" style={{ padding: '12px 14px', textAlign: 'right' }}>
                       {formatCurrency(filteredFinancialSummary.total)}
                     </td>
-                    <td colSpan={2} style={{ padding: '12px 14px', color: '#64748b', fontSize: '11px', textAlign: 'center' }}>
+                    <td colSpan={2} className="report-table-footer-sub" style={{ padding: '12px 14px', fontSize: '11px', textAlign: 'center' }}>
                       Fat: {formatCurrency(filteredFinancialSummary.billedTotal)} • Pend: {formatCurrency(filteredFinancialSummary.notBilledTotal)}
                     </td>
                   </tr>
@@ -2058,11 +2058,11 @@ function Reports() {
                         <td style={{ fontWeight: 600, color: 'var(--teal)' }}>{order.patient_name || 'Recepção'}</td>
                         <td>{order.equipment_name || 'Serviço Geral'}</td>
                         <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                          <strong style={{ color: '#047857', fontSize: '13px' }}>
+                          <strong className="os-table-price-total" style={{ fontSize: '13px' }}>
                             {formatCurrency(Number(order.total_value) || (Number(order.service_value || 0) + Number(order.visit_fee || 0)))}
                           </strong>
                           {Number(order.visit_fee) > 0 && (
-                            <div style={{ fontSize: '10px', color: '#64748b' }}>
+                            <div className="os-table-price-sub">
                               (+Vis: {formatCurrency(order.visit_fee)})
                             </div>
                           )}
@@ -2094,14 +2094,14 @@ function Reports() {
                   })}
                 </tbody>
                 <tfoot>
-                  <tr style={{ background: '#f1f5f3', borderTop: '2px solid var(--teal)' }}>
-                    <td colSpan={4} style={{ padding: '12px 14px', color: 'var(--teal)', fontSize: '13px', fontWeight: 800 }}>
+                  <tr className="report-table-footer">
+                    <td colSpan={4} className="report-table-footer-title" style={{ padding: '12px 14px' }}>
                       TOTAL AUDITORIA ({finalFilteredBilling.length} ordens):
                     </td>
-                    <td style={{ padding: '12px 14px', textAlign: 'right', color: '#047857', fontSize: '15px', fontWeight: 800, whiteSpace: 'nowrap' }}>
+                    <td className="report-table-footer-value" style={{ padding: '12px 14px', textAlign: 'right' }}>
                       {formatCurrency(filteredBillingFinancialSummary.total)}
                     </td>
-                    <td colSpan={5} style={{ padding: '12px 14px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>
+                    <td colSpan={5} className="report-table-footer-sub" style={{ padding: '12px 14px' }}>
                       Faturado: {formatCurrency(filteredBillingFinancialSummary.billedTotal)} • Pendente: {formatCurrency(filteredBillingFinancialSummary.notBilledTotal)} (Serviços: {formatCurrency(filteredBillingFinancialSummary.serviceTotal)} • Visitas: {formatCurrency(filteredBillingFinancialSummary.visitFeeTotal)})
                     </td>
                   </tr>

@@ -5067,6 +5067,313 @@ button { font: inherit; cursor: pointer; }
   color: #34d399 !important;
 }
 
+/* ==========================================================================
+   OS Pricing & Financial Components (Adaptive Light / Dark Theme)
+   ========================================================================== */
+
+/* 1. Modal OS Pricing Card */
+.os-pricing-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px;
+  margin: 8px 0 16px 0;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.os-pricing-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.os-pricing-icon-badge {
+  display: inline-flex;
+  padding: 4px;
+  border-radius: 6px;
+  background: #e6f4ea;
+  color: #137333;
+}
+
+.os-pricing-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #123b3d;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.os-pricing-total-row {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed #cbd5e1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.os-pricing-total-label {
+  font-size: 13px;
+  color: #475569;
+  font-weight: 600;
+}
+
+.os-pricing-total-value {
+  font-size: 16px;
+  color: #047857;
+  font-weight: 800;
+}
+
+/* Modal Pricing Card - Dark Mode */
+.app-shell[data-theme="dark"] .os-pricing-card {
+  background: #0f1a24 !important;
+  border-color: #233a4c !important;
+}
+
+.app-shell[data-theme="dark"] .os-pricing-icon-badge {
+  background: rgba(16, 185, 129, 0.16) !important;
+  color: #34d399 !important;
+}
+
+.app-shell[data-theme="dark"] .os-pricing-title {
+  color: #f1f5f9 !important;
+}
+
+.app-shell[data-theme="dark"] .os-pricing-total-row {
+  border-top: 1px dashed #233a4c !important;
+}
+
+.app-shell[data-theme="dark"] .os-pricing-total-label {
+  color: #94a3b8 !important;
+}
+
+.app-shell[data-theme="dark"] .os-pricing-total-value {
+  color: #34d399 !important;
+}
+
+/* 2. OS Creation Preview Box (Dashboard) */
+.os-pricing-preview-box {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.os-pricing-preview-box span {
+  font-size: 13px;
+  color: #166534;
+  font-weight: 600;
+}
+
+.os-pricing-preview-box strong {
+  font-size: 15px;
+  color: #15803d;
+  font-weight: 800;
+}
+
+.app-shell[data-theme="dark"] .os-pricing-preview-box {
+  background: rgba(16, 185, 129, 0.12) !important;
+  border-color: rgba(52, 211, 153, 0.3) !important;
+}
+
+.app-shell[data-theme="dark"] .os-pricing-preview-box span {
+  color: #a7f3d0 !important;
+}
+
+.app-shell[data-theme="dark"] .os-pricing-preview-box strong {
+  color: #34d399 !important;
+}
+
+/* 3. Financial KPI Strip (Reports) */
+.report-fin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.report-fin-card {
+  border-radius: 12px;
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.report-fin-card-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.report-fin-card-value {
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.report-fin-card-sub {
+  font-size: 11px;
+}
+
+/* Card Total (Verde) */
+.report-fin-card--total {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+}
+.report-fin-card--total .report-fin-card-label {
+  color: #166534;
+}
+.report-fin-card--total .report-fin-card-value {
+  color: #15803d;
+}
+.report-fin-card--total .report-fin-card-sub {
+  color: #166534;
+}
+
+.app-shell[data-theme="dark"] .report-fin-card--total {
+  background: rgba(16, 185, 129, 0.12) !important;
+  border-color: rgba(52, 211, 153, 0.3) !important;
+}
+.app-shell[data-theme="dark"] .report-fin-card--total .report-fin-card-label {
+  color: #a7f3d0 !important;
+}
+.app-shell[data-theme="dark"] .report-fin-card--total .report-fin-card-value {
+  color: #34d399 !important;
+}
+.app-shell[data-theme="dark"] .report-fin-card--total .report-fin-card-sub {
+  color: #6ee7b7 !important;
+}
+
+/* Card Não Faturado (Laranja / Alerta) */
+.report-fin-card--pending {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+}
+.report-fin-card--pending .report-fin-card-label {
+  color: #9a3412;
+}
+.report-fin-card--pending .report-fin-card-value {
+  color: #c2410c;
+}
+.report-fin-card--pending .report-fin-card-sub {
+  color: #9a3412;
+}
+
+.app-shell[data-theme="dark"] .report-fin-card--pending {
+  background: rgba(249, 115, 22, 0.12) !important;
+  border-color: rgba(251, 146, 60, 0.3) !important;
+}
+.app-shell[data-theme="dark"] .report-fin-card--pending .report-fin-card-label {
+  color: #fed7aa !important;
+}
+.app-shell[data-theme="dark"] .report-fin-card--pending .report-fin-card-value {
+  color: #fb923c !important;
+}
+.app-shell[data-theme="dark"] .report-fin-card--pending .report-fin-card-sub {
+  color: #fdba74 !important;
+}
+
+/* Card Faturado (Azul / Sucesso) */
+.report-fin-card--billed {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+}
+.report-fin-card--billed .report-fin-card-label {
+  color: #1e40af;
+}
+.report-fin-card--billed .report-fin-card-value {
+  color: #2563eb;
+}
+.report-fin-card--billed .report-fin-card-sub {
+  color: #1e40af;
+}
+
+.app-shell[data-theme="dark"] .report-fin-card--billed {
+  background: rgba(59, 130, 246, 0.12) !important;
+  border-color: rgba(96, 165, 250, 0.3) !important;
+}
+.app-shell[data-theme="dark"] .report-fin-card--billed .report-fin-card-label {
+  color: #bfdbfe !important;
+}
+.app-shell[data-theme="dark"] .report-fin-card--billed .report-fin-card-value {
+  color: #60a5fa !important;
+}
+.app-shell[data-theme="dark"] .report-fin-card--billed .report-fin-card-sub {
+  color: #93c5fd !important;
+}
+
+/* 4. Table Footers (Reports) */
+.report-table-footer {
+  background: #f1f5f3;
+  border-top: 2px solid var(--teal);
+}
+
+.report-table-footer-title {
+  color: var(--teal);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.report-table-footer-sub {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.report-table-footer-value {
+  color: #047857;
+  font-size: 15px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.app-shell[data-theme="dark"] .report-table-footer {
+  background: #0f1a24 !important;
+  border-top: 2px solid #233a4c !important;
+}
+
+.app-shell[data-theme="dark"] .report-table-footer-title {
+  color: #f1f5f9 !important;
+}
+
+.app-shell[data-theme="dark"] .report-table-footer-sub {
+  color: #94a3b8 !important;
+}
+
+.app-shell[data-theme="dark"] .report-table-footer-value {
+  color: #34d399 !important;
+}
+
+/* 5. Table Amount Classes (ServiceOrders & Reports) */
+.os-table-price-total {
+  font-size: 12px;
+  color: #047857;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.os-table-price-sub {
+  font-size: 10px;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.app-shell[data-theme="dark"] .os-table-price-total {
+  color: #34d399 !important;
+}
+
+.app-shell[data-theme="dark"] .os-table-price-sub {
+  color: #94a3b8 !important;
+}
+
+
 
 
 

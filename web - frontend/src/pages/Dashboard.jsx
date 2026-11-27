@@ -1751,9 +1751,9 @@ function Dashboard() {
               </div>
 
               {(Number(newOrder.serviceValue || 0) > 0 || Number(newOrder.visitFee || 0) > 0) && (
-                <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '10px 14px', marginBottom: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '13px', color: '#166534', fontWeight: 600 }}>Valor Total da Ordem:</span>
-                  <strong style={{ fontSize: '15px', color: '#15803d', fontWeight: 800 }}>
+                <div className="os-pricing-preview-box">
+                  <span>Valor Total da Ordem:</span>
+                  <strong>
                     {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(newOrder.serviceValue || 0) + Number(newOrder.visitFee || 0))}
                   </strong>
                 </div>

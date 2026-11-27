@@ -1022,11 +1022,11 @@ function ServiceOrders() {
                       {/* 7. Valor (R$) */}
                       <td style={{ width: '110px', minWidth: '110px' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                          <strong style={{ fontSize: '12px', color: '#047857', whiteSpace: 'nowrap' }}>
+                          <strong className="os-table-price-total">
                             {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(order.total_value) || (Number(order.service_value || 0) + Number(order.visit_fee || 0)))}
                           </strong>
                           {Number(order.visit_fee) > 0 && (
-                            <span style={{ fontSize: '9px', color: '#64748b' }}>
+                            <span className="os-table-price-sub">
                               + Visita {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(order.visit_fee))}
                             </span>
                           )}
@@ -1333,12 +1333,12 @@ function ServiceOrders() {
                 </div>
 
                 {/* Pricing / Valores da OS */}
-                <div style={{ background: '#f8faf9', border: '1px solid #dce7df', borderRadius: '12px', padding: '16px', margin: '8px 0 16px 0' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                    <span style={{ display: 'inline-flex', padding: '4px', borderRadius: '6px', background: '#e6f4ea', color: '#137333' }}>
+                <div className="os-pricing-card">
+                  <div className="os-pricing-card-header">
+                    <span className="os-pricing-icon-badge">
                       <DollarSign size={16} />
                     </span>
-                    <strong style={{ fontSize: '13px', color: 'var(--teal)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    <strong className="os-pricing-title">
                       Valores &amp; Cobrança da Ordem
                     </strong>
                   </div>
@@ -1383,9 +1383,9 @@ function ServiceOrders() {
                     </div>
                   </div>
 
-                  <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px dashed #cbd5e1', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '13px', color: '#475569', fontWeight: 600 }}>Valor Total da Ordem:</span>
-                    <strong style={{ fontSize: '16px', color: '#047857', fontWeight: 800 }}>
+                  <div className="os-pricing-total-row">
+                    <span className="os-pricing-total-label">Valor Total da Ordem:</span>
+                    <strong className="os-pricing-total-value">
                       {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
                         Number(editingOrder.service_value || 0) + Number(editingOrder.visit_fee || 0)
                       )}
