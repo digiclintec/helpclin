@@ -117,7 +117,9 @@ function Dashboard() {
     equipmentName: '',
     description: '',
     dueDate: '',
-    status: 'open'
+    status: 'open',
+    serviceValue: '',
+    visitFee: ''
   });
 
   // New Equipment Form state
@@ -487,7 +489,10 @@ function Dashboard() {
         description: newOrder.description,
         dueDate: newOrder.dueDate || null,
         status: newOrder.status,
-        technicianId: user?.id || null
+        technicianId: user?.id || null,
+        createdBy: user?.id,
+        serviceValue: Number(newOrder.serviceValue) || 0,
+        visitFee: Number(newOrder.visitFee) || 0
       });
 
       setOrders([created, ...orders]);
@@ -499,7 +504,9 @@ function Dashboard() {
         equipmentName: '',
         description: '',
         dueDate: '',
-        status: 'open'
+        status: 'open',
+        serviceValue: '',
+        visitFee: ''
       });
       setSuccessMessage(`Ordem OS-${String(created.order_number || created.id).padStart(5, '0')} criada com sucesso!`);
     } catch (err) {
@@ -1717,6 +1724,40 @@ function Dashboard() {
                   placeholder="Detalhe o problema apresentado ou o serviço a ser realizado..."
                 />
               </div>
+
+              <div className="dash-form-row">
+                <div className="dash-form-field">
+                  <label>Valor do Serviço / Peças (R$)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={newOrder.serviceValue}
+                    onChange={(e) => setNewOrder({ ...newOrder, serviceValue: e.target.value })}
+                    placeholder="0,00"
+                  />
+                </div>
+                <div className="dash-form-field">
+                  <label>Valor da Visita Adicional (R$)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={newOrder.visitFee}
+                    onChange={(e) => setNewOrder({ ...newOrder, visitFee: e.target.value })}
+                    placeholder="0,00 (opcional)"
+                  />
+                </div>
+              </div>
+
+              {(Number(newOrder.serviceValue || 0) > 0 || Number(newOrder.visitFee || 0) > 0) && (
+                <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '10px 14px', marginBottom: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '13px', color: '#166534', fontWeight: 600 }}>Valor Total da Ordem:</span>
+                  <strong style={{ fontSize: '15px', color: '#15803d', fontWeight: 800 }}>
+                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(newOrder.serviceValue || 0) + Number(newOrder.visitFee || 0))}
+                  </strong>
+                </div>
+              )}
 
               <div className="dash-modal-actions">
                 <button

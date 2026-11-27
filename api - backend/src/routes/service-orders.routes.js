@@ -8,7 +8,7 @@ const priorityMap = { 'Pouco urgente': 'low', Baixa: 'low', low: 'low', Normal: 
 router.get('/', async (_request, response) => {
   try {
     const result = await pool.query(
-      `SELECT orders.id, orders.order_number, orders.patient_name, orders.service_type, orders.priority, orders.due_date, orders.description, orders.service_requested_description, orders.service_performed_description, orders.status, orders.completed_at, orders.billed_at, orders.payment_informed_at, orders.payment_rejection_reason, orders.created_by, orders.created_at, orders.updated_at, orders.technician_id, technician.name AS technician_name, orders.equipment_id, eq.name AS equipment_name
+      `SELECT orders.id, orders.order_number, orders.patient_name, orders.service_type, orders.priority, orders.due_date, orders.description, orders.service_requested_description, orders.service_performed_description, orders.status, orders.completed_at, orders.billed_at, orders.payment_informed_at, orders.payment_rejection_reason, orders.service_value, orders.visit_fee, orders.total_value, orders.created_by, orders.created_at, orders.updated_at, orders.technician_id, technician.name AS technician_name, orders.equipment_id, eq.name AS equipment_name
        FROM service_orders orders LEFT JOIN users technician ON technician.id = orders.technician_id LEFT JOIN inventory_equipments eq ON eq.id = orders.equipment_id ORDER BY orders.created_at DESC`
     );
     return response.json({ orders: result.rows });
@@ -19,7 +19,7 @@ router.get('/', async (_request, response) => {
 });
 
 router.patch('/:id', async (request, response) => {
-  const { serviceType, priority, dueDate, requestedDescription, performedDescription, status, technicianId, billedAt, paymentDate, paymentInformedAt, rejectionReason } = request.body;
+  const { serviceType, priority, dueDate, requestedDescription, performedDescription, status, technicianId, billedAt, paymentDate, paymentInformedAt, rejectionReason, serviceValue, visitFee } = request.body;
   const validStatuses = ['open', 'in_progress', 'completed', 'billing_pending', 'payment_informed', 'billed', 'cancelled'];
 
   if (status !== undefined && !validStatuses.includes(status)) {
@@ -30,6 +30,9 @@ router.patch('/:id', async (request, response) => {
   if (priority !== undefined && (!normalizedPriority || !['low', 'normal', 'high', 'urgent'].includes(normalizedPriority))) {
     return response.status(400).json({ message: 'Prioridade inválida.' });
   }
+
+  const parsedServiceValue = serviceValue !== undefined && serviceValue !== null && serviceValue !== '' ? Number(serviceValue) : null;
+  const parsedVisitFee = visitFee !== undefined && visitFee !== null && visitFee !== '' ? Number(visitFee) : null;
 
   try {
     const client = await pool.connect();
@@ -66,9 +69,12 @@ router.patch('/:id', async (request, response) => {
                WHEN COALESCE($6, status) = 'billed' THEN NULL
                ELSE payment_rejection_reason
              END,
+             service_value = CASE WHEN $11::numeric IS NOT NULL THEN $11::numeric ELSE service_value END,
+             visit_fee = CASE WHEN $12::numeric IS NOT NULL THEN $12::numeric ELSE visit_fee END,
+             total_value = (CASE WHEN $11::numeric IS NOT NULL THEN $11::numeric ELSE COALESCE(service_value, 0) END) + (CASE WHEN $12::numeric IS NOT NULL THEN $12::numeric ELSE COALESCE(visit_fee, 0) END),
              updated_at = NOW()
          WHERE id = $10
-         RETURNING id, order_number, patient_name, service_type, priority, due_date, description, service_requested_description, service_performed_description, status, completed_at, billed_at, payment_informed_at, payment_rejection_reason, technician_id, support_ticket_id, equipment_id, created_by`,
+         RETURNING id, order_number, patient_name, service_type, priority, due_date, description, service_requested_description, service_performed_description, status, completed_at, billed_at, payment_informed_at, payment_rejection_reason, service_value, visit_fee, total_value, technician_id, support_ticket_id, equipment_id, created_by`,
         [
           serviceType?.trim() || null,
           normalizedPriority || null,
@@ -79,7 +85,9 @@ router.patch('/:id', async (request, response) => {
           technicianId || null,
           effectiveDate,
           rejectionReason || null,
-          request.params.id
+          request.params.id,
+          parsedServiceValue,
+          parsedVisitFee
         ]
       );
       if (!result.rowCount) {
@@ -121,7 +129,7 @@ router.patch('/:id', async (request, response) => {
       await client.query('COMMIT');
 
       const fullOrder = await pool.query(
-        `SELECT orders.id, orders.order_number, orders.patient_name, orders.service_type, orders.priority, orders.due_date, orders.description, orders.service_requested_description, orders.service_performed_description, orders.status, orders.completed_at, orders.billed_at, orders.payment_informed_at, orders.payment_rejection_reason, orders.created_at, orders.updated_at, orders.technician_id, technician.name AS technician_name, orders.equipment_id, eq.name AS equipment_name
+        `SELECT orders.id, orders.order_number, orders.patient_name, orders.service_type, orders.priority, orders.due_date, orders.description, orders.service_requested_description, orders.service_performed_description, orders.status, orders.completed_at, orders.billed_at, orders.payment_informed_at, orders.payment_rejection_reason, orders.service_value, orders.visit_fee, orders.total_value, orders.created_at, orders.updated_at, orders.technician_id, technician.name AS technician_name, orders.equipment_id, eq.name AS equipment_name
          FROM service_orders orders
          LEFT JOIN users technician ON technician.id = orders.technician_id
          LEFT JOIN inventory_equipments eq ON eq.id = orders.equipment_id
@@ -216,7 +224,7 @@ router.post('/:id/reject-receipt', async (request, response) => {
 });
 
 router.post('/', async (request, response) => {
-  const { patientName, serviceType, priority = 'Normal', dueDate, description, createdBy } = request.body;
+  const { patientName, serviceType, priority = 'Normal', dueDate, description, createdBy, serviceValue = 0, visitFee = 0 } = request.body;
   const normalizedPriority = priorityMap[priority] ?? priority;
 
   if (!patientName?.trim() || !serviceType?.trim() || !description?.trim() || !createdBy) {
@@ -227,12 +235,16 @@ router.post('/', async (request, response) => {
     return response.status(400).json({ message: 'Prioridade inválida.' });
   }
 
+  const numServiceValue = Number(serviceValue) || 0;
+  const numVisitFee = Number(visitFee) || 0;
+  const numTotalValue = numServiceValue + numVisitFee;
+
   try {
     const result = await pool.query(
-      `INSERT INTO service_orders (patient_name, service_type, priority, due_date, description, service_requested_description, created_by)
-       VALUES ($1, $2, $3, $4, $5, $5, $6)
-       RETURNING id, order_number, patient_name, service_type, priority, due_date, description, service_requested_description, status, created_at`,
-      [patientName.trim(), serviceType.trim(), normalizedPriority, dueDate || null, description.trim(), createdBy]
+      `INSERT INTO service_orders (patient_name, service_type, priority, due_date, description, service_requested_description, created_by, service_value, visit_fee, total_value)
+       VALUES ($1, $2, $3, $4, $5, $5, $6, $7, $8, $9)
+       RETURNING id, order_number, patient_name, service_type, priority, due_date, description, service_requested_description, status, service_value, visit_fee, total_value, created_at`,
+      [patientName.trim(), serviceType.trim(), normalizedPriority, dueDate || null, description.trim(), createdBy, numServiceValue, numVisitFee, numTotalValue]
     );
 
     return response.status(201).json({ order: result.rows[0] });

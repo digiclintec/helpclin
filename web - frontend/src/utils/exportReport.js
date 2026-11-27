@@ -787,6 +787,11 @@ export function printServiceOrder(order) {
       ? 'Aguardando Faturamento (Prazo de até 30 dias)'
       : 'Em Atendimento Técnico';
 
+  const serviceVal = Number(order.service_value || 0);
+  const visitVal = Number(order.visit_fee || 0);
+  const totalVal = Number(order.total_value) || (serviceVal + visitVal);
+  const fmtMoney = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+
   const html = `
     <!DOCTYPE html>
     <html lang="pt-BR">
@@ -1238,10 +1243,24 @@ export function printServiceOrder(order) {
           <div class="voucher-description-box voucher-description-box--performed">${order.service_performed_description || 'Atendimento técnico em execução / Sem parecer final registrado.'}</div>
         </div>
 
-        <!-- 4. Faturamento -->
+        <!-- 4. Faturamento e Valores -->
         <div class="voucher-section">
-          <div class="voucher-section-title">4. Controle Financeiro &amp; Faturamento</div>
-          <div class="voucher-grid-2">
+          <div class="voucher-section-title">4. Controle Financeiro, Valores &amp; Faturamento</div>
+          <div class="voucher-grid-3">
+            <div class="voucher-field">
+              <span class="voucher-field-label">Valor do Serviço / Peças</span>
+              <span class="voucher-field-value">${fmtMoney(serviceVal)}</span>
+            </div>
+            <div class="voucher-field">
+              <span class="voucher-field-label">Taxa / Visita Adicional</span>
+              <span class="voucher-field-value">${visitVal > 0 ? fmtMoney(visitVal) : 'R$ 0,00'}</span>
+            </div>
+            <div class="voucher-field">
+              <span class="voucher-field-label">Valor Total da OS</span>
+              <span class="voucher-field-value voucher-field-value--highlight" style="color: #047857; font-size: 15px;">${fmtMoney(totalVal)}</span>
+            </div>
+          </div>
+          <div class="voucher-grid-2" style="border-top: 1px solid #dce7df; background: #fafcfb;">
             <div class="voucher-field">
               <span class="voucher-field-label">Condição de Faturamento</span>
               <span class="voucher-field-value">${billingStatusStr}</span>

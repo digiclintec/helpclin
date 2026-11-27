@@ -82,6 +82,11 @@ function formatDateOnly(value) {
   return date;
 }
 
+function formatCurrency(value) {
+  const num = Number(value) || 0;
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(num);
+}
+
 function getPriorityLabel(priority) {
   const p = (priority || '').toLowerCase();
   if (['low', 'pouco urgente', 'baixa'].includes(p)) return 'Baixa';
@@ -250,6 +255,11 @@ export default function ReportPrintPreview() {
     let urgent = 0;
     let totalCycleHours = 0;
     let billedWithCycle = 0;
+    let totalValue = 0;
+    let serviceTotal = 0;
+    let visitFeeTotal = 0;
+    let billedValue = 0;
+    let notBilledValue = 0;
 
     orders.forEach((o) => {
       const eff = getEffectiveOrderStatus(o);
@@ -257,6 +267,15 @@ export default function ReportPrintPreview() {
       const isOrderBilled = isBilled(o) || o.status === 'billed' || rel.isBilled;
       const isAwaiting = isAwaitingBilling(o);
       const isOverdue = isBillingOverdue(o);
+
+      const sVal = Number(o.service_value || 0);
+      const vFee = Number(o.visit_fee || 0);
+      const tVal = Number(o.total_value) || (sVal + vFee);
+      totalValue += tVal;
+      serviceTotal += sVal;
+      visitFeeTotal += vFee;
+      if (isOrderBilled) billedValue += tVal;
+      else notBilledValue += tVal;
 
       if (eff === 'open') open++;
       else if (eff === 'in_progress') inProgress++;
@@ -307,7 +326,12 @@ export default function ReportPrintPreview() {
       notBilled: Math.max(0, orders.length - billed),
       urgent,
       avgCycle,
-      billedPercent
+      billedPercent,
+      totalValue,
+      serviceTotal,
+      visitFeeTotal,
+      billedValue,
+      notBilledValue
     };
   }, [orders]);
 
@@ -620,19 +644,23 @@ export default function ReportPrintPreview() {
 
         {/* Summary Metric Cards */}
         {customSummary && customSummary.length > 0 ? (
-          <section className="document-summary-grid" style={{ gridTemplateColumns: `repeat(${Math.min(customSummary.length, 8)}, 1fr)` }}>
+          <section className="document-summary-grid" style={{ gridTemplateColumns: `repeat(${Math.min(customSummary.length, 9)}, 1fr)` }}>
             {customSummary.map((item, idx) => (
-              <div key={idx} className="summary-box">
-                <span>{item.label}</span>
-                <strong>{item.value}</strong>
+              <div key={idx} className="summary-box" style={item.label?.toLowerCase().includes('valor') ? { borderTopColor: '#059669', background: '#f0fdf4' } : {}}>
+                <span style={item.label?.toLowerCase().includes('valor') ? { color: '#047857', fontWeight: 700 } : {}}>{item.label}</span>
+                <strong style={item.label?.toLowerCase().includes('valor') ? { color: '#047857' } : {}}>{item.value}</strong>
               </div>
             ))}
           </section>
         ) : reportType === 'faturamento' ? (
-          <section className="document-summary-grid" style={{ gridTemplateColumns: 'repeat(6, 1fr)' }}>
+          <section className="document-summary-grid" style={{ gridTemplateColumns: 'repeat(7, 1fr)' }}>
             <div className="summary-box">
               <span>Total Auditado</span>
               <strong>{orderKpis.total}</strong>
+            </div>
+            <div className="summary-box" style={{ borderTopColor: '#059669', background: '#f0fdf4' }}>
+              <span style={{ color: '#047857', fontWeight: 700 }}>Valor Total</span>
+              <strong style={{ color: '#047857', fontSize: '13px' }}>{formatCurrency(orderKpis.totalValue)}</strong>
             </div>
             <div className="summary-box summary-box--not_billed">
               <span>Não Faturadas</span>
@@ -656,10 +684,14 @@ export default function ReportPrintPreview() {
             </div>
           </section>
         ) : reportType === 'ordens' ? (
-          <section className="document-summary-grid" style={{ gridTemplateColumns: 'repeat(8, 1fr)' }}>
+          <section className="document-summary-grid" style={{ gridTemplateColumns: 'repeat(9, 1fr)' }}>
             <div className="summary-box">
               <span>Total</span>
               <strong>{orderKpis.total}</strong>
+            </div>
+            <div className="summary-box" style={{ borderTopColor: '#059669', background: '#f0fdf4' }}>
+              <span style={{ color: '#047857', fontWeight: 700 }}>Valor Total</span>
+              <strong style={{ color: '#047857', fontSize: '13px' }}>{formatCurrency(orderKpis.totalValue)}</strong>
             </div>
             <div className="summary-box summary-box--not_billed">
               <span>Não Faturadas</span>
@@ -741,16 +773,17 @@ export default function ReportPrintPreview() {
             <table className="report-table">
               <thead>
                 <tr>
-                  <th style={{ width: orientation === 'portrait' ? '8%' : '7.5%' }}>Nº OS</th>
-                  <th style={{ width: orientation === 'portrait' ? '7.5%' : '6.5%' }}>Prioridade</th>
-                  <th style={{ width: orientation === 'portrait' ? '9%' : '8%' }}>Estado</th>
-                  <th style={{ width: orientation === 'portrait' ? '13%' : '14%' }}>Solicitante / Setor</th>
-                  <th style={{ width: orientation === 'portrait' ? '14%' : '16%' }}>Equipamento / Ativo</th>
-                  <th style={{ width: orientation === 'portrait' ? '11%' : '11.5%' }}>Responsável</th>
-                  <th style={{ width: orientation === 'portrait' ? '11%' : '12%' }}>Serviço</th>
-                  <th style={{ width: orientation === 'portrait' ? '7%' : '6.5%', textAlign: 'center' }}>Criação</th>
-                  <th style={{ width: orientation === 'portrait' ? '7%' : '6.5%', textAlign: 'center' }}>Conclusão</th>
-                  <th style={{ width: orientation === 'portrait' ? '12.5%' : '11.5%', textAlign: 'center' }} className="th-billing">
+                  <th style={{ width: orientation === 'portrait' ? '7.5%' : '7%' }}>Nº OS</th>
+                  <th style={{ width: orientation === 'portrait' ? '7%' : '6%' }}>Prioridade</th>
+                  <th style={{ width: orientation === 'portrait' ? '8.5%' : '7.5%' }}>Estado</th>
+                  <th style={{ width: orientation === 'portrait' ? '12.5%' : '13.5%' }}>Solicitante / Setor</th>
+                  <th style={{ width: orientation === 'portrait' ? '13.5%' : '15%' }}>Equipamento / Ativo</th>
+                  <th style={{ width: orientation === 'portrait' ? '10.5%' : '11%' }}>Responsável</th>
+                  <th style={{ width: orientation === 'portrait' ? '10.5%' : '11%' }}>Serviço</th>
+                  <th style={{ width: orientation === 'portrait' ? '10%' : '9.5%', textAlign: 'right' }}>Valor (R$)</th>
+                  <th style={{ width: orientation === 'portrait' ? '6.5%' : '6%', textAlign: 'center' }}>Criação</th>
+                  <th style={{ width: orientation === 'portrait' ? '6.5%' : '6%', textAlign: 'center' }}>Conclusão</th>
+                  <th style={{ width: orientation === 'portrait' ? '11.5%' : '10.5%', textAlign: 'center' }} className="th-billing">
                     Faturamento
                   </th>
                 </tr>
@@ -758,7 +791,7 @@ export default function ReportPrintPreview() {
               <tbody>
                 {orders.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="table-empty-cell">
+                    <td colSpan={11} className="table-empty-cell">
                       {isLoading ? 'Carregando registros do servidor...' : 'Nenhuma ordem de serviço encontrada.'}
                     </td>
                   </tr>
@@ -812,6 +845,16 @@ export default function ReportPrintPreview() {
                             {o.service_type || 'Manutenção'}
                           </div>
                         </td>
+                        <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          <strong style={{ fontSize: '10.5px', color: '#047857' }}>
+                            {formatCurrency(Number(o.total_value) || (Number(o.service_value || 0) + Number(o.visit_fee || 0)))}
+                          </strong>
+                          {Number(o.visit_fee) > 0 && (
+                            <div style={{ fontSize: '8px', color: '#64748b' }}>
+                              (+Vis: {formatCurrency(o.visit_fee)})
+                            </div>
+                          )}
+                        </td>
                         <td className="cell-date-inline" title={createdParts.time ? `Criada em ${createdParts.date} às ${createdParts.time}` : createdParts.date}>
                           {createdParts.date && createdParts.date !== '—' ? (
                             <span className="date-dmy-inline">{createdParts.date}</span>
@@ -852,6 +895,24 @@ export default function ReportPrintPreview() {
                   })
                 )}
               </tbody>
+              {orders.length > 0 && (
+                <tfoot>
+                  <tr style={{ background: '#f8faf9', borderTop: '2px solid #123b3d' }}>
+                    <td colSpan={7} style={{ padding: '7px 8px', fontSize: '10px', fontWeight: 800, color: '#123b3d' }}>
+                      VALOR TOTAL DAS ORDENS LISTADAS ({orders.length} ordens):
+                      <span style={{ fontWeight: 500, color: '#64748b', marginLeft: '6px', fontSize: '9px' }}>
+                        (Serviços: {formatCurrency(orderKpis.serviceTotal)} | Visitas Adicionais: {formatCurrency(orderKpis.visitFeeTotal)})
+                      </span>
+                    </td>
+                    <td style={{ padding: '7px 8px', textAlign: 'right', fontSize: '11.5px', fontWeight: 900, color: '#047857', whiteSpace: 'nowrap' }}>
+                      {formatCurrency(orderKpis.totalValue)}
+                    </td>
+                    <td colSpan={3} style={{ padding: '7px 8px', fontSize: '9px', color: '#64748b', textAlign: 'center' }}>
+                      Fat: {formatCurrency(orderKpis.billedValue)} | Pend: {formatCurrency(orderKpis.notBilledValue)}
+                    </td>
+                  </tr>
+                </tfoot>
+              )}
             </table>
           )}
 
@@ -860,20 +921,21 @@ export default function ReportPrintPreview() {
               <thead>
                 <tr>
                   <th style={{ width: '7%' }}>Nº OS</th>
-                  <th style={{ width: '8%' }}>Estado OS</th>
-                  <th style={{ width: '15%' }}>Solicitante / Setor</th>
-                  <th style={{ width: '15%' }}>Equipamento / Ativo</th>
-                  <th style={{ width: '10%' }}>Criada em</th>
-                  <th style={{ width: '10%' }}>Concluída em</th>
-                  <th style={{ width: '13%' }}>Situação Faturamento</th>
-                  <th style={{ width: '10%' }}>Data Pagamento</th>
-                  <th style={{ width: '12%' }} className="th-billing">Ciclo Criação ➔ Pgto</th>
+                  <th style={{ width: '7%' }}>Estado OS</th>
+                  <th style={{ width: '14%' }}>Solicitante / Setor</th>
+                  <th style={{ width: '14%' }}>Equipamento / Ativo</th>
+                  <th style={{ width: '10%', textAlign: 'right' }}>Valor (R$)</th>
+                  <th style={{ width: '9%' }}>Criada em</th>
+                  <th style={{ width: '9%' }}>Concluída em</th>
+                  <th style={{ width: '11%' }}>Situação Faturamento</th>
+                  <th style={{ width: '9%' }}>Data Pagamento</th>
+                  <th style={{ width: '10%' }} className="th-billing">Ciclo Criação ➔ Pgto</th>
                 </tr>
               </thead>
               <tbody>
                 {orders.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="table-empty-cell">
+                    <td colSpan={10} className="table-empty-cell">
                       {isLoading ? 'Carregando auditoria de faturamento...' : 'Nenhum registro financeiro encontrado.'}
                     </td>
                   </tr>
@@ -899,6 +961,16 @@ export default function ReportPrintPreview() {
                         </td>
                         <td><div className="cell-main-text">{o.patient_name || 'Recepção'}</div></td>
                         <td><div className="cell-main-text">{o.equipment_name || 'Serviço Geral'}</div></td>
+                        <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          <strong style={{ fontSize: '10.5px', color: '#047857' }}>
+                            {formatCurrency(Number(o.total_value) || (Number(o.service_value || 0) + Number(o.visit_fee || 0)))}
+                          </strong>
+                          {Number(o.visit_fee) > 0 && (
+                            <div style={{ fontSize: '8px', color: '#64748b' }}>
+                              (+Vis: {formatCurrency(o.visit_fee)})
+                            </div>
+                          )}
+                        </td>
                         <td className="cell-date-inline">
                           <span className="date-single-line">
                             <span className="date-dmy-inline">{createdParts.date}</span>
@@ -944,6 +1016,21 @@ export default function ReportPrintPreview() {
                   })
                 )}
               </tbody>
+              {orders.length > 0 && (
+                <tfoot>
+                  <tr style={{ background: '#f8faf9', borderTop: '2px solid #123b3d' }}>
+                    <td colSpan={4} style={{ padding: '7px 8px', fontSize: '10px', fontWeight: 800, color: '#123b3d' }}>
+                      TOTAL AUDITORIA ({orders.length} ordens):
+                    </td>
+                    <td style={{ padding: '7px 8px', textAlign: 'right', fontSize: '11.5px', fontWeight: 900, color: '#047857', whiteSpace: 'nowrap' }}>
+                      {formatCurrency(orderKpis.totalValue)}
+                    </td>
+                    <td colSpan={5} style={{ padding: '7px 8px', fontSize: '9px', color: '#64748b', textAlign: 'center' }}>
+                      Faturadas: {formatCurrency(orderKpis.billedValue)} | Não Faturadas: {formatCurrency(orderKpis.notBilledValue)} (Serviços: {formatCurrency(orderKpis.serviceTotal)} | Visitas: {formatCurrency(orderKpis.visitFeeTotal)})
+                    </td>
+                  </tr>
+                </tfoot>
+              )}
             </table>
           )}
 

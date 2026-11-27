@@ -276,7 +276,9 @@ function ServiceOrders() {
         requestedDescription: editingOrder.service_requested_description ?? editingOrder.description,
         performedDescription: editingOrder.service_performed_description,
         status: editingOrder.status,
-        technicianId: editingOrder.technician_id
+        technicianId: editingOrder.technician_id,
+        serviceValue: editingOrder.service_value !== undefined && editingOrder.service_value !== null ? editingOrder.service_value : 0,
+        visitFee: editingOrder.visit_fee !== undefined && editingOrder.visit_fee !== null ? editingOrder.visit_fee : 0
       });
 
       setOrders(
@@ -741,6 +743,7 @@ function ServiceOrders() {
                   <th style={{ width: '19%' }}>Solicitante &amp; Ativo</th>
                   <th style={{ width: '19%' }}>Serviço &amp; Técnico</th>
                   <th style={{ width: '80px', minWidth: '80px' }}>Data</th>
+                  <th style={{ width: '110px', minWidth: '110px' }}>Valor (R$)</th>
                   <th>Observações</th>
                 </tr>
               </thead>
@@ -1016,7 +1019,21 @@ function ServiceOrders() {
                         </div>
                       </td>
 
-                      {/* 7. Observações / Descrições */}
+                      {/* 7. Valor (R$) */}
+                      <td style={{ width: '110px', minWidth: '110px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                          <strong style={{ fontSize: '12px', color: '#047857', whiteSpace: 'nowrap' }}>
+                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(order.total_value) || (Number(order.service_value || 0) + Number(order.visit_fee || 0)))}
+                          </strong>
+                          {Number(order.visit_fee) > 0 && (
+                            <span style={{ fontSize: '9px', color: '#64748b' }}>
+                              + Visita {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(order.visit_fee))}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* 8. Observações / Descrições */}
                       <td>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                           <span
@@ -1313,6 +1330,67 @@ function ServiceOrders() {
                       fontSize: '13px'
                     }}
                   />
+                </div>
+
+                {/* Pricing / Valores da OS */}
+                <div style={{ background: '#f8faf9', border: '1px solid #dce7df', borderRadius: '12px', padding: '16px', margin: '8px 0 16px 0' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                    <span style={{ display: 'inline-flex', padding: '4px', borderRadius: '6px', background: '#e6f4ea', color: '#137333' }}>
+                      <DollarSign size={16} />
+                    </span>
+                    <strong style={{ fontSize: '13px', color: 'var(--teal)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Valores &amp; Cobrança da Ordem
+                    </strong>
+                  </div>
+
+                  <div className="inventory-grid-2">
+                    <div className="inventory-field">
+                      <label>Valor do Serviço / Peças (R$)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={editingOrder.service_value ?? ''}
+                        onChange={(e) =>
+                          setEditingOrder({
+                            ...editingOrder,
+                            service_value: e.target.value,
+                            total_value: Number(e.target.value || 0) + Number(editingOrder.visit_fee || 0)
+                          })
+                        }
+                        disabled={isTechnicianLocked}
+                        placeholder="0,00"
+                      />
+                    </div>
+
+                    <div className="inventory-field">
+                      <label>Valor da Visita Adicional (R$)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={editingOrder.visit_fee ?? ''}
+                        onChange={(e) =>
+                          setEditingOrder({
+                            ...editingOrder,
+                            visit_fee: e.target.value,
+                            total_value: Number(editingOrder.service_value || 0) + Number(e.target.value || 0)
+                          })
+                        }
+                        disabled={isTechnicianLocked}
+                        placeholder="0,00 (opcional)"
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px dashed #cbd5e1', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '13px', color: '#475569', fontWeight: 600 }}>Valor Total da Ordem:</span>
+                    <strong style={{ fontSize: '16px', color: '#047857', fontWeight: 800 }}>
+                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+                        Number(editingOrder.service_value || 0) + Number(editingOrder.visit_fee || 0)
+                      )}
+                    </strong>
+                  </div>
                 </div>
 
                 {/* Modal Actions */}

@@ -79,6 +79,11 @@ function formatDateOnly(value) {
   return `${day}/${month}/${year}`;
 }
 
+function formatCurrency(value) {
+  const num = Number(value) || 0;
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(num);
+}
+
 function getTodayString() {
   const d = new Date();
   const year = d.getFullYear();
@@ -348,6 +353,11 @@ function Reports() {
     let urgentCount = 0;
     let totalBilledHours = 0;
     let billedCountWithDates = 0;
+    let totalOrdersValue = 0;
+    let billedOrdersValue = 0;
+    let notBilledOrdersValue = 0;
+    let serviceOrdersValue = 0;
+    let visitFeeOrdersValue = 0;
 
     dateFilteredOrders.forEach((order) => {
       const effective = getEffectiveOrderStatus(order);
@@ -355,6 +365,18 @@ function Reports() {
       const isOrderBilled = rel.isBilled || isBilled(order) || order.status === 'billed';
       const isAwaiting = isAwaitingBilling(order);
       const isOverdue = isBillingOverdue(order);
+
+      const sVal = Number(order.service_value || 0);
+      const vFee = Number(order.visit_fee || 0);
+      const tVal = Number(order.total_value) || (sVal + vFee);
+      totalOrdersValue += tVal;
+      serviceOrdersValue += sVal;
+      visitFeeOrdersValue += vFee;
+      if (isOrderBilled) {
+        billedOrdersValue += tVal;
+      } else {
+        notBilledOrdersValue += tVal;
+      }
 
       if (effective === 'open') openCount++;
       if (effective === 'in_progress') inProgressCount++;
@@ -418,7 +440,12 @@ function Reports() {
       notBilled: notBilledCount,
       urgent: urgentCount,
       avgBillingCycle,
-      billedPercentage
+      billedPercentage,
+      totalOrdersValue,
+      billedOrdersValue,
+      notBilledOrdersValue,
+      serviceOrdersValue,
+      visitFeeOrdersValue
     };
   }, [dateFilteredOrders, now]);
 
@@ -505,6 +532,54 @@ function Reports() {
       return true;
     });
   }, [dateFilteredOrders, statusFilter, searchQuery]);
+
+  // Resumo Financeiro em Tempo Real das Ordens Filtradas
+  const filteredFinancialSummary = useMemo(() => {
+    let total = 0;
+    let serviceTotal = 0;
+    let visitFeeTotal = 0;
+    let billedTotal = 0;
+    let notBilledTotal = 0;
+
+    finalFilteredOrders.forEach((order) => {
+      const isOrderBilled = isBilled(order) || order.status === 'billed';
+      const sVal = Number(order.service_value || 0);
+      const vFee = Number(order.visit_fee || 0);
+      const tVal = Number(order.total_value) || (sVal + vFee);
+
+      total += tVal;
+      serviceTotal += sVal;
+      visitFeeTotal += vFee;
+      if (isOrderBilled) billedTotal += tVal;
+      else notBilledTotal += tVal;
+    });
+
+    return { total, serviceTotal, visitFeeTotal, billedTotal, notBilledTotal };
+  }, [finalFilteredOrders]);
+
+  // Resumo Financeiro em Tempo Real da Auditoria de Faturamento Filtrada
+  const filteredBillingFinancialSummary = useMemo(() => {
+    let total = 0;
+    let serviceTotal = 0;
+    let visitFeeTotal = 0;
+    let billedTotal = 0;
+    let notBilledTotal = 0;
+
+    finalFilteredBilling.forEach((order) => {
+      const isOrderBilled = isBilled(order) || order.status === 'billed';
+      const sVal = Number(order.service_value || 0);
+      const vFee = Number(order.visit_fee || 0);
+      const tVal = Number(order.total_value) || (sVal + vFee);
+
+      total += tVal;
+      serviceTotal += sVal;
+      visitFeeTotal += vFee;
+      if (isOrderBilled) billedTotal += tVal;
+      else notBilledTotal += tVal;
+    });
+
+    return { total, serviceTotal, visitFeeTotal, billedTotal, notBilledTotal };
+  }, [finalFilteredBilling]);
 
   // ==========================================
   // 2. FILTERING LOGIC: CHAMADOS TÉCNICOS
@@ -666,13 +741,13 @@ function Reports() {
         dateTo: endDate,
         summary: [
           { label: 'Total Filtrado', value: finalFilteredOrders.length },
+          { label: 'Valor Total', value: formatCurrency(filteredFinancialSummary.total) },
           { label: 'Não Faturadas', value: orderKpiMetrics.notBilled },
           { label: 'Faturadas', value: `${orderKpiMetrics.billed} (${orderKpiMetrics.billedPercentage}%)` },
           { label: 'Aguardando Fat.', value: orderKpiMetrics.billingPending },
           { label: 'Fat. Atrasadas (>30d)', value: orderKpiMetrics.billingOverdue },
           { label: 'Concluídas', value: orderKpiMetrics.completed },
-          { label: 'Ciclo Fat.', value: orderKpiMetrics.avgBillingCycle },
-          { label: 'Abertas', value: orderKpiMetrics.open }
+          { label: 'Ciclo Fat.', value: orderKpiMetrics.avgBillingCycle }
         ]
       });
     } else if (activeTab === 'billing') {
@@ -698,6 +773,7 @@ function Reports() {
         dateTo: endDate,
         summary: [
           { label: 'Total Auditado', value: finalFilteredBilling.length },
+          { label: 'Valor Total', value: formatCurrency(filteredBillingFinancialSummary.total) },
           { label: 'Não Faturadas', value: orderKpiMetrics.notBilled },
           { label: 'Faturadas', value: `${orderKpiMetrics.billed} (${orderKpiMetrics.billedPercentage}%)` },
           { label: 'Aguardando Fat.', value: orderKpiMetrics.billingPending },
@@ -756,6 +832,9 @@ function Reports() {
         { header: 'Equipamento / Ativo', accessor: (o) => o.equipment_name || 'Serviço Geral' },
         { header: 'Responsável Técnico', accessor: (o) => o.technician_name || 'Rodrigo Santos' },
         { header: 'Tipo de Serviço', accessor: (o) => o.service_type || 'Manutenção' },
+        { header: 'Valor Serviço (R$)', accessor: (o) => (Number(o.service_value) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) },
+        { header: 'Taxa Visita (R$)', accessor: (o) => (Number(o.visit_fee) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) },
+        { header: 'Valor Total (R$)', accessor: (o) => (Number(o.total_value) || (Number(o.service_value || 0) + Number(o.visit_fee || 0))).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) },
         { header: 'Criada em', accessor: (o) => formatDate(o.created_at) },
         { header: 'Concluída em', accessor: (o) => formatDate(o.completed_at) }
       ];
@@ -1602,6 +1681,46 @@ function Reports() {
         </section>
       )}
 
+      {(activeTab === 'orders' || activeTab === 'billing') && (
+        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px', marginBottom: '24px' }}>
+          <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '12px', padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <span style={{ fontSize: '11px', fontWeight: 700, color: '#166534', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              Valor Total ({activeTab === 'billing' ? finalFilteredBilling.length : finalFilteredOrders.length} ordens filtradas)
+            </span>
+            <strong style={{ fontSize: '22px', fontWeight: 800, color: '#15803d' }}>
+              {formatCurrency(activeTab === 'billing' ? filteredBillingFinancialSummary.total : filteredFinancialSummary.total)}
+            </strong>
+            <small style={{ fontSize: '11px', color: '#166534' }}>
+              Serviços: {formatCurrency(activeTab === 'billing' ? filteredBillingFinancialSummary.serviceTotal : filteredFinancialSummary.serviceTotal)} • Visitas: {formatCurrency(activeTab === 'billing' ? filteredBillingFinancialSummary.visitFeeTotal : filteredFinancialSummary.visitFeeTotal)}
+            </small>
+          </div>
+
+          <div style={{ background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '12px', padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <span style={{ fontSize: '11px', fontWeight: 700, color: '#9a3412', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              Total Não Faturado (Pendente)
+            </span>
+            <strong style={{ fontSize: '22px', fontWeight: 800, color: '#c2410c' }}>
+              {formatCurrency(activeTab === 'billing' ? filteredBillingFinancialSummary.notBilledTotal : filteredFinancialSummary.notBilledTotal)}
+            </strong>
+            <small style={{ fontSize: '11px', color: '#9a3412' }}>
+              Aguardando pagamento / liquidação
+            </small>
+          </div>
+
+          <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '12px', padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <span style={{ fontSize: '11px', fontWeight: 700, color: '#1e40af', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              Total Faturado (Confirmado)
+            </span>
+            <strong style={{ fontSize: '22px', fontWeight: 800, color: '#2563eb' }}>
+              {formatCurrency(activeTab === 'billing' ? filteredBillingFinancialSummary.billedTotal : filteredFinancialSummary.billedTotal)}
+            </strong>
+            <small style={{ fontSize: '11px', color: '#1e40af' }}>
+              Receitas já recebidas e quitadas
+            </small>
+          </div>
+        </section>
+      )}
+
       {activeTab === 'tickets' && (
         <section className="report-summary-cards" style={{ marginBottom: '24px', gridTemplateColumns: 'repeat(5, 1fr)' }}>
           <article
@@ -1766,6 +1885,7 @@ function Reports() {
                     <th>SOLICITANTE / SETOR</th>
                     <th>EQUIPAMENTO / ATIVO</th>
                     <th>RESPONSÁVEL TÉCNICO</th>
+                    <th style={{ width: '125px', textAlign: 'right' }}>VALOR TOTAL</th>
                     <th style={{ width: '130px' }}>CRIADA EM</th>
                     <th style={{ width: '130px' }}>CONCLUÍDA EM</th>
                   </tr>
@@ -1826,7 +1946,7 @@ function Reports() {
                             {rel.isBilled ? (
                               <>
                                 <div className="report-relation-pill report-relation-pill--billed">
-                                  <Clock3 size={12} />
+                                   <Clock3 size={12} />
                                   <span>{rel.elapsedText}</span>
                                 </div>
                                 <div style={{ fontSize: '11px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -1864,6 +1984,16 @@ function Reports() {
                             <span>{order.technician_name || 'Rodrigo Santos'}</span>
                           </div>
                         </td>
+                        <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          <strong style={{ color: '#047857', fontSize: '13px' }}>
+                            {formatCurrency(Number(order.total_value) || (Number(order.service_value || 0) + Number(order.visit_fee || 0)))}
+                          </strong>
+                          {Number(order.visit_fee) > 0 && (
+                            <div style={{ fontSize: '10px', color: '#64748b' }}>
+                              (Serv: {formatCurrency(order.service_value)} + Vis: {formatCurrency(order.visit_fee)})
+                            </div>
+                          )}
+                        </td>
                         <td style={{ fontSize: '13px', color: '#64748b' }}>
                           {formatDate(order.created_at)}
                         </td>
@@ -1874,6 +2004,22 @@ function Reports() {
                     );
                   })}
                 </tbody>
+                <tfoot>
+                  <tr style={{ background: '#f1f5f3', borderTop: '2px solid var(--teal)' }}>
+                    <td colSpan={5} style={{ padding: '12px 14px', color: 'var(--teal)', fontSize: '13px', fontWeight: 800 }}>
+                      TOTAL GERAL ({finalFilteredOrders.length} ordens filtradas):
+                    </td>
+                    <td colSpan={3} style={{ padding: '12px 14px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>
+                      Serviços: {formatCurrency(filteredFinancialSummary.serviceTotal)} • Visitas: {formatCurrency(filteredFinancialSummary.visitFeeTotal)}
+                    </td>
+                    <td style={{ padding: '12px 14px', textAlign: 'right', color: '#047857', fontSize: '15px', fontWeight: 800, whiteSpace: 'nowrap' }}>
+                      {formatCurrency(filteredFinancialSummary.total)}
+                    </td>
+                    <td colSpan={2} style={{ padding: '12px 14px', color: '#64748b', fontSize: '11px', textAlign: 'center' }}>
+                      Fat: {formatCurrency(filteredFinancialSummary.billedTotal)} • Pend: {formatCurrency(filteredFinancialSummary.notBilledTotal)}
+                    </td>
+                  </tr>
+                </tfoot>
               </table>
             )}
 
@@ -1885,6 +2031,7 @@ function Reports() {
                     <th style={{ width: '105px' }}>ESTADO</th>
                     <th>SOLICITANTE / SETOR</th>
                     <th>EQUIPAMENTO / ATIVO</th>
+                    <th style={{ width: '125px', textAlign: 'right' }}>VALOR TOTAL</th>
                     <th style={{ width: '130px' }}>CRIADA EM</th>
                     <th style={{ width: '130px' }}>CONCLUÍDA EM</th>
                     <th style={{ width: '170px' }}>SITUAÇÃO FATURAMENTO</th>
@@ -1910,6 +2057,16 @@ function Reports() {
                         </td>
                         <td style={{ fontWeight: 600, color: 'var(--teal)' }}>{order.patient_name || 'Recepção'}</td>
                         <td>{order.equipment_name || 'Serviço Geral'}</td>
+                        <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          <strong style={{ color: '#047857', fontSize: '13px' }}>
+                            {formatCurrency(Number(order.total_value) || (Number(order.service_value || 0) + Number(order.visit_fee || 0)))}
+                          </strong>
+                          {Number(order.visit_fee) > 0 && (
+                            <div style={{ fontSize: '10px', color: '#64748b' }}>
+                              (+Vis: {formatCurrency(order.visit_fee)})
+                            </div>
+                          )}
+                        </td>
                         <td style={{ fontSize: '13px', color: '#64748b' }}>{formatDate(order.created_at)}</td>
                         <td style={{ fontSize: '13px', color: '#64748b' }}>{formatDate(order.completed_at)}</td>
                         <td>
@@ -1936,6 +2093,19 @@ function Reports() {
                     );
                   })}
                 </tbody>
+                <tfoot>
+                  <tr style={{ background: '#f1f5f3', borderTop: '2px solid var(--teal)' }}>
+                    <td colSpan={4} style={{ padding: '12px 14px', color: 'var(--teal)', fontSize: '13px', fontWeight: 800 }}>
+                      TOTAL AUDITORIA ({finalFilteredBilling.length} ordens):
+                    </td>
+                    <td style={{ padding: '12px 14px', textAlign: 'right', color: '#047857', fontSize: '15px', fontWeight: 800, whiteSpace: 'nowrap' }}>
+                      {formatCurrency(filteredBillingFinancialSummary.total)}
+                    </td>
+                    <td colSpan={5} style={{ padding: '12px 14px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>
+                      Faturado: {formatCurrency(filteredBillingFinancialSummary.billedTotal)} • Pendente: {formatCurrency(filteredBillingFinancialSummary.notBilledTotal)} (Serviços: {formatCurrency(filteredBillingFinancialSummary.serviceTotal)} • Visitas: {formatCurrency(filteredBillingFinancialSummary.visitFeeTotal)})
+                    </td>
+                  </tr>
+                </tfoot>
               </table>
             )}
 
